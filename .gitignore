@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+.env
+web/node_modules/
+web/dist/
+web/tsconfig.tsbuildinfo
+*.egg-info/
+build/
+data-demo/

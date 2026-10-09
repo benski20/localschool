@@ -1,1 +1,121 @@
-# localschool
+# Local School
+
+**Private AI for schools.** Teachers ask questions in a browser and get answers grounded in the school's own documents and their own class roster. Every claim links to its source. All models run on a GPU **runtime** the school controls; laptops and Chromebooks never run a model.
+
+This repo is the **pilot**: grounded chat, a document library, a roster, and admin tools to connect a GPU and swap models.
+
+```
+ Browsers (teachers)  ──HTTPS──▶  App server  (FastAPI + SQLite, no models, ~200 MB RAM)
+                                     │  RUNTIME_URL + token/headers
+                                     ▼
+                     Model runtime (Ollama, OpenAI-compatible API)
+                     pilot: Modal GPU or Kaggle notebook │ production: the on-site school box
+```
+
+Moving from the pilot GPU to the school box is a URL change in **Admin → Runtime**, not a code change.
+
+---
+
+## Quick start: offline demo (2 minutes, no GPU)
+
+```bash
+make setup        # Python venv + web deps
+make web          # build the UI
+make demo         # fictional "Maple Grove" school + offline fake runtime → http://localhost:8000
+```
+
+Sign in as **jordan.lee@maplegrove.demo / demo-pass-123** (teacher) or **admin@school.local / change-me** (admin; set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to change).
+The fake runtime returns canned, cited answers so you can walk through the UI. Connect a real GPU (below) for real answers.
+
+## Connect a free GPU runtime (pilot)
+
+> While models run in someone else's cloud, use **synthetic demo data only**. The app shows a "Demo runtime" banner whenever the runtime is outside the school network. Real student records wait for the on-site box.
+
+### Option A: Modal (recommended; free monthly credits, sleeps when idle)
+
+```bash
+pip install modal && modal setup
+modal deploy deploy/modal/ollama_app.py                        # prints https://…modal.run
+modal run deploy/modal/ollama_app.py::pull --model qwen3:8b       # optional pre-pull
+modal run deploy/modal/ollama_app.py::pull --model nomic-embed-text
+```
+
+1. In the Modal dashboard: **Settings → Proxy Auth Tokens → New token**.
+2. In Local School: **Admin → Runtime**. Set type to *Ollama*, paste the URL, then under *Advanced headers* paste `{"Modal-Key": "wk-…", "Modal-Secret": "ws-…"}`.
+3. **Test connection → Save.** Then go to **Admin → Models**: pull or choose `qwen3:8b` (chat) and `nomic-embed-text` (embeddings).
+
+The GPU (L4 by default; set `LS_GPU=A10G` to change) shuts down after 5 idle minutes. The first question after that takes about 1–2 minutes while it wakes, and the UI says so. Status displays never ping the GPU, so leaving the app open costs nothing.
+
+### Option B: Kaggle notebook ($0, short demos)
+
+Import `deploy/kaggle/runtime.ipynb` into Kaggle, turn on **GPU T4** and **Internet**, and choose **Run all**. The notebook prints a tunnel URL and token. Paste them into **Admin → Runtime**. Sessions last at most about 12 hours and the URL changes every time.
+
+### Production: the school box
+
+Any NVIDIA PC (or a Mac running Ollama natively) on the school network:
+
+```bash
+cp .env.example .env    # set ADMIN_PASSWORD, COOKIE_SECURE if behind HTTPS
+docker compose -f deploy/box/docker-compose.yml --profile nvidia up -d     # or --profile mac
+```
+
+Teachers open `http://<box-name>.local:8000`. Ollama is never exposed to the network; only the app talks to it.
+
+## Using it
+
+| Page | Who | What |
+|---|---|---|
+| **Ask** | everyone | Chat that streams answers with `[n]` citations. Click one to open the passage or roster record in the source panel. ⌘K jumps anywhere. |
+| **Library** | everyone | Upload PDF, DOCX, Markdown or TXT, or paste text. Keyword search works instantly; meaning-based search turns on as passages are indexed. |
+| **Roster** | admins import; teachers view their own | CSV import with preview (template: `/api/roster/template.csv`; example: `demo/roster.csv`). |
+| **Admin** | admins | Runtime connection and health, model pulls, the active model for each role, and people. |
+
+The web app is an installable **PWA**: Chrome or Edge shows **Install**, and the app opens in its own window. Unsent drafts are kept.
+
+## Architecture
+
+```
+app/
+  llm/            The one interface to a model runtime
+    base.py         ModelProvider protocol: chat(stream) · embed · list/pull/delete models · health
+    ollama.py       Ollama (Modal, Kaggle, box): OpenAI-compatible /v1 + native model management
+    openai_compat.py  vLLM / llama.cpp; strips <think> reasoning from streams; retries + clear errors
+    fake.py         Deterministic offline provider (tests, demos)
+    registry.py     Runtime: live provider (rebuilt when an admin changes the URL), role→model registry,
+                    generation slots (GPU concurrency), last-known reachability
+  services/
+    ingest.py       parse PDF/DOCX/MD → heading/page-aware chunks (citable units)
+    embeddings.py   one vector space per embedding model; background worker fills the active one
+    retrieval.py    hybrid search: SQLite FTS5 BM25 + sqlite-vec cosine, fused with reciprocal rank fusion
+    roster.py       CSV import + SQL-enforced scoping (teachers see only their sections)
+    chat.py         retrieve → numbered sources → stream → server-side citation validation → persist
+    models.py       background model pulls with progress
+    auth.py         local accounts (scrypt) + cookie sessions
+  routes/         thin HTTP layer (FastAPI); SSE for chat
+web/              Vite + React + TypeScript + Tailwind (design tokens in src/styles/tokens.css)
+deploy/           modal/ · kaggle/ · box/   (runtime-as-code for every target)
+```
+
+Key decisions:
+
+- **The runtime is swappable.** Everything above `llm/` is runtime-agnostic. Admins repoint the URL or swap models live, with no restart.
+- **Model swaps can't corrupt search.** Each embedding model gets its own vector table, and search only uses the active model's table. Changing the embed model re-indexes in the background; keyword search keeps working meanwhile.
+- **Grounding is enforced, not requested.** The model only sees sources the user may see. Citations that don't map to a real source are removed before saving. With no sources, the answer is "I couldn't find that…".
+- **Access is enforced in SQL, not in the prompt.** Roster scoping happens in `roster.students_for`, the same rule as the SIS.
+- **Costs stay predictable.** Status comes from last-known state (no polling of the GPU), a semaphore caps concurrent generations, and Modal scales to zero.
+- **Zero ops.** One SQLite file holds everything (FTS5 + sqlite-vec). Backup is a file copy.
+
+## Development
+
+```bash
+make dev     # API on :8000 (reload) + Vite on :5173 (proxying /api)
+make test    # 30+ unit/API tests with the fake runtime: no GPU or network
+make e2e     # Playwright: login → upload → ask → cite → swap model → ask; axe accessibility audit (light + dark)
+make check   # tests + TypeScript typecheck
+```
+
+Configuration lives in `.env` (see `.env.example`). The API docs are at `/api/docs`.
+
+## Roadmap after the pilot
+
+Tool-calling over the roster (precise filters and date math), an audit log export, Google Classroom/LTI, meeting notes on the box, and a Tauri "Box Manager" tray app.

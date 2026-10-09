@@ -1,0 +1,20 @@
+# Recommended models, shown as one-click presets on the Admin → Models page.
+# Any Ollama model tag works; these are the ones we've sized for pilot GPUs.
+presets:
+  chat:
+    - name: qwen3:8b
+      label: Fast
+      note: Good default. Runs well on a 16–24 GB GPU (T4, L4, A10G).
+    - name: gpt-oss:20b
+      label: Quality
+      note: Best answers. Needs ~16 GB of GPU memory; use an L4/A10G or larger.
+    - name: qwen3:4b
+      label: Lightweight
+      note: For small GPUs or quick demos. Noticeably weaker reasoning.
+  embed:
+    - name: nomic-embed-text
+      label: Default
+      note: Small and fast. Switching embed models re-indexes your library automatically.
+    - name: mxbai-embed-large
+      label: Higher recall
+      note: Larger embedding model; slower indexing.

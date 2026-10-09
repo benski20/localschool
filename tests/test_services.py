@@ -1,0 +1,150 @@
+"""Service tests against a real SQLite file and the FakeProvider (no GPU needed)."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import date
+
+import pytest
+
+from app.db import connect
+from app.llm import RuntimeConfig
+from app.llm.fake import FakeProvider
+from app.services import chat, embeddings, retrieval
+from app.services.models import PullManager
+
+from .conftest import user
+
+
+async def test_embeddings_fill_active_space_and_search_hybrid(seeded):
+    n = await embeddings.sync_embeddings(seeded)
+    with connect(seeded.db_path) as db:
+        status = embeddings.index_status(db, "fake-embed")
+        assert n == status.total_chunks == status.embedded_chunks > 0
+        space = embeddings.get_space(db, "fake-embed")
+        assert space["status"] == "ready"
+        vec = (await (await seeded.provider()).embed("fake-embed", ["separate setting Room 114"]))[0]
+        hits = retrieval.hybrid_search(db, "Where do students take tests in a separate setting?",
+                                       space_id=space["id"], query_vec=vec)
+    assert hits and "Room 114" in hits[0].text
+    assert "keyword" in hits[0].matched_by and "vector" in hits[0].matched_by
+
+
+async def test_swapping_embed_model_builds_new_space_without_mixing(seeded, fake: FakeProvider):
+    await embeddings.sync_embeddings(seeded)
+    fake.models.add("other-embed")
+    seeded.set_active_model("embed", "other-embed")
+    with connect(seeded.db_path) as db:
+        assert embeddings.index_status(db, "other-embed").embedded_chunks == 0  # old vectors not reused
+    await embeddings.sync_embeddings(seeded)
+    with connect(seeded.db_path) as db:
+        spaces = {r["model"]: r["id"] for r in db.execute("SELECT * FROM embedding_spaces")}
+        assert set(spaces) == {"fake-embed", "other-embed"}
+        assert embeddings.index_status(db, "other-embed").ready
+    assert ("embed", "other-embed") in fake.calls
+
+
+def test_roster_scoping_per_teacher(seeded, settings):
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    sam = user(settings, "sam.patel@maplegrove.demo")
+    admin = user(settings, "admin@test.local")
+    with connect(settings.db_path) as db:
+        j = chat.build_sources(db, jordan, "Which of my students have extended time?", space_id=None, query_vec=None)
+        s = chat.build_sources(db, sam, "Which of my students have extended time?", space_id=None, query_vec=None)
+        a = chat.build_sources(db, admin, "Which students have extended time?", space_id=None, query_vec=None)
+    j_students = {x.title for x in j if x.kind == "student"}
+    s_students = {x.title for x in s if x.kind == "student"}
+    assert len(j_students) == 20 and len(s_students) == 10
+    assert "Daniel Walker" in s_students and "Daniel Walker" not in j_students
+    assert len([x for x in a if x.kind == "student"]) == 30
+
+
+def test_named_student_narrows_roster_sources(seeded, settings):
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    with connect(settings.db_path) as db:
+        src = chat.build_sources(db, jordan, "When is Mateo's plan review?", space_id=None, query_vec=None)
+    assert [x.title for x in src if x.kind == "student"] == ["Mateo Hernandez"]
+
+
+def test_policy_question_skips_roster(seeded, settings):
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    with connect(settings.db_path) as db:
+        src = chat.build_sources(db, jordan, "What is the cell phone policy?", space_id=None, query_vec=None)
+    assert src and all(x.kind == "document" for x in src)
+
+
+async def _collect(gen):
+    return [e async for e in gen]
+
+
+async def test_answer_streams_validates_and_persists(seeded, settings):
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    events = await _collect(chat.answer(seeded, jordan, "What is the late work policy?", today=date(2026, 10, 9)))
+    kinds = [e["type"] for e in events]
+    assert kinds[0] == "conversation" and kinds[1] == "sources" and kinds[-1] == "done"
+    done = events[-1]
+    assert done["sources"] and "[1]" in done["content"]
+    with connect(settings.db_path) as db:
+        rows = db.execute("SELECT role FROM messages ORDER BY id").fetchall()
+    assert [r["role"] for r in rows] == ["user", "assistant"]
+
+
+async def test_queue_when_generation_slots_full(seeded, settings, fake):
+    fake.delay_s = 0.01
+    seeded.generation_slots = asyncio.Semaphore(1)
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    a, b = await asyncio.gather(
+        _collect(chat.answer(seeded, jordan, "late work policy")),
+        _collect(chat.answer(seeded, jordan, "cell phone policy")),
+    )
+    assert any(e["type"] == "queued" for e in a + b)
+    assert a[-1]["type"] == b[-1]["type"] == "done"
+
+
+async def test_runtime_down_yields_error_and_keyword_fallback(settings):
+    from app.llm import Runtime
+    from app.llm.registry import default_factory
+    from app.main import bootstrap
+    from .conftest import seed
+
+    bootstrap(settings)
+    seed(settings)
+    rt = Runtime(settings, factory=default_factory)
+    rt.save_config(RuntimeConfig(kind="ollama", url="http://127.0.0.1:9"))  # nothing listens
+    rt.settings.runtime_timeout_s = 2
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    events = await _collect(chat.answer(rt, jordan, "late work policy"))
+    assert events[1]["type"] == "sources" and events[1]["sources"]  # keyword retrieval still worked
+    assert events[-1]["type"] == "error" and "reach" in events[-1]["message"].lower()
+    assert rt.reachability()["state"] == "unreachable"
+    await rt.aclose()
+
+
+def test_runtime_config_overrides_and_validation(runtime):
+    assert runtime.config().kind == "fake"
+    runtime.save_config(RuntimeConfig(kind="ollama", url="https://x.modal.run/", token="secret-token-123",
+                                      headers='{"Modal-Key": "k-123456789"}'))
+    cfg = runtime.config()
+    assert cfg.url == "https://x.modal.run" and cfg.header_dict() == {"Modal-Key": "k-123456789"}
+    pub = cfg.public()
+    assert "secret" not in pub["token"] and pub["is_local"] is False and pub["has_token"]
+    with pytest.raises(ValueError):
+        runtime.save_config(RuntimeConfig(kind="ollama", url="ftp://nope"))
+    with pytest.raises(ValueError):
+        runtime.save_config(RuntimeConfig(kind="ollama", url="http://a", headers="[1]"))
+
+
+def test_active_model_registry(runtime):
+    assert runtime.active_models() == {"chat": "fake-chat", "embed": "fake-embed"}
+    runtime.set_active_model("chat", "gpt-oss:20b")
+    assert runtime.active_model("chat") == "gpt-oss:20b"
+    with pytest.raises(ValueError):
+        runtime.set_active_model("vision", "x")
+
+
+async def test_pull_manager_runs_in_background(runtime, fake):
+    pm = PullManager(runtime)
+    pm.start("qwen3:8b")
+    state = await pm.wait("qwen3:8b")
+    assert state.done and not state.error and state.percent == 100.0
+    assert "qwen3:8b" in fake.models
