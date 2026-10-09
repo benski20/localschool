@@ -109,6 +109,11 @@ def test_admin_models_pull_activate_and_runtime(client):
     assert status["runtime"]["is_local"] is False and status["runtime"]["state"] == "idle"
 
 
+def test_health_identifies_server_for_mac_app(client):
+    h = client.get("/api/health").json()
+    assert h["app"] == "localschool" and h["ok"] and h["school"]
+
+
 def test_spa_fallback_message_without_build(client):
     r = client.get("/chat")
     assert r.status_code == 404 and "not built" in r.json()["error"]

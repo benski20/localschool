@@ -12,6 +12,7 @@
     <title>Local School</title>
     <script>
       // Apply the saved theme before first paint (no flash).
+      if (navigator.userAgent.indexOf("LocalSchoolDesktop") >= 0) document.documentElement.dataset.shell = "desktop";
       try {
         var t = localStorage.getItem("ls-theme");
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;

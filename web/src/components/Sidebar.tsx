@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { BookOpen, LogOut, MessageSquare, Monitor, Moon, Plus, Settings2, Sun, Users } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useStatus } from "../lib/status";
 import { useTheme, type Theme } from "../lib/theme";
 import type { ConversationSummary } from "../lib/types";
 import { StatusPill } from "./StatusPill";
@@ -13,6 +14,7 @@ export const CONVERSATIONS_CHANGED = "ls:conversations-changed";
 
 export function Sidebar() {
   const { user, logout } = useAuth();
+  const { status } = useStatus();
   const [theme, setTheme] = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,8 +45,8 @@ export function Sidebar() {
       <div className="flex h-14 items-center gap-2.5 px-4">
         <Logo />
         <div className="min-w-0 leading-tight">
-          <div className="truncate text-sm font-semibold text-ink">Local School</div>
-          <div className="truncate text-xs text-faint">Private AI · on your runtime</div>
+          <div className="truncate text-sm font-semibold text-ink">{status?.school && status.school !== "Local School" ? status.school : "Local School"}</div>
+          <div className="truncate text-xs text-faint">Private AI for your school</div>
         </div>
       </div>
 

@@ -1,11 +1,12 @@
 # Local School
 
-**Private AI for schools.** Teachers ask questions in a browser and get answers grounded in the school's own documents and their own class roster. Every claim links to its source. All models run on a GPU **runtime** the school controls; laptops and Chromebooks never run a model.
+**Private AI for schools.** Teachers ask questions in the **Local School Mac app** (or any browser) and get answers grounded in the school's own documents and their own class roster. Every claim links to its source. All models run on a GPU **runtime** the school controls; teacher Macs never run a model.
 
-This repo is the **pilot**: grounded chat, a document library, a roster, and admin tools to connect a GPU and swap models.
+This repo is the **pilot**: grounded chat, a document library, a roster, admin tools to connect a GPU and swap models, and a native Mac app.
 
 ```
- Browsers (teachers)  ──HTTPS──▶  App server  (FastAPI + SQLite, no models, ~200 MB RAM)
+ Mac app / browsers  ──HTTP(S)──▶  App server  (FastAPI + SQLite, no models, ~200 MB RAM)
+ (teachers)            Bonjour ◀──  advertises itself on the school network
                                      │  RUNTIME_URL + token/headers
                                      ▼
                      Model runtime (Ollama, OpenAI-compatible API)
@@ -61,6 +62,19 @@ docker compose -f deploy/box/docker-compose.yml --profile nvidia up -d     # or 
 
 Teachers open `http://<box-name>.local:8000`. Ollama is never exposed to the network; only the app talks to it.
 
+## The Mac app (teachers)
+
+`desktop/` is a small native Mac app (Tauri, which uses the system WebKit and bundles no browser; universal for Apple Silicon and Intel). It's a thin client to the server above:
+- **Finding the server.** It discovers the school's server over Bonjour and remembers it.
+- **Shortcuts.** ⌥Space brings it up from anywhere, ready to ask. ⌘N starts a new question; ⌘1–4 switch pages.
+- **Downloads.** Files save to ~/Downloads.
+- **Mac behavior.** Closing the window keeps the app in the Dock.
+- **IT rollout.** IT can push the server address with any MDM.
+
+Build the `.dmg` from the **Desktop (macOS)** GitHub Action (no Mac needed), or run `make desktop-mac` on a Mac. Details: [desktop/README.md](desktop/README.md).
+
+To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="Maple Grove Middle School"`.
+
 ## Using it
 
 | Page | Who | What |
@@ -70,7 +84,7 @@ Teachers open `http://<box-name>.local:8000`. Ollama is never exposed to the net
 | **Roster** | admins import; teachers view their own | CSV import with preview (template: `/api/roster/template.csv`; example: `demo/roster.csv`). |
 | **Admin** | admins | Runtime connection and health, model pulls, the active model for each role, and people. |
 
-The web app is an installable **PWA**: Chrome or Edge shows **Install**, and the app opens in its own window. Unsent drafts are kept.
+In a browser, the web app is also an installable **PWA**: Chrome or Edge shows **Install**, and the app opens in its own window. Unsent drafts are kept.
 
 ## Architecture
 
@@ -93,6 +107,7 @@ app/
     auth.py         local accounts (scrypt) + cookie sessions
   routes/         thin HTTP layer (FastAPI); SSE for chat
 web/              Vite + React + TypeScript + Tailwind (design tokens in src/styles/tokens.css)
+desktop/          Mac app (Tauri): connect screen, Bonjour discovery, menus, ⌥Space, downloads
 deploy/           modal/ · kaggle/ · box/   (runtime-as-code for every target)
 ```
 
@@ -118,4 +133,4 @@ Configuration lives in `.env` (see `.env.example`). The API docs are at `/api/do
 
 ## Roadmap after the pilot
 
-Tool-calling over the roster (precise filters and date math), an audit log export, Google Classroom/LTI, meeting notes on the box, and a Tauri "Box Manager" tray app.
+Tool-calling over the roster (precise filters and date math), an audit log export, Google Classroom/LTI, meeting notes on the box (the Mac app can capture meeting audio), and signed auto-updates for the Mac app.

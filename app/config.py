@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     admin_email: str = "admin@school.local"
     admin_password: str = "change-me"
 
+    # Identity + discovery (the Mac app finds servers on the LAN via mDNS/Bonjour)
+    school_name: str = "Local School"
+    advertise_mdns: bool = False
+    public_port: int = 8000
+
     # Serving
     web_dist: Path = ROOT / "web" / "dist"
     cookie_secure: bool = False

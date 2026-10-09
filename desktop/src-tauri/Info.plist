@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- School servers on the LAN are often plain http://box.local:8000 or an IP address. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+    <key>NSAllowsArbitraryLoadsInWebContent</key>
+    <true/>
+  </dict>
+  <!-- macOS 15+ asks before an app can see devices on the local network (Bonjour discovery). -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Local School looks for your school's server on this network so you don't have to type its address.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_localschool._tcp</string>
+  </array>
+</dict>
+</plist>

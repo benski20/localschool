@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "school-server",
+  "description": "Pages served by the school's Local School server may only drag the window (title bar). No other native access.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://*", "https://*", "http://*:*", "https://*:*", "http://*/*", "https://*/*", "http://*:*/*", "https://*:*/*"]
+  },
+  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+}

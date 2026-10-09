@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from .config import Settings, get_settings
 from .db import connect, init_db
+from .discovery import Advertiser
 from .llm import Runtime
 from .llm.registry import ProviderFactory, default_factory
 from .routes import admin, auth, chat, library, roster
@@ -24,6 +25,7 @@ from .services.embeddings import EmbeddingWorker
 from .services.models import PullManager
 
 log = logging.getLogger("localschool")
+VERSION = "0.1.0"
 
 
 def bootstrap(settings: Settings) -> None:
@@ -47,19 +49,26 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         app.state.worker = EmbeddingWorker(app.state.runtime)
         app.state.pulls = PullManager(app.state.runtime)
         app.state.worker.start()
+        advertiser = None
+        if settings.advertise_mdns:
+            advertiser = Advertiser(settings.school_name, settings.public_port, VERSION)
+            await advertiser.start()
         yield
+        if advertiser:
+            await advertiser.stop()
         await app.state.pulls.stop()
         await app.state.worker.stop()
         await app.state.runtime.aclose()
 
-    app = FastAPI(title="Local School", version="0.1.0", lifespan=lifespan,
+    app = FastAPI(title="Local School", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
     for r in (auth.router, chat.router, library.router, roster.router, admin.router):
         app.include_router(r)
 
     @app.get("/api/health")
     def health():
-        return {"ok": True}
+        # Public: the Mac app uses this to confirm it found a Local School server.
+        return {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException):

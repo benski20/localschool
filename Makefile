@@ -1,5 +1,5 @@
 PY ?= .venv/bin/python
-.PHONY: setup web dev api demo seed test e2e check docker
+.PHONY: setup web dev api demo seed test e2e check docker desktop-dev desktop-mac
 
 setup:            ## install Python + web dependencies
 	python3 -m venv .venv
@@ -36,3 +36,9 @@ check: test       ## everything CI should run
 
 docker:           ## build the app image
 	docker build -t localschool .
+
+desktop-dev:      ## run the Mac app against a server (needs Rust; on a Mac)
+	cd desktop && npm install && npx tauri dev
+
+desktop-mac:      ## build "Local School.app" + .dmg (universal) — run on a Mac
+	cd desktop && npm install && npx tauri build --target universal-apple-darwin

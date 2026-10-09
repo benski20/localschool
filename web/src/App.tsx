@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { Logo } from "./components/Logo";
+import { isDesktop } from "./lib/shell";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { StatusProvider } from "./lib/status";
 import { ToastProvider } from "./components/Toaster";
@@ -19,10 +20,20 @@ export function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <Gate />
+        <div className="flex h-full flex-col">
+          {isDesktop && <TitleBar />}
+          <div className="min-h-0 flex-1">
+            <Gate />
+          </div>
+        </div>
       </AuthProvider>
     </ToastProvider>
   );
+}
+
+/** Mac app: a draggable strip under the window's traffic-light buttons. */
+function TitleBar() {
+  return <div data-tauri-drag-region className="h-[38px] shrink-0 select-none" aria-hidden />;
 }
 
 function Gate() {

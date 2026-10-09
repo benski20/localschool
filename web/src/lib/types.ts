@@ -47,6 +47,7 @@ export type ChatEvent =
   | { type: "error"; message: string };
 
 export interface Status {
+  school: string;
   runtime: { kind: string; is_local: boolean; state: "connected" | "idle" | "unreachable"; last_ok: number | null; error: string };
   models: { chat: string; embed: string };
   index: { model: string; total_chunks: number; embedded_chunks: number; ready: boolean; syncing: boolean; error: string };

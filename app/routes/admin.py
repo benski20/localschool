@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import deps
+from ..config import Settings
 from ..llm import Runtime, RuntimeConfig, RuntimeError_
 from ..services import auth, embeddings
 from ..services.embeddings import EmbeddingWorker
@@ -23,10 +24,12 @@ def status(
     runtime: Runtime = Depends(deps.runtime),
     worker: EmbeddingWorker = Depends(deps.worker),
     db: sqlite3.Connection = Depends(deps.db),
+    settings: Settings = Depends(deps.settings),
 ):
     cfg = runtime.config()
     models = runtime.active_models()
     return {
+        "school": settings.school_name,
         "runtime": {"kind": cfg.kind, "is_local": cfg.public()["is_local"], **runtime.reachability()},
         "models": models,
         "index": {**embeddings.index_status(db, models["embed"]).as_dict(),
