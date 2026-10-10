@@ -1,0 +1,56 @@
+# Checks the live hosted pilot the way a teacher meets it, on a real Mac:
+#   1. the hosted app answers and reports the expected version,
+#   2. the one-line install from /get works (`curl … /install/mac.sh | bash`),
+#   3. the installed app is the latest release, isn't quarantined, and launches.
+# Run it by hand (Actions → Verify hosted pilot) after a deploy or a desktop release.
+name: Verify hosted pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Hosted app URL"
+        default: "https://highlightcenter1234--localschool-app-web.modal.run"
+      version:
+        description: "Version the app and the Mac release should report"
+        default: "0.3.0"
+
+jobs:
+  mac-install:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      APP_URL: ${{ inputs.app_url }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Hosted app is up and current
+        run: |
+          for i in $(seq 1 30); do curl -sf --max-time 60 "$APP_URL/api/health" > health.json && break; sleep 5; done
+          cat health.json; echo
+          python3 -c "import json,os,sys; h=json.load(open('health.json')); sys.exit(0 if h.get('version')==os.environ['VERSION'] else 'version mismatch: '+str(h.get('version')))"
+          curl -sf "$APP_URL/get" | grep -q '<div id="root">'
+
+      - name: Install exactly as teachers do
+        run: |
+          curl -fsSL "$APP_URL/install/mac.sh" | bash
+          APP="/Applications/Teacher's Desk.app"
+          test -d "$APP"
+          xattr -l "$APP" | grep -q quarantine && { echo "app is quarantined"; exit 1; } || true
+          codesign --verify --deep --strict "$APP"
+          v=$(defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString)
+          echo "installed version $v"; test "$v" = "$VERSION"
+          test -f "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+          cat "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+
+      - name: App launches and stays up
+        run: |
+          sleep 15
+          pgrep -f "Desk.app/Contents/MacOS" > /dev/null
+          mkdir -p shots && screencapture -x shots/installed-app.png || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hosted-install-screenshot
+          path: shots
+          if-no-files-found: ignore
