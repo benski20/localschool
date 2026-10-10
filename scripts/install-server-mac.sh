@@ -58,6 +58,8 @@ ask ADMIN_PASSWORD "Admin password (8+ characters)" "" secret
 ask RUNTIME_KIND "Runtime type (ollama / openai / fake)" "ollama"
 ask RUNTIME_URL "GPU runtime URL (from the Deploy Modal runtime action)" "http://127.0.0.1:11434"
 ask RUNTIME_TOKEN "Runtime access token (LS_RUNTIME_TOKEN; blank if none)" "" secret
+ask CHAT_MODEL "Chat model on the runtime (qwen3:1.7b for a CPU runtime, qwen3:8b on a GPU)" "qwen3:1.7b"
+ask EMBED_MODEL "Embedding model on the runtime" "nomic-embed-text"
 
 # -- install -------------------------------------------------------------------------
 bold "Installing the server…"
@@ -86,9 +88,13 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 RUNTIME_KIND=$RUNTIME_KIND
 RUNTIME_URL=$RUNTIME_URL
 RUNTIME_TOKEN=$RUNTIME_TOKEN
-RUNTIME_TIMEOUT_S=180
+RUNTIME_TIMEOUT_S=300
 EOF
-  if [ "$RUNTIME_KIND" = fake ]; then printf 'CHAT_MODEL=fake-chat\nEMBED_MODEL=fake-embed\n' >> "$ENV_FILE"; fi
+  if [ "$RUNTIME_KIND" = fake ]; then
+    printf 'CHAT_MODEL=fake-chat\nEMBED_MODEL=fake-embed\n' >> "$ENV_FILE"
+  else
+    printf 'CHAT_MODEL=%s\nEMBED_MODEL=%s\n' "$CHAT_MODEL" "$EMBED_MODEL" >> "$ENV_FILE"
+  fi
   umask 022
 fi
 
@@ -97,13 +103,17 @@ if [ "${LS_SEED_DEMO:-}" = 1 ]; then
   (cd "$ROOT" && .venv/bin/python -m scripts.seed_demo >/dev/null)
 fi
 
+# Offer the Mac app to teachers: an explicit LS_APP_ZIP, else the latest GitHub release.
+LS_APP_ZIP="${LS_APP_ZIP:-https://github.com/benski20/localschool/releases/latest/download/LocalSchool-macOS.zip}"
+if [ "$LS_APP_ZIP" = none ]; then LS_APP_ZIP=""; fi
 if [ -n "${LS_APP_ZIP:-}" ]; then
   mkdir -p "$DATA/downloads"
   case "$LS_APP_ZIP" in
-    http*) curl -fsSL "$LS_APP_ZIP" -o "$DATA/downloads/LocalSchool-macOS.zip" ;;
+    http*) curl -fsSL "$LS_APP_ZIP" -o "$DATA/downloads/LocalSchool-macOS.zip" \
+             || { echo "Couldn't download the Mac app from $LS_APP_ZIP (teachers can't install it until you add it)."; rm -f "$DATA/downloads/LocalSchool-macOS.zip"; } ;;
     *) cp "$LS_APP_ZIP" "$DATA/downloads/LocalSchool-macOS.zip" ;;
   esac
-  bold "Mac app ready for teachers."
+  if [ -f "$DATA/downloads/LocalSchool-macOS.zip" ]; then bold "Mac app ready for teachers."; fi
 fi
 
 # -- launchd: start at login, restart if it stops --------------------------------------
