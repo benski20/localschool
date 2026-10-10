@@ -1,0 +1,106 @@
+# A nicer address for the hosted pilot: Vercel serves it and forwards every request to the
+# Modal app (pages, API, streaming answers, uploads, the Mac installer). Vercel runs no app
+# code, so it can never drift from Modal; redeploying Modal needs no Vercel step.
+#
+# Needs the repo secret VERCEL_TOKEN (vercel.com → Account Settings → Tokens).
+name: Deploy Vercel front door
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Modal app to forward to"
+        default: "https://highlightcenter1234--localschool-app-web.modal.run"
+      project:
+        description: "Vercel project name (→ <name>.vercel.app)"
+        default: "teachers-desk"
+      domain:
+        description: "Optional custom domain you own, e.g. desk.myschool.org"
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      APP_URL: ${{ inputs.app_url }}
+      PROJECT: ${{ inputs.project }}
+      DOMAIN: ${{ inputs.domain }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secret
+        id: secret
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "### Add the VERCEL_TOKEN secret first" >> "$GITHUB_STEP_SUMMARY"
+            echo "vercel.com → Account Settings → Tokens → Create, then GitHub → Settings → Secrets → Actions → VERCEL_TOKEN." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        if: steps.secret.outputs.ready == 'true'
+        id: deploy
+        working-directory: deploy/vercel
+        run: |
+          python3 - <<'PY'
+          import json, os
+          json.dump({"rewrites": [{"source": "/(.*)", "destination": os.environ["APP_URL"].rstrip("/") + "/$1"}]},
+                    open("vercel.json", "w"), indent=2)
+          PY
+          cat vercel.json
+          npx --yes vercel@latest link --yes --project "$PROJECT" --token "$VERCEL_TOKEN"
+          npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" | tee deploy.log
+          if [ -n "$DOMAIN" ]; then
+            npx --yes vercel@latest domains add "$DOMAIN" "$PROJECT" --token "$VERCEL_TOKEN" || true
+            URL="https://$DOMAIN"
+          else
+            ID=$(python3 -c "import json;print(json.load(open('.vercel/project.json'))['projectId'])")
+            ORG=$(python3 -c "import json;print(json.load(open('.vercel/project.json'))['orgId'])")
+            URL=$(curl -sf -H "Authorization: Bearer $VERCEL_TOKEN" "https://api.vercel.com/v9/projects/$ID?teamId=$ORG" \
+              | python3 -c "import json,sys; p=json.load(sys.stdin); a=(p.get('targets',{}).get('production',{}) or {}).get('alias') or []; print('https://'+sorted(a,key=len)[0] if a else '')")
+            [ -n "$URL" ] || URL="https://$PROJECT.vercel.app"
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          for i in $(seq 1 30); do curl -sf --max-time 60 "$URL/api/health" && break; sleep 5; done
+          curl -sf "$URL/api/health"
+
+      - uses: actions/setup-python@v5
+        if: steps.secret.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Live eval through the front door (chat + tools + audio)
+        if: steps.secret.outputs.ready == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
+          MEETING_TEXT: "This is an IEP meeting for Ava Thompson. We agreed to add a daily check-in with Ms. Rivera starting Monday."
+        run: |
+          sudo apt-get install -y -qq espeak-ng > /dev/null
+          espeak-ng -s 150 -w "$RUNNER_TEMP/meeting.wav" "$MEETING_TEXT"
+          pip install -q httpx pyyaml
+          if curl -sf "$URL/install/mac.sh" | grep -q "LOCALSCHOOL_SERVER:-$URL}"; then
+            echo "Mac installer points at $URL"
+          else
+            echo "::warning::Mac installer doesn't show $URL yet (forwarded host not passed through)"
+          fi
+          python -m scripts.live_eval --base "$URL" --admin "admin@school.local:$ADMIN_PW" --min-score 0.75 \
+            --tools --audio "$RUNNER_TEMP/meeting.wav" --audio-expect "check-in|check in,monday,rivera" --cleanup
+
+      - name: Address
+        if: steps.secret.outputs.ready == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          {
+            echo "### Teacher's Desk is at $URL ✅"
+            echo ""
+            echo "Forwards to \`$APP_URL\`. Mac app: \`curl -fsSL $URL/install/mac.sh | bash\`"
+          } >> "$GITHUB_STEP_SUMMARY"
