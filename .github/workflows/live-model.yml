@@ -28,7 +28,12 @@ jobs:
       - name: Install Ollama + pull models
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:11434/api/version && break; sleep 1; done
+          # The runner has no systemd, so the installer can't start the service: run it ourselves.
+          if ! curl -sf http://127.0.0.1:11434/api/version >/dev/null; then
+            nohup ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+          fi
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version && break; sleep 1; done
+          curl -sf http://127.0.0.1:11434/api/version || { tail -n 50 "$RUNNER_TEMP/ollama.log"; exit 1; }
           ollama pull "$CHAT"
           ollama pull "$SWITCH"
           ollama pull "$EMBED"
@@ -56,4 +61,7 @@ jobs:
 
       - name: Server log
         if: always()
-        run: tail -n 200 "$RUNNER_TEMP/server.log" || true
+        run: |
+          tail -n 200 "$RUNNER_TEMP/server.log" || true
+          echo "--- ollama ---"
+          tail -n 100 "$RUNNER_TEMP/ollama.log" || true
