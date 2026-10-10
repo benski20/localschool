@@ -9,6 +9,9 @@
 # password (otherwise LS_RUNTIME_TOKEN is used).
 name: Deploy Modal runtime
 
+permissions:
+  contents: read   # download the Mac app release for the hosted app
+
 on:
   workflow_dispatch:
     inputs:
@@ -121,6 +124,20 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         with:
           node-version: 22
+
+      - name: Mac app for teachers (served by the hosted app)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The repo's release downloads need a GitHub sign-in; teachers don't have one, so the
+          # hosted app serves the zip itself (/install/LocalSchool-macOS.zip, used by mac.sh).
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern LocalSchool-macOS.zip -D "$RUNNER_TEMP/mac" --clobber; then
+            modal volume put localschool-app-data "$RUNNER_TEMP/mac/LocalSchool-macOS.zip" /downloads/LocalSchool-macOS.zip --force
+            echo "uploaded $(du -h "$RUNNER_TEMP/mac/LocalSchool-macOS.zip" | cut -f1) Mac app zip"
+          else
+            echo "No Mac release yet; teachers can use the browser until one is published."
+          fi
 
       - name: Deploy the hosted app (server + web UI)
         if: steps.secrets.outputs.ready == 'true'
