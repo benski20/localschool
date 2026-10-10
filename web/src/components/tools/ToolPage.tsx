@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
@@ -94,6 +94,30 @@ export function ErrorLine({ children }: { children: ReactNode }) {
     <p role="alert" className="animate-fadein text-sm text-danger">
       {children}
     </p>
+  );
+}
+
+/**
+ * Wraps a result that sits under the form: when `id` changes (a draft was just made or reopened
+ * from Recent), bring it into view if it starts below the fold.
+ */
+export function Reveal({ id, children }: { id: number | string | null; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (id === null || !el) return;
+    const t = window.setTimeout(() => {
+      if (el.getBoundingClientRect().top > window.innerHeight * 0.6) {
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        el.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+      }
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [id]);
+  return (
+    <div ref={ref} className="scroll-mt-8">
+      {children}
+    </div>
   );
 }
 

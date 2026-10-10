@@ -5,15 +5,27 @@ import { FileText, X } from "lucide-react";
 import { api, formatBytes } from "../../lib/api";
 import type { DocumentRow } from "../../lib/types";
 import { Progress } from "../../components/ui";
-import { ToolPage, Narrow, Labelled, ErrorLine } from "../../components/tools/ToolPage";
+import { ToolPage, Narrow, Labelled, ErrorLine, Reveal } from "../../components/tools/ToolPage";
 import { StudentPicker } from "../../components/tools/StudentPicker";
-import { statusWord, useDraft } from "../../components/tools/JobProgress";
-import { CopyButton, EditableText, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
+import { JobProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
+import { CopyButton, EditableText, OutputEditor, SaveHint, useDraftOutput } from "../../components/tools/OutputEditor";
 import { DraftList } from "../../components/tools/DraftList";
-import { isWorking, toForm, tools, type Draft, type FeedbackInput, type FeedbackOutput, type FeedbackPoint } from "../../lib/tools";
+import {
+  isWorking,
+  statusWord,
+  toForm,
+  tools,
+  type BatchProgress,
+  type Draft,
+  type DraftSummary,
+  type FeedbackCreate,
+  type FeedbackItem,
+  type FeedbackOutput,
+} from "../../lib/tools";
 
 const PASTE = "paste";
-const ACCEPT = ".txt,.md,.pdf,.docx,.doc,.rtf,text/plain";
+const UPLOAD = "upload";
+const ACCEPT = ".txt,.md,.pdf,.docx";
 
 export function Feedback() {
   const { draftId } = useParams();
@@ -21,75 +33,80 @@ export function Feedback() {
   const navigate = useNavigate();
   const initial = (useLocation().state as { draft?: Draft<"feedback"> } | null)?.draft ?? null;
 
-  const [text, setText] = useState(initial?.input.text ?? "");
+  const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [docs, setDocs] = useState<DocumentRow[]>([]);
-  const [rubric, setRubric] = useState(initial?.input.rubric_document_id ? String(initial.input.rubric_document_id) : "");
-  const [rubricText, setRubricText] = useState(initial?.input.rubric_text ?? "");
-  const [focus, setFocus] = useState(initial?.input.focus ?? "");
-  const [studentId, setStudentId] = useState<number | null>(initial?.input.student_id ?? null);
-  const [batch, setBatch] = useState<Draft<"feedback">[]>([]);
+  const [docs, setDocs] = useState<DocumentRow[] | null>(null);
+  const [rubric, setRubric] = useState("");
+  const [rubricText, setRubricText] = useState("");
+  const [rubricFile, setRubricFile] = useState<File | null>(null);
+  const [focus, setFocus] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [batch, setBatch] = useState<{ id: string; drafts: Draft<"feedback">[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
+  const [skipped, setSkipped] = useState<{ filename: string; error: string }[]>([]);
   const [drag, setDrag] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const outputs = useRef(new Map<number, { name: string; output: FeedbackOutput | null }>());
+  const rubricPicker = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api
       .get<{ documents: DocumentRow[] }>("/api/documents")
-      .then((r) => setDocs(r.documents.filter((d) => !/error|fail/i.test(d.status))))
-      .catch(() => setDocs([]));
+      .then((r) => {
+        const usable = r.documents.filter((d) => d.chunk_count > 0);
+        // Rubrics first: they're what a teacher is looking for here.
+        usable.sort((a, b) => Number(/rubric/i.test(b.title)) - Number(/rubric/i.test(a.title)));
+        setDocs(usable);
+        if (!usable.length) setRubric((r) => r || PASTE);
+      })
+      .catch(() => {
+        setDocs([]);
+        setRubric((r) => r || PASTE);
+      });
   }, []);
 
-  // A batch stays on screen; a single draft (from Recent, or after one piece) comes from the URL.
-  const pieces: { id: number; initial: Draft<"feedback"> | null }[] =
-    id === null || batch.some((d) => d.id === id)
-      ? batch.map((d) => ({ id: d.id, initial: d }))
-      : [{ id, initial: initial?.id === id ? initial : null }];
-
   const addFiles = (list: FileList | null) => {
-    // Copy now: the input is cleared right after, which empties the live FileList.
-    const picked = Array.from(list ?? []);
+    const picked = Array.from(list ?? []); // copy now: clearing the input empties the live FileList
     if (picked.length) setFiles((fs) => [...fs, ...picked]);
   };
-  const hasWork = !!text.trim() || files.length > 0;
-  const hasRubric = rubric === PASTE ? !!rubricText.trim() : true;
+  const pieces = files.length + (text.trim() ? 1 : 0);
+  const hasRubric = rubric === PASTE ? !!rubricText.trim() : rubric === UPLOAD ? !!rubricFile : !!rubric;
 
   const submit = async () => {
     setBusy(true);
     setFailure("");
-    const input: FeedbackInput = {
-      text: text.trim() || undefined,
-      rubric_document_id: rubric && rubric !== PASTE ? Number(rubric) : null,
+    setSkipped([]);
+    const fields: FeedbackCreate = {
+      work: text.trim() || undefined,
+      rubric_document_id: rubric && rubric !== PASTE && rubric !== UPLOAD ? Number(rubric) : undefined,
       rubric_text: rubric === PASTE ? rubricText.trim() : undefined,
       focus: focus.trim() || undefined,
       student_id: studentId,
     };
     try {
-      const drafts = await tools.create("feedback", files.length ? toForm(input, files) : input);
-      outputs.current.clear();
+      let body: FeedbackCreate | FormData = fields;
+      if (files.length || rubric === UPLOAD) {
+        const fd = toForm({ ...fields }, files);
+        if (rubric === UPLOAD && rubricFile) fd.append("rubric_file", rubricFile, rubricFile.name);
+        body = fd;
+      }
+      const res = await tools.create("feedback", body);
       setFiles([]);
-      setBatch(drafts);
-      if (drafts.length === 1) navigate(`/tools/feedback/${drafts[0]!.id}`, { state: { draft: drafts[0] } });
-      else if (id !== null) navigate("/tools/feedback");
+      setText("");
+      setSkipped(res.errors);
+      if (res.batch) {
+        setBatch({ id: res.batch, drafts: res.drafts });
+        if (id !== null) navigate("/tools/feedback");
+      } else {
+        setBatch(null);
+        navigate(`/tools/feedback/${res.draft.id}`, { state: { draft: res.draft } });
+      }
     } catch (e) {
       setFailure((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
-
-  const onOutput = useCallback((pid: number, name: string, output: FeedbackOutput | null) => {
-    outputs.current.set(pid, { name, output });
-  }, []);
-
-  const copyAll = () =>
-    pieces
-      .map((p) => outputs.current.get(p.id))
-      .filter((x): x is { name: string; output: FeedbackOutput } => !!x?.output)
-      .map((x) => `${pieces.length > 1 ? `${x.name}\n` : ""}${feedbackText(x.output)}`)
-      .join("\n\n");
 
   return (
     <ToolPage title="Feedback">
@@ -144,6 +161,7 @@ export function Feedback() {
             type="file"
             multiple
             hidden
+            data-testid="work-files"
             accept={ACCEPT}
             onChange={(e) => {
               addFiles(e.target.files);
@@ -153,9 +171,22 @@ export function Feedback() {
         </Labelled>
 
         <Labelled label="Rubric" htmlFor="fb-rubric">
-          <select id="fb-rubric" className="input" value={rubric} onChange={(e) => setRubric(e.target.value)}>
-            <option value="">No rubric</option>
-            {docs.length > 0 && (
+          <select
+            id="fb-rubric"
+            className="input"
+            value={rubric}
+            disabled={docs === null}
+            onChange={(e) => {
+              setRubric(e.target.value);
+              if (e.target.value === UPLOAD && !rubricFile) rubricPicker.current?.click();
+            }}
+          >
+            {rubric === "" && (
+              <option value="" disabled>
+                Choose a rubric
+              </option>
+            )}
+            {docs && docs.length > 0 && (
               <optgroup label="Documents">
                 {docs.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -164,19 +195,43 @@ export function Feedback() {
                 ))}
               </optgroup>
             )}
-            <option value={PASTE}>Paste a rubric…</option>
+            <option value={PASTE}>Paste a rubric</option>
+            <option value={UPLOAD}>Upload a rubric</option>
           </select>
           {rubric === PASTE && (
             <textarea
               className="input mt-3 animate-fadein"
               rows={4}
-              autoFocus
-              aria-label="Rubric"
-              placeholder="Paste the rubric here"
+              aria-label="Rubric text"
+              placeholder="Paste the rubric here, one criterion per line"
               value={rubricText}
               onChange={(e) => setRubricText(e.target.value)}
             />
           )}
+          {rubric === UPLOAD && rubricFile && (
+            <div className="mt-3 flex animate-fadein items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
+              <FileText className="h-4 w-4 shrink-0 text-faint" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{rubricFile.name}</span>
+              <button type="button" className="btn-ghost btn-icon btn-sm text-faint" aria-label="Remove rubric file" onClick={() => setRubricFile(null)}>
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+          )}
+          {rubric === UPLOAD && !rubricFile && (
+            <button type="button" className="btn-link mt-3 font-normal" onClick={() => rubricPicker.current?.click()}>
+              Choose a file
+            </button>
+          )}
+          <input
+            ref={rubricPicker}
+            type="file"
+            hidden
+            accept={ACCEPT}
+            onChange={(e) => {
+              setRubricFile(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
         </Labelled>
 
         <div className="grid gap-8 sm:grid-cols-2 sm:gap-5">
@@ -189,82 +244,186 @@ export function Feedback() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <button type="button" className="btn-primary btn-lg" disabled={!hasWork || !hasRubric || busy} onClick={submit}>
-            {busy ? "Starting…" : files.length + (text.trim() ? 1 : 0) > 1 ? `Draft feedback (${files.length + (text.trim() ? 1 : 0)})` : "Draft feedback"}
+          <button type="button" className="btn-primary btn-lg" disabled={!pieces || !hasRubric || busy} onClick={submit}>
+            {busy ? "Starting…" : pieces > 1 ? `Draft feedback for ${pieces}` : "Draft feedback"}
           </button>
           <span className="text-sm text-faint">Drafts only. No grades.</span>
         </div>
         {failure && <ErrorLine>{failure}</ErrorLine>}
+        {skipped.length > 0 && (
+          <ErrorLine>
+            {skipped.length === 1 ? "Skipped " : `Skipped ${skipped.length} files: `}
+            {skipped.map((s) => `${s.filename} (${s.error})`).join("; ")}
+          </ErrorLine>
+        )}
       </Narrow>
 
-      {pieces.length > 0 && (
+      <Reveal id={batch?.id ?? id}>
+      {batch && (id === null || batch.drafts.some((d) => d.id === id)) ? (
         <Narrow>
-          <OutputEditor label="Feedback" actions={<CopyButton text={copyAll} label={pieces.length > 1 ? "Copy all" : "Copy"} />}>
-            <ol className="divide-y divide-line border-t border-line">
-              {pieces.map((p, i) => (
-                <PieceCard key={p.id} id={p.id} initial={p.initial} index={i} onOutput={onOutput} />
-              ))}
+          <BatchView batch={batch.id} initial={batch.drafts} />
+        </Narrow>
+      ) : id !== null ? (
+        <Narrow>
+          <OutputEditor label="Feedback">
+            <ol className="border-t border-line">
+              <SinglePiece id={id} initial={initial?.id === id ? initial : null} />
             </ol>
           </OutputEditor>
         </Narrow>
-      )}
+      ) : null}
+      </Reveal>
 
       <Narrow>
-        <DraftList tool="feedback" activeId={id} refreshKey={batch} />
+        <DraftList tool="feedback" activeId={id} refreshKey={batch?.id} />
       </Narrow>
     </ToolPage>
   );
 }
 
-function feedbackText(o: FeedbackOutput): string {
-  const block = (title: string, pts: FeedbackPoint[]) => [title, ...pts.map((p) => `- ${p.text}`)].join("\n");
-  return [block("Strengths", o.strengths ?? []), block("Next steps", o.next_steps ?? [])].join("\n\n");
+/* ---------- One piece, polled on its own ---------- */
+
+function SinglePiece({ id, initial }: { id: number; initial: Draft<"feedback"> | null }) {
+  const { draft, restart, error } = useDraft<"feedback">(id, initial);
+  if (error) return <li className="py-6 text-sm text-muted">This feedback isn't available.</li>;
+  return <PieceCard summary={draft} draft={draft?.status === "ready" ? draft : null} onRetry={restart} />;
+}
+
+/* ---------- A batch: one poll for the whole set ---------- */
+
+function BatchView({ batch, initial }: { batch: string; initial: DraftSummary[] }) {
+  const [rows, setRows] = useState<DraftSummary[]>(initial);
+  const [progress, setProgress] = useState<BatchProgress | null>(null);
+  const [tick, setTick] = useState(0);
+  const texts = useRef(new Map<number, string>());
+
+  useEffect(() => {
+    let alive = true;
+    let t = 0;
+    const poll = () =>
+      tools
+        .batch("feedback", batch)
+        .then((r) => {
+          if (!alive) return;
+          setRows(r.drafts);
+          setProgress(r.batch);
+          if (r.batch && !r.batch.done) t = window.setTimeout(poll, 1500);
+        })
+        .catch(() => alive && (t = window.setTimeout(poll, 3000)));
+    poll();
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+    };
+  }, [batch, tick]);
+
+  const onText = useCallback((pid: number, value: string) => {
+    texts.current.set(pid, value);
+  }, []);
+  const copyAll = () =>
+    rows
+      .map((r) => texts.current.get(r.id))
+      .filter(Boolean)
+      .join("\n\n");
+
+  const done = progress?.done ?? false;
+  return (
+    <OutputEditor label="Feedback" actions={done && progress!.ready > 0 ? <CopyButton text={copyAll} label="Copy all" /> : undefined}>
+      {!done && (
+        <JobProgress
+          className="pt-0"
+          label={`Writing feedback… ${progress?.ready ?? 0} of ${progress?.total ?? rows.length}`}
+          progress={progress?.progress ?? null}
+          note="You can leave this page. Each piece will be under Recent."
+        />
+      )}
+      <ol className="divide-y divide-line border-t border-line">
+        {rows.map((r) => (
+          <BatchPiece key={r.id} summary={r} onText={onText} onRetry={() => setTick((n) => n + 1)} />
+        ))}
+      </ol>
+    </OutputEditor>
+  );
+}
+
+function BatchPiece({ summary, onText, onRetry }: { summary: DraftSummary; onText: (id: number, t: string) => void; onRetry: () => void }) {
+  const [draft, setDraft] = useState<Draft<"feedback"> | null>(null);
+  const ready = summary.status === "ready";
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    tools.get<"feedback">(summary.id).then((d) => alive && setDraft(d)).catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [ready, summary.id]);
+  return <PieceCard summary={summary} draft={ready ? draft : null} onText={onText} onRetry={onRetry} />;
+}
+
+/* ---------- The card ---------- */
+
+function feedbackText(name: string, o: FeedbackOutput): string {
+  const block = (title: string, items: FeedbackItem[]) => [title, ...items.map((p) => `- ${p.comment}`)].join("\n");
+  return [name, block("Strengths", o.strengths), block("Next steps", o.next_steps)].join("\n\n");
 }
 
 function PieceCard({
-  id,
-  initial,
-  index,
-  onOutput,
+  summary,
+  draft,
+  onText,
+  onRetry,
 }: {
-  id: number;
-  initial: Draft<"feedback"> | null;
-  index: number;
-  onOutput: (id: number, name: string, o: FeedbackOutput | null) => void;
+  summary: DraftSummary | null;
+  draft: Draft<"feedback"> | null;
+  onText?: (id: number, t: string) => void;
+  onRetry: (d: Draft<"feedback">) => void;
 }) {
-  const { draft } = useDraft<"feedback">(id, initial);
   const { output, setOutput, saved } = useDraftOutput(draft);
-  const name = draft?.filename || draft?.title || `Piece ${index + 1}`;
-  useEffect(() => onOutput(id, name, output), [id, name, output, onOutput]);
+  const name = summary?.title || "Feedback";
+  useEffect(() => {
+    if (summary && output) onText?.(summary.id, feedbackText(name, output));
+  }, [summary, name, output, onText]);
 
-  const setPoint = (key: "strengths" | "next_steps", i: number, text: string) =>
-    output && setOutput({ ...output, [key]: output[key].map((p, j) => (j === i ? { ...p, text } : p)) });
+  const setComment = (key: "strengths" | "next_steps", i: number, comment: string) =>
+    output && setOutput({ ...output, [key]: output[key].map((p, j) => (j === i ? { ...p, comment } : p)) });
 
-  const working = !draft || isWorking(draft.status);
+  const working = !summary || isWorking(summary.status);
   return (
     <li className="py-6">
       <div className="flex items-baseline justify-between gap-4">
         <h3 className="min-w-0 truncate text-base font-medium">{name}</h3>
-        <span className={clsx("shrink-0 text-xs", draft?.status === "error" ? "text-danger" : "text-faint")} aria-live="polite">
-          {draft && draft.status !== "ready" ? statusWord(draft) : saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}
+        <span className="flex shrink-0 items-center gap-3">
+          {summary?.status === "ready" ? (
+            <>
+              <SaveHint state={saved} />
+              {output && <CopyButton text={() => feedbackText(name, output)} />}
+            </>
+          ) : (
+            <span className={clsx("text-xs", summary?.status === "error" ? "text-danger" : "text-faint")} aria-live="polite">
+              {summary ? statusWord(summary) : ""}
+            </span>
+          )}
         </span>
       </div>
-      {working && <Progress value={draft?.progress ? draft.progress : null} className="mt-4" />}
-      {draft?.status === "error" && <p className="mt-2 text-sm text-muted">{draft.error || "Couldn't read this piece."}</p>}
-      {draft?.status === "ready" && output && (
+      {working && <Progress value={summary?.status === "running" && summary.progress > 0 ? summary.progress * 100 : null} className="mt-4" />}
+      {summary?.status === "error" && (
+        <div className="mt-3 space-y-4">
+          <p className="text-sm text-muted">{summary.error || "Couldn't write feedback for this piece."}</p>
+          <RetryButton<Draft<"feedback">> id={summary.id} onRetry={onRetry} />
+        </div>
+      )}
+      {output && (
         <div className="mt-5 grid animate-slide-up gap-8 md:grid-cols-2 md:gap-10">
           {(["strengths", "next_steps"] as const).map((key) => (
             <div key={key}>
               <h4 className="label mb-3">{key === "strengths" ? "Strengths" : "Next steps"}</h4>
               <ul className="space-y-6">
-                {(output[key] ?? []).map((p, i) => (
+                {output[key].map((p, i) => (
                   <li key={i}>
-                    <EditableText label={key === "strengths" ? "Strength" : "Next step"} value={p.text} onChange={(t) => setPoint(key, i, t)} />
-                    {p.quote && (
-                      <blockquote className="mt-2 border-l border-line-strong pl-3 text-sm leading-[22px] text-muted">“{p.quote}”</blockquote>
-                    )}
+                    <EditableText label={key === "strengths" ? "Strength" : "Next step"} value={p.comment} onChange={(t) => setComment(key, i, t)} />
+                    <blockquote className="mt-2 border-l border-line-strong pl-3 text-sm leading-[22px] text-muted">“{p.quote}”</blockquote>
                     {p.rubric && (
-                      <span className="mt-2 inline-flex max-w-full items-center rounded-sm border border-line px-1.5 py-0.5 text-2xs text-faint">
+                      <span className="mt-2 inline-flex max-w-full items-center rounded-sm border border-line px-1.5 py-0.5 text-2xs text-faint" title={p.rubric}>
                         <span className="truncate">{p.rubric}</span>
                       </span>
                     )}

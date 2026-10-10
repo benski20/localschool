@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import { X } from "lucide-react";
 import { relativeTime } from "../../lib/api";
-import { isWorking, tools, TOOL_PATHS, type DraftSummary, type ToolKey } from "../../lib/tools";
-import { statusWord } from "./JobProgress";
+import { isWorking, statusWord, tools, TOOL_PATHS, type DraftSummary, type ToolKey } from "../../lib/tools";
 
 /**
  * The quiet "Recent" list under a tool. Hidden entirely when there is nothing yet.
@@ -51,14 +50,14 @@ export function DraftList({ tool, activeId, refreshKey }: { tool: ToolKey; activ
           <li key={d.id} className="group relative flex items-center">
             <Link
               to={`/tools/${tool}/${d.id}`}
-                            className={clsx(
+              className={clsx(
                 "flex min-w-0 flex-1 items-baseline justify-between gap-4 py-3 pr-9 text-sm transition-colors",
                 "text-muted hover:text-ink",
               )}
             >
               <span className="truncate">{d.title || "Untitled"}</span>
               <span className={clsx("shrink-0 text-xs tnum", d.status === "error" ? "text-danger" : "text-faint")}>
-                {isWorking(d.status) || d.status === "error" ? statusWord(d) : relativeTime(d.created_at)}
+                {d.status === "ready" ? relativeTime(d.created_at) : d.status === "awaiting_audio" ? "Not uploaded" : statusWord(d)}
               </span>
             </Link>
             {confirm === d.id ? (
