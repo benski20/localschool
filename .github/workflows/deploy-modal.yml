@@ -37,7 +37,7 @@ jobs:
       LS_GPU: ${{ inputs.gpu || 'none' }}
       CHAT: ${{ inputs.chat_model || 'qwen3:1.7b' }}
       EMBED: nomic-embed-text
-      THOROUGH: qwen3:4b
+      THOROUGH: qwen3:4b-instruct-2507-q4_K_M
     steps:
       - name: Check secrets
         id: secrets
@@ -132,7 +132,21 @@ jobs:
           ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
         run: |
           pip install -q httpx pyyaml
+          # Teachers choose between the two models this run pulled.
+          python - <<'PY'
+          import os, httpx
+          c = httpx.Client(base_url=os.environ["APP"], timeout=60)
+          c.post("/api/auth/login", json={"email": "admin@school.local", "password": os.environ["ADMIN_PW"]}).raise_for_status()
+          c.put("/api/admin/models/choices", json={"default": os.environ["CHAT"], "options": [
+              {"model": os.environ["CHAT"], "label": "Fast", "description": "Quick answers in a few seconds."},
+              {"model": os.environ["THOROUGH"], "label": "Thorough", "description": "Takes a little longer; better for tricky questions."},
+          ]}).raise_for_status()
+          PY
           python -m scripts.live_eval --base "$APP" --admin "admin@school.local:$ADMIN_PW" --min-score 0.75 --cleanup
+
+      - name: Hosted app logs (on failure)
+        if: failure() && steps.secrets.outputs.ready == 'true'
+        run: timeout 30 modal app logs localschool-app 2>&1 | tail -150 || true
 
       - name: Connection details
         if: steps.secrets.outputs.ready == 'true'

@@ -277,31 +277,31 @@ def test_teacher_model_choices(client):
     _relogin(client, "admin@test.local", "admin-pass-123")
     seeded = client.get("/api/admin/models/choices").json()
     assert [(o["model"], o["label"], o["installed"]) for o in seeded["options"]] == [
-        ("qwen3:1.7b", "Fast", False), ("qwen3:4b", "Thorough", False)]
+        ("qwen3:1.7b", "Fast", False), ("qwen3:4b-instruct-2507-q4_K_M", "Thorough", False)]
     assert client.put("/api/admin/models/choices", json={"options": []}).status_code == 400
     assert client.put("/api/admin/models/choices", json={
         "options": [{"model": "fake-chat", "label": "Fast"}], "default": "nope"}).status_code == 400
-    r = client.put("/api/admin/models/choices", json={"default": "qwen3:4b", "options": [
+    r = client.put("/api/admin/models/choices", json={"default": "qwen3:4b-instruct-2507-q4_K_M", "options": [
         {"model": "fake-chat", "label": "Fast", "description": "Quick answers in a few seconds."},
-        {"model": "qwen3:4b", "label": "Thorough", "description": "Takes a little longer."}]}).json()
-    assert r["default"] == "qwen3:4b" and [o["installed"] for o in r["options"]] == [True, False]
+        {"model": "qwen3:4b-instruct-2507-q4_K_M", "label": "Thorough", "description": "Takes a little longer."}]}).json()
+    assert r["default"] == "qwen3:4b-instruct-2507-q4_K_M" and [o["installed"] for o in r["options"]] == [True, False]
 
     _relogin(client, "jordan.lee@maplegrove.demo")
     m = client.get("/api/models").json()
     assert [o["model"] for o in m["options"]] == ["fake-chat"] and m["default"] == "fake-chat"
-    done = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b"}))[-1]
+    done = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))[-1]
     assert done["model"] == "fake-chat"  # offered but not installed → silently the active model
 
     _relogin(client, "admin@test.local", "admin-pass-123")
-    client.post("/api/admin/models/pull", json={"model": "qwen3:4b"})
+    client.post("/api/admin/models/pull", json={"model": "qwen3:4b-instruct-2507-q4_K_M"})
     _wait_pulls(client)
 
     _relogin(client, "jordan.lee@maplegrove.demo")
     m = client.get("/api/models").json()
-    assert [(o["model"], o["label"]) for o in m["options"]] == [("fake-chat", "Fast"), ("qwen3:4b", "Thorough")]
-    assert m["default"] == "qwen3:4b"
-    events = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b"}))
-    assert events[-1]["model"] == "qwen3:4b"
-    assert client.get(f"/api/conversations/{events[0]['id']}").json()["messages"][1]["model"] == "qwen3:4b"
+    assert [(o["model"], o["label"]) for o in m["options"]] == [("fake-chat", "Fast"), ("qwen3:4b-instruct-2507-q4_K_M", "Thorough")]
+    assert m["default"] == "qwen3:4b-instruct-2507-q4_K_M"
+    events = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))
+    assert events[-1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    assert client.get(f"/api/conversations/{events[0]['id']}").json()["messages"][1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
     # installed but not offered to teachers → not allowed
     assert sse(client.post("/api/chat", json={"question": "hi", "model": "fake-embed"}))[-1]["model"] == "fake-chat"

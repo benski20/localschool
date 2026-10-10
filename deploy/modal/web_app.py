@@ -100,7 +100,10 @@ def web():
     async def persist_writes(request, call_next):
         response = await call_next(request)
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            await asyncio.to_thread(data.commit)
+            try:
+                await asyncio.to_thread(data.commit)
+            except Exception as e:  # noqa: BLE001 — the 20s loop retries; never fail the request
+                print(f"volume commit deferred: {e!r}", flush=True)
         return response
 
     threading.Thread(target=_persist_loop, daemon=True).start()

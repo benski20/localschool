@@ -252,8 +252,8 @@ def test_choice_defaults():
     assert pick_default(["a", "b"], "", "z") == "a"          # else the first option
     assert pick_default(["a", "b"], "b", "a") == "b"         # an admin-chosen default wins
     assert pick_default(["a"], "gone", "z") == "a"
-    assert is_installed("qwen3:4b", {"qwen3:4b"}) and is_installed("llama3", {"llama3:latest"})
-    assert not is_installed("qwen3:4b", {"qwen3:1.7b"})
+    assert is_installed("qwen3:4b-instruct-2507-q4_K_M", {"qwen3:4b-instruct-2507-q4_K_M"}) and is_installed("llama3", {"llama3:latest"})
+    assert not is_installed("qwen3:4b-instruct-2507-q4_K_M", {"qwen3:1.7b"})
     assert [c["label"] for c in load_choice_config()] == ["Fast", "Thorough"]
 
 
@@ -278,7 +278,7 @@ def test_migration_upgrades_an_existing_database(settings):
         assert dict(db.execute("SELECT title, visibility FROM documents").fetchone()) == {
             "title": "Old", "visibility": "school"}
         assert db.execute("SELECT attachments_json FROM conversations").fetchone()[0] == "[]"
-        assert [r["model"] for r in list_choices(db)] == ["qwen3:1.7b", "qwen3:4b"]
+        assert [r["model"] for r in list_choices(db)] == ["qwen3:1.7b", "qwen3:4b-instruct-2507-q4_K_M"]
         assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1  # no second admin
         with pytest.raises(Exception):
             db.execute("INSERT INTO documents(title, filename, visibility) VALUES ('x', 'x.md', 'public')")

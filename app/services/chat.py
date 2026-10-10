@@ -369,7 +369,10 @@ async def answer(
         runtime.generation_slots.release()
     runtime.note_ok()
 
-    content, cited = validate_citations("".join(parts), sources)
+    text = "".join(parts)
+    if "</think>" in text:  # an always-reasoning model that ignored think:false
+        text = text.rsplit("</think>", 1)[1].lstrip()
+    content, cited = validate_citations(text, sources)
     if not content:
         content = NOT_FOUND
     with connect(runtime.db_path) as db:

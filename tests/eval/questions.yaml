@@ -46,7 +46,7 @@ questions:
   - q: What is the school's mascot?
     expect: ["couldn't find", "could not find", "not in your", "no information", "don't have", "not mentioned", "not found"]
   - q: How many tardies lead to a detention?
-    model: qwen3:4b  # "Thorough"
+    model: qwen3:4b-instruct-2507-q4_K_M  # "Thorough"
     expect: ["three", "3"]
   - q: When are the permission forms for the museum trip due?
     attach: field-trip-permission.md

@@ -5,7 +5,7 @@ presets:
     - name: qwen3:1.7b
       label: Fast
       note: Quick answers in a few seconds, even without a GPU. The hosted pilot's default.
-    - name: qwen3:4b
+    - name: qwen3:4b-instruct-2507-q4_K_M
       label: Thorough
       note: Better on tricky questions; about 10–15 s per answer on CPU, quick on any GPU.
     - name: qwen3:8b
@@ -29,6 +29,6 @@ choices:
   - model: qwen3:1.7b
     label: Fast
     description: Quick answers in a few seconds.
-  - model: qwen3:4b
+  - model: qwen3:4b-instruct-2507-q4_K_M
     label: Thorough
     description: Takes a little longer; better for tricky questions.
