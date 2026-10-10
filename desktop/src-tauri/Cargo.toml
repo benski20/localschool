@@ -1,7 +1,7 @@
 [package]
 name = "localschool-desktop"
 version = "0.1.0"
-description = "Local School for Mac: a native client for your school's private AI server"
+description = "Teacher's Desk for Mac: a native client for your school's private AI server"
 edition = "2021"
 publish = false
 

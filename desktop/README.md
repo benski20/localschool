@@ -1,14 +1,14 @@
-# Local School for Mac
+# Teacher's Desk for Mac
 
 A native Mac app for teachers. It's a thin client: **no AI models run on the Mac**. It
-connects to the school's Local School server and shows the same interface, plus what a
+connects to the school's Teacher's Desk server and shows the same interface, plus what a
 browser tab can't do:
 
 | | |
 |---|---|
 | **Finds the server automatically** | Bonjour discovery of `_localschool._tcp` on school Wi-Fi. Teachers click their school's name instead of typing an address. |
 | **Remembers it** | Reconnects on launch. If the server isn't responding, a clear screen offers *Try again* or *Choose another server*. |
-| **⌥Space from anywhere** | Brings Local School forward with the cursor in the question box. |
+| **⌥Space from anywhere** | Brings Teacher's Desk forward with the cursor in the question box. |
 | **Mac menus and shortcuts** | ⌘N new question, ⌘1–4 Ask/Library/Roster/Admin, ⌘K command palette, ⌘R reload, full Edit menu (copy/paste), *Switch School Server…*, *Open in Browser*. |
 | **Mac window behavior** | Unified title bar, remembered size and position, closing the window keeps the app in the Dock (⌘Q quits). |
 | **Downloads** | Original documents and templates save to ~/Downloads and are revealed in Finder. |
@@ -36,7 +36,7 @@ Push this file with your MDM (Jamf, Mosyle, Kandji…) and teachers never see th
 screen:
 
 ```
-/Library/Application Support/Local School/server.json
+/Library/Application Support/Teachers Desk/server.json
 {"url": "http://maplegrove.local:8000", "name": "Maple Grove Middle School"}
 ```
 

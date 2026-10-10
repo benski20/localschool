@@ -1,4 +1,4 @@
-//! Local School for Mac.
+//! Teacher's Desk for Mac.
 //!
 //! A thin native shell around the school server's web app. No models run here: the
 //! window shows the server's UI, and this crate adds what a browser tab can't —
@@ -118,13 +118,13 @@ fn go(app: &AppHandle, path: &str, focus_ask: bool) {
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let about = AboutMetadataBuilder::new()
-        .name(Some("Local School"))
+        .name(Some("Teacher's Desk"))
         .version(Some(env!("CARGO_PKG_VERSION")))
         .comments(Some("Private AI for your school. No AI models run on this Mac."))
         .build();
 
-    let app_menu = SubmenuBuilder::new(app, "Local School")
-        .item(&PredefinedMenuItem::about(app, Some("About Local School"), Some(about))?)
+    let app_menu = SubmenuBuilder::new(app, "Teacher's Desk")
+        .item(&PredefinedMenuItem::about(app, Some("About Teacher's Desk"), Some(about))?)
         .separator()
         .item(&MenuItemBuilder::with_id("switch_server", "Switch School Server…").build(app)?)
         .separator()
@@ -171,7 +171,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         .item(&PredefinedMenuItem::minimize(app, None)?)
         .item(&PredefinedMenuItem::maximize(app, Some("Zoom"))?)
         .separator()
-        .item(&MenuItemBuilder::with_id("show_main", "Local School").accelerator("Alt+Space").build(app)?)
+        .item(&MenuItemBuilder::with_id("show_main", "Teacher's Desk").accelerator("Alt+Space").build(app)?)
         .build()?;
 
     let help = SubmenuBuilder::new(app, "Help")
@@ -221,7 +221,7 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let nav_app = app.clone();
     let dl_app = app.clone();
     let builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
-        .title("Local School")
+        .title("Teacher's Desk")
         .inner_size(1280.0, 840.0)
         .min_inner_size(960.0, 620.0)
         .user_agent(USER_AGENT)
@@ -298,7 +298,7 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
                     if shortcut == &ask_shortcut && event.state() == ShortcutState::Pressed {
-                        // ⌥Space from anywhere: bring Local School forward, ready to ask.
+                        // ⌥Space from anywhere: bring Teacher's Desk forward, ready to ask.
                         show_main(app);
                         go(app, "/chat", true);
                     }
@@ -329,7 +329,7 @@ pub fn run() {
             let _ = (window, event);
         })
         .build(tauri::generate_context!())
-        .expect("error while building Local School");
+        .expect("error while building Teacher's Desk");
 
     app.run(|app, event| {
         #[cfg(target_os = "macos")]
