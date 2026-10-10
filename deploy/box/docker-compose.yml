@@ -1,0 +1,50 @@
+# The on-site school box: app + Ollama on one machine. Real student data stays here.
+#
+#   NVIDIA PC:  docker compose -f deploy/box/docker-compose.yml --profile nvidia up -d
+#   Mac:        install Ollama natively (Docker can't reach the Mac GPU), then
+#               docker compose -f deploy/box/docker-compose.yml --profile mac up -d
+#
+# Teachers open http://<box-name>.local:8000 from any browser on the school network.
+name: localschool
+
+x-app: &app
+  build: { context: ../.., dockerfile: Dockerfile }
+  restart: unless-stopped
+  ports: ["8000:8000"]
+  volumes: ["localschool-data:/data"]
+  env_file: [{ path: ../../.env, required: false }]
+
+services:
+  ollama:
+    profiles: [nvidia]
+    image: ollama/ollama:0.12.3
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NUM_PARALLEL: "4"
+      OLLAMA_MAX_LOADED_MODELS: "2"
+    volumes: ["ollama-models:/root/.ollama"]
+    # not published to the LAN: only the app talks to Ollama
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+  app:
+    <<: *app
+    profiles: [nvidia]
+    depends_on: [ollama]
+    environment:
+      RUNTIME_KIND: ollama
+      RUNTIME_URL: http://ollama:11434
+
+  app-mac:
+    <<: *app
+    profiles: [mac]
+    environment:
+      RUNTIME_KIND: ollama
+      RUNTIME_URL: http://host.docker.internal:11434
+
+volumes:
+  localschool-data:
+  ollama-models:

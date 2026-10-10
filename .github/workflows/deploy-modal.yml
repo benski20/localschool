@@ -1,0 +1,105 @@
+# Deploys the GPU runtime to Modal, downloads the models, and proves it with the live eval.
+#
+# One-time setup — add three repository secrets (Settings → Secrets and variables → Actions):
+#   MODAL_TOKEN_ID, MODAL_TOKEN_SECRET  from modal.com → Settings → API Tokens → New token
+#   LS_RUNTIME_TOKEN                    any long random string (e.g. `openssl rand -hex 24`);
+#                                       paste the same value into Admin → Runtime → Access token
+name: Deploy Modal runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      gpu:
+        description: GPU type
+        default: L4
+      chat_model:
+        description: Chat model to pull and evaluate
+        default: qwen3:8b
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+      MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      LS_RUNTIME_TOKEN: ${{ secrets.LS_RUNTIME_TOKEN }}
+      LS_GPU: ${{ inputs.gpu || 'L4' }}
+      CHAT: ${{ inputs.chat_model || 'qwen3:8b' }}
+      EMBED: nomic-embed-text
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$MODAL_TOKEN_SECRET" ] || [ -z "$LS_RUNTIME_TOKEN" ]; then
+            {
+              echo "### Modal runtime not deployed: secrets missing"
+              echo "Add repository secrets **MODAL_TOKEN_ID**, **MODAL_TOKEN_SECRET** (modal.com → Settings → API Tokens)"
+              echo "and **LS_RUNTIME_TOKEN** (any long random string), then run this workflow again."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Deploy
+        if: steps.secrets.outputs.ready == 'true'
+        id: deploy
+        run: |
+          pip install -q modal
+          modal secret create localschool-runtime LS_RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" --force
+          modal deploy deploy/modal/ollama_app.py | tee deploy.log
+          URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.modal\.run' deploy.log | head -1)
+          test -n "$URL" || { echo "could not find the endpoint URL"; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Pull models onto the GPU volume
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          modal run deploy/modal/ollama_app.py::pull --model "$CHAT"
+          modal run deploy/modal/ollama_app.py::pull --model "$EMBED"
+
+      - name: Wake the GPU and check auth
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 "$URL/api/version")" = 401
+          curl -sf --max-time 300 -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/version"
+          curl -sf -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/tags" | python -c "import json,sys;print([m['name'] for m in json.load(sys.stdin)['models']])"
+
+      - name: Live eval against the Modal GPU
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          DATA_DIR: ${{ runner.temp }}/ls-data
+          RUNTIME_KIND: ollama
+          RUNTIME_URL: ${{ steps.deploy.outputs.url }}
+          RUNTIME_TOKEN: ${{ secrets.LS_RUNTIME_TOKEN }}
+          RUNTIME_TIMEOUT_S: "300"
+          CHAT_MODEL: ${{ env.CHAT }}
+          EMBED_MODEL: ${{ env.EMBED }}
+        run: |
+          pip install -q -e .
+          python -m scripts.seed_demo
+          nohup python -m uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
+          python -m scripts.live_eval --base http://127.0.0.1:8000 --admin admin@school.local:change-me --min-score 0.75
+
+      - name: Connection details
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          {
+            echo "### Modal runtime deployed ✅"
+            echo "Paste into **Admin → Runtime**: type *Ollama*, URL \`$URL\`, Access token = your \`LS_RUNTIME_TOKEN\`."
+            echo "GPU: $LS_GPU · models: \`$CHAT\`, \`$EMBED\` · sleeps after 5 idle minutes."
+          } >> "$GITHUB_STEP_SUMMARY"

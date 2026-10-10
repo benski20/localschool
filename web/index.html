@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#FAFAF9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0C0C0B" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Local School — private AI for your school." />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Local School</title>
+    <script>
+      // Apply the saved theme before first paint (no flash).
+      if (navigator.userAgent.indexOf("LocalSchoolDesktop") >= 0) document.documentElement.dataset.shell = "desktop";
+      try {
+        var t = localStorage.getItem("ls-theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

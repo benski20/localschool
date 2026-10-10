@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "localschool"
+version = "0.1.0"
+description = "Local School — a privacy-first AI appliance for schools (pilot: grounded chat)."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic-settings>=2.4",
+  "httpx>=0.27",
+  "sqlite-vec>=0.1.6",
+  "pypdf>=4.3",
+  "python-docx>=1.1",
+  "python-multipart>=0.0.9",
+  "pyyaml>=6.0",
+  "zeroconf>=0.132",
+  # SQLite with extension loading, for Python builds whose sqlite3 lacks it (python.org macOS)
+  "sqlean.py>=3.45",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "aiohttp>=3.9"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.setuptools.packages.find]
+include = ["app*"]

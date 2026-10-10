@@ -1,0 +1,67 @@
+# End-to-end test against a REAL model: Ollama on the runner's CPU, the real server,
+# the demo school, and scripts/live_eval.py driving the HTTP API like the apps do.
+name: Live model
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      chat_model:
+        description: Chat model to evaluate
+        default: qwen3:1.7b
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CHAT: ${{ inputs.chat_model || 'qwen3:1.7b' }}
+      SWITCH: qwen3:0.6b
+      EMBED: nomic-embed-text
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ollama + pull models
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          # The runner has no systemd, so the installer can't start the service: run it ourselves.
+          if ! curl -sf http://127.0.0.1:11434/api/version >/dev/null; then
+            nohup ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+          fi
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/version && break; sleep 1; done
+          curl -sf http://127.0.0.1:11434/api/version || { tail -n 50 "$RUNNER_TEMP/ollama.log"; exit 1; }
+          ollama pull "$CHAT"
+          ollama pull "$SWITCH"
+          ollama pull "$EMBED"
+          ollama list
+
+      - name: Install server
+        run: pip install -e '.[dev]'
+
+      - name: Start server (real Ollama runtime, demo school)
+        env:
+          DATA_DIR: ${{ runner.temp }}/ls-data
+          RUNTIME_KIND: ollama
+          RUNTIME_URL: http://127.0.0.1:11434
+          RUNTIME_TIMEOUT_S: "600"
+          CHAT_MODEL: ${{ env.CHAT }}
+          EMBED_MODEL: ${{ env.EMBED }}
+          MAX_CONCURRENT_GENERATIONS: "1"
+        run: |
+          python -m scripts.seed_demo
+          nohup python -m uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
+
+      - name: Live eval
+        run: python -m scripts.live_eval --base http://127.0.0.1:8000 --admin admin@school.local:change-me --switch-model "$SWITCH"
+
+      - name: Server log
+        if: always()
+        run: |
+          tail -n 200 "$RUNNER_TEMP/server.log" || true
+          echo "--- ollama ---"
+          tail -n 100 "$RUNNER_TEMP/ollama.log" || true

@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "connect",
+  "description": "The bundled connect screen: find and remember the school's server.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "allow-current-server",
+    "allow-check-server",
+    "allow-discover-servers",
+    "allow-connect-server"
+  ]
+}

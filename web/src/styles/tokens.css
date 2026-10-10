@@ -1,0 +1,60 @@
+/*
+ * Local School design tokens. Near-monochrome, one accent, used sparingly.
+ * Values are RGB channels so Tailwind can apply alpha (bg-accent/10).
+ * Every text/surface pair here meets WCAG 2.1 AA (4.5:1) or better.
+ */
+:root {
+  color-scheme: light;
+  --bg: 250 250 249;           /* #FAFAF9 warm off-white */
+  --panel: 255 255 255;
+  --subtle: 245 245 244;       /* hover / wells */
+  --border: 231 229 228;       /* #E7E5E4 hairline */
+  --border-strong: 214 211 209;
+  --text: 10 10 10;            /* #0A0A0A ink */
+  --muted: 68 64 60;           /* secondary text, 10:1 */
+  --faint: 113 108 103;        /* tertiary text, 5.0:1 on white */
+  --accent: 30 58 138;         /* #1E3A8A deep ink-blue */
+  --accent-fg: 255 255 255;
+  --accent-soft: 238 242 252;
+  --danger: 185 28 28;
+  --warning: 146 64 14;
+  --success: 22 101 52;        /* #166534: 4.5:1+ even on its 10% tint */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: 12 12 11;
+    --panel: 23 23 21;
+    --subtle: 33 33 31;
+    --border: 44 43 40;
+    --border-strong: 68 66 62;
+    --text: 245 245 244;
+    --muted: 200 196 192;
+    --faint: 150 145 140;
+    --accent: 163 182 250;
+    --accent-fg: 12 18 38;
+    --accent-soft: 30 36 58;
+    --danger: 248 113 113;
+    --warning: 251 191 36;
+    --success: 74 222 128;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: 12 12 11;
+  --panel: 23 23 21;
+  --subtle: 33 33 31;
+  --border: 44 43 40;
+  --border-strong: 68 66 62;
+  --text: 245 245 244;
+  --muted: 200 196 192;
+  --faint: 150 145 140;
+  --accent: 163 182 250;
+  --accent-fg: 12 18 38;
+  --accent-soft: 30 36 58;
+  --danger: 248 113 113;
+  --warning: 251 191 36;
+  --success: 74 222 128;
+}
