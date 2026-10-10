@@ -142,6 +142,7 @@ def test_mac_install_falls_back_to_release_url_behind_https_proxy(client, settin
     script = client.get("/install/mac.sh", headers={"x-forwarded-proto": "https"}).text
     assert 'LOCALSCHOOL_SERVER:-https://testserver}' in script
     assert f'LOCALSCHOOL_ZIP_URL:-{settings.mac_app_url}}}' in script
+    assert client.get("/api/health").json()["mac_release_page"] == "https://github.com/o/r/releases/latest"
     r = client.get("/install/LocalSchool-macOS.zip", follow_redirects=False)
     assert r.status_code == 302 and r.headers["location"] == settings.mac_app_url
 

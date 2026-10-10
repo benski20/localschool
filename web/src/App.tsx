@@ -15,8 +15,10 @@ import { Library } from "./pages/Library";
 import { Roster } from "./pages/Roster";
 import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
+import { GetApp } from "./pages/GetApp";
 
 export function App() {
+  if (window.location.pathname === "/get") return <GetApp />;
   return (
     <ToastProvider>
       <AuthProvider>

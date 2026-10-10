@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Logo } from "../components/Logo";
 import { Field, Spinner } from "../components/ui";
+import { isDesktop } from "../lib/shell";
 
 export function Login() {
   const { login } = useAuth();
@@ -90,6 +91,13 @@ export function Login() {
         <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-faint">
           <Lock className="h-3 w-3" aria-hidden /> Your school's data stays on your school's servers.
         </p>
+        {!isDesktop && (
+          <p className="mt-2 text-center text-xs">
+            <a href="/get" className="text-muted hover:text-ink hover:underline">
+              Get the Mac app
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );

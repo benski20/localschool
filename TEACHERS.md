@@ -26,6 +26,8 @@ The small numbers in an answer are **citations**. Click one to see the exact pas
 
 ## 3. Keep it in your Dock (optional)
 
+All the options are on one page: **https://highlightcenter1234--localschool-app-web.modal.run/get**
+
 - **Easiest:** in Safari choose **File → Add to Dock**. Local School then opens like an app.
 - **The Mac app:** it adds **⌥ Space** (Option + Space), which opens Local School from anywhere. Open **Terminal**, paste this line and press Return:
 

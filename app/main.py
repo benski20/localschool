@@ -73,6 +73,9 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         if settings.demo_logins:
             # Synthetic demo school only: lets the login page offer one-click demo sign-in.
             out["demo"] = {"email": DEMO_TEACHER[0], "password": DEMO_TEACHER[1]}
+        if "/releases/" in settings.mac_app_url:
+            # The /get page links here for the .dmg (browser download; see TEACHERS.md).
+            out["mac_release_page"] = settings.mac_app_url.split("/download/")[0]
         return out
 
     @app.exception_handler(HTTPException)
