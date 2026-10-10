@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
     inputs:
       gpu:
-        description: GPU type
+        description: "GPU type (L4, A10G, T4) or none for CPU-only. Any GPU needs a payment method on the Modal account."
         default: L4
       chat_model:
-        description: Chat model to pull and evaluate
+        description: "Chat model to pull and evaluate (use qwen3:1.7b with gpu=none)"
         default: qwen3:8b
 
 jobs:
@@ -56,7 +56,15 @@ jobs:
         run: |
           pip install -q modal
           modal secret create localschool-runtime LS_RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" --force
-          modal deploy deploy/modal/ollama_app.py | tee deploy.log
+          modal deploy deploy/modal/ollama_app.py 2>&1 | tee deploy.log
+          if grep -q "add a payment method" deploy.log; then
+            {
+              echo "### Modal needs a payment method for GPUs"
+              echo "Add one at modal.com → Settings → Billing (the free monthly credit still applies),"
+              echo "or rerun this workflow with **gpu = none** and **chat_model = qwen3:1.7b** for a CPU-only runtime."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.modal\.run' deploy.log | head -1)
           test -n "$URL" || { echo "could not find the endpoint URL"; exit 1; }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
@@ -83,7 +91,7 @@ jobs:
           RUNTIME_KIND: ollama
           RUNTIME_URL: ${{ steps.deploy.outputs.url }}
           RUNTIME_TOKEN: ${{ secrets.LS_RUNTIME_TOKEN }}
-          RUNTIME_TIMEOUT_S: "300"
+          RUNTIME_TIMEOUT_S: "600"
           CHAT_MODEL: ${{ env.CHAT }}
           EMBED_MODEL: ${{ env.EMBED }}
         run: |
