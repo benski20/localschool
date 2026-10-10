@@ -21,7 +21,7 @@ class LoginIn(BaseModel):
 def login(
     body: LoginIn,
     response: Response,
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
 ):
     user = auth.authenticate(db, body.email, body.password)
@@ -36,7 +36,7 @@ def login(
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response, db: sqlite3.Connection = Depends(deps.db)):
+def logout(request: Request, response: Response, db: sqlite3.Connection = Depends(deps.db, scope="function")):
     auth.end_session(db, request.cookies.get(deps.SESSION_COOKIE))
     response.delete_cookie(deps.SESSION_COOKIE, path="/")
     return {"ok": True}

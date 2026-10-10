@@ -135,3 +135,19 @@ def test_mac_install_script_served_with_this_servers_address(client, settings):
     assert "__SERVER__" not in script and "set -euo pipefail" in script
     assert client.get("/install/LocalSchool-macOS.zip").content.startswith(b"PK")
     assert client.get("/api/admin/install").json()["mac_app_present"]
+
+
+def test_db_dependency_commits_before_the_response_is_sent():
+    """With FastAPI's default request scope, a yield dependency's teardown (our commit)
+    can run after the response is sent, so a client's very next request (e.g. right after
+    login) may not see the new session row. Every use must be function-scoped."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "app"
+    uses = []
+    for path in [root / "deps.py", *sorted((root / "routes").glob("*.py"))]:
+        uses += [(path.name, m.group(0)) for m in re.finditer(r"Depends\((?:deps\.)?db\b[^)]*\)", path.read_text())]
+    assert uses, "expected database dependencies"
+    unscoped = [u for u in uses if 'scope="function"' not in u[1]]
+    assert not unscoped, unscoped

@@ -38,7 +38,7 @@ def db(request: Request) -> Iterator[sqlite3.Connection]:
         yield conn
 
 
-def current_user(request: Request, conn: sqlite3.Connection = Depends(db)) -> sqlite3.Row:
+def current_user(request: Request, conn: sqlite3.Connection = Depends(db, scope="function")) -> sqlite3.Row:
     user = session_user(conn, request.cookies.get(SESSION_COOKIE))
     if user is None:
         raise HTTPException(401, "Sign in to continue.")

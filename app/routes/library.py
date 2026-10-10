@@ -35,7 +35,7 @@ def _doc_rows(db: sqlite3.Connection, embed_model: str) -> list[dict]:
 @router.get("")
 def list_documents(
     _: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     runtime: Runtime = Depends(deps.runtime),
 ):
     model = runtime.active_model("embed")
@@ -49,7 +49,7 @@ def list_documents(
 async def upload(
     files: list[UploadFile] = File(...),
     user: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
     worker: EmbeddingWorker = Depends(deps.worker),
 ):
@@ -83,7 +83,7 @@ class PasteIn(BaseModel):
 def paste(
     body: PasteIn,
     user: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
     worker: EmbeddingWorker = Depends(deps.worker),
 ):
@@ -103,7 +103,7 @@ def paste(
 def delete(
     doc_id: int,
     user: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
 ):
     row = db.execute("SELECT owner_id FROM documents WHERE id = ?", (doc_id,)).fetchone()
@@ -119,7 +119,7 @@ def delete(
 def download(
     doc_id: int,
     _: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
 ):
     row = db.execute("SELECT filename FROM documents WHERE id = ?", (doc_id,)).fetchone()
@@ -137,7 +137,7 @@ def chunk(
     doc_id: int,
     chunk_id: int,
     _: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     """A cited passage with its neighbours, for the source panel."""
     row = db.execute(

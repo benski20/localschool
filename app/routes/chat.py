@@ -39,7 +39,7 @@ async def ask(
 
 
 @router.get("/conversations")
-def conversations(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Connection = Depends(deps.db)):
+def conversations(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     rows = db.execute(
         "SELECT id, title, updated_at FROM conversations WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 50",
         (user["id"],),
@@ -51,7 +51,7 @@ def conversations(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Co
 def conversation(
     conversation_id: int,
     user: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     conv = db.execute(
         "SELECT id, title, updated_at FROM conversations WHERE id = ? AND user_id = ?",
@@ -78,7 +78,7 @@ def conversation(
 def delete_conversation(
     conversation_id: int,
     user: sqlite3.Row = Depends(deps.current_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     n = db.execute(
         "DELETE FROM conversations WHERE id = ? AND user_id = ?", (conversation_id, user["id"])

@@ -15,7 +15,7 @@ MAX_CSV = 5 * 1024 * 1024
 
 
 @router.get("")
-def get_roster(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Connection = Depends(deps.db)):
+def get_roster(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     sections = roster.sections_for(db, user)
     students = roster.students_for(db, user)
     return {
@@ -57,7 +57,7 @@ async def preview(file: UploadFile = File(...), _: sqlite3.Row = Depends(deps.ad
 async def import_(
     file: UploadFile = File(...),
     _: sqlite3.Row = Depends(deps.admin_user),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     parsed = await _parse(file)
     if parsed.errors:
