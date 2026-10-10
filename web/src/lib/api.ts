@@ -18,7 +18,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   try {
     res = await fetch(path, init);
   } catch {
-    throw new ApiError(0, "Can't reach the Local School server. Check your network connection.");
+    throw new ApiError(0, "Can't reach your school's server. Check your network connection.");
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
