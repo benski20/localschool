@@ -18,6 +18,8 @@ dependencies = [
   "python-multipart>=0.0.9",
   "pyyaml>=6.0",
   "zeroconf>=0.132",
+  # SQLite with extension loading, for Python builds whose sqlite3 lacks it (python.org macOS)
+  "sqlean.py>=3.45",
 ]
 
 [project.optional-dependencies]

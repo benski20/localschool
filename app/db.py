@@ -2,10 +2,15 @@
 
 Connections are cheap; each request/job opens its own via `connect()`.
 Schema changes are ordered migrations keyed on `PRAGMA user_version`.
+
+Driver: the standard `sqlite3` module when it can load extensions. Some Python builds
+(notably the python.org installers for macOS) can't, so we fall back to `sqlean`, a
+drop-in SQLite build with extension loading enabled.
 """
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -141,13 +146,29 @@ MIGRATIONS: list[str] = [
 ]
 
 
+def _driver():
+    if os.environ.get("LS_SQLITE_DRIVER") != "sqlean" and hasattr(sqlite3.Connection, "enable_load_extension"):
+        return sqlite3
+    try:
+        import sqlean
+    except ImportError as e:  # pragma: no cover - depends on the Python build
+        raise RuntimeError(
+            "This Python's sqlite3 can't load extensions (needed for vector search). "
+            "Install the fallback with: pip install sqlean.py"
+        ) from e
+    return sqlean
+
+
+DRIVER = _driver()
+
+
 def vec_table(space_id: int) -> str:
     return f"vec_space_{int(space_id)}"
 
 
 def _open(path: Path | str) -> sqlite3.Connection:
-    conn = sqlite3.connect(path, check_same_thread=False, timeout=30)
-    conn.row_factory = sqlite3.Row
+    conn = DRIVER.connect(str(path), check_same_thread=False, timeout=30)
+    conn.row_factory = DRIVER.Row
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)
