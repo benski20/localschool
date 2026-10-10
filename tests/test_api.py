@@ -202,6 +202,7 @@ def test_private_documents_are_invisible_to_everyone_else(client):
     school = next(d for d in mine.values() if d["title"] == "Handbook")
     assert school["visibility"] == "school" and school["mine"] is False
     assert client.get(f"/api/documents/{doc_id}/file").status_code == 200
+    assert client.get(f"/api/documents/{doc_id}/preview").json()["passages"]
 
     wait_index(client)  # vectors too: neither keyword nor vector search may leak it
     done = sse(client.post("/api/chat", json={"question": "When are the zebrafish permission forms due?"}))[-1]
@@ -213,6 +214,7 @@ def test_private_documents_are_invisible_to_everyone_else(client):
     _relogin(client, "sam.patel@maplegrove.demo")
     assert not {doc_id, pasted} & {d["id"] for d in client.get("/api/documents").json()["documents"]}
     assert client.get(f"/api/documents/{doc_id}/file").status_code == 404
+    assert client.get(f"/api/documents/{doc_id}/preview").status_code == 404
     assert client.get(passage).status_code == 404
     assert client.delete(f"/api/documents/{doc_id}").status_code == 404
     for body in ({"question": "When are the zebrafish permission forms due?"},

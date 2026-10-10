@@ -156,6 +156,25 @@ def download(
                         media_type=mimetypes.guess_type(row["filename"])[0] or "application/octet-stream")
 
 
+@router.get("/{doc_id}/preview")
+def preview(
+    doc_id: int,
+    user: sqlite3.Row = Depends(deps.current_user),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
+):
+    """The first few passages, so any document (PDF, Word…) can be read in the preview sheet."""
+    doc = db.execute(
+        f"SELECT d.id, d.title FROM documents d WHERE d.id = ? AND {VISIBLE}",
+        (doc_id, visible_param(user["id"])),
+    ).fetchone()
+    if not doc:
+        raise HTTPException(404, "Document not found.")
+    rows = db.execute(
+        "SELECT heading, text FROM chunks WHERE document_id = ? ORDER BY ord LIMIT 6", (doc_id,)
+    ).fetchall()
+    return {"document": dict(doc), "passages": [dict(r) for r in rows]}
+
+
 @router.get("/{doc_id}/chunks/{chunk_id}")
 def chunk(
     doc_id: int,
