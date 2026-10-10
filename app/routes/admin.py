@@ -23,7 +23,7 @@ def status(
     _: sqlite3.Row = Depends(deps.current_user),
     runtime: Runtime = Depends(deps.runtime),
     worker: EmbeddingWorker = Depends(deps.worker),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
     settings: Settings = Depends(deps.settings),
 ):
     cfg = runtime.config()
@@ -118,7 +118,7 @@ async def models(
     _: sqlite3.Row = Depends(deps.admin_user),
     runtime: Runtime = Depends(deps.runtime),
     pulls: PullManager = Depends(deps.pulls),
-    db: sqlite3.Connection = Depends(deps.db),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     provider = await runtime.provider()
     installed, error = [], ""
@@ -209,7 +209,7 @@ class UserIn(BaseModel):
 
 
 @router.get("/admin/users")
-def users(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db)):
+def users(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     rows = db.execute(
         "SELECT u.id, u.email, u.name, u.role, u.created_at, "
         "(SELECT COUNT(*) FROM sections s WHERE s.teacher_id = u.id) AS section_count "
@@ -219,7 +219,7 @@ def users(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = De
 
 
 @router.post("/admin/users")
-def create_user(body: UserIn, _: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db)):
+def create_user(body: UserIn, _: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     try:
         uid = auth.create_user(db, email=body.email, name=body.name, role=body.role, password=body.password)
     except ValueError as e:
@@ -228,7 +228,7 @@ def create_user(body: UserIn, _: sqlite3.Row = Depends(deps.admin_user), db: sql
 
 
 @router.delete("/admin/users/{user_id}")
-def delete_user(user_id: int, me: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db)):
+def delete_user(user_id: int, me: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     if user_id == me["id"]:
         raise HTTPException(400, "You can't remove your own account.")
     if not db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount:

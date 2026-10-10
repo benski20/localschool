@@ -12,7 +12,10 @@ MODAL_TOKEN_SECRET and LS_RUNTIME_TOKEN). By hand:
 Then Local School → Admin → Runtime: type Ollama, the URL, and the token as Access token.
 
 Knobs (set when deploying, e.g. `LS_GPU=A10G modal deploy …`):
-    LS_GPU          GPU type (default L4, 24 GB — fits gpt-oss:20b and qwen3:8b)
+    LS_GPU          GPU type (default L4, 24 GB — fits gpt-oss:20b and qwen3:8b), or `none`
+                    for a CPU-only runtime (8 cores, 16 GB). Modal requires a payment method
+                    on the account for any GPU; CPU works on the free Starter credits.
+                    Pair CPU with a small model such as qwen3:1.7b.
     LS_IDLE_SECONDS seconds of no traffic before the GPU shuts down (default 300)
 
 Ollama has no auth, so a small token proxy (deploy/token_proxy.py) sits in front of it.
@@ -29,7 +32,10 @@ from pathlib import Path
 
 import modal
 
-GPU = os.environ.get("LS_GPU", "L4")
+GPU_SETTING = os.environ.get("LS_GPU", "L4").strip()
+GPU = None if GPU_SETTING.lower() in ("", "none", "cpu") else GPU_SETTING
+# CPU-only: give Ollama enough cores/memory for a small model; with a GPU, Modal's defaults.
+RESOURCES = {"cpu": 8.0, "memory": 16384} if GPU is None else {}
 IDLE_SECONDS = int(os.environ.get("LS_IDLE_SECONDS", "300"))
 OLLAMA_DIR = "/root/.ollama"
 PUBLIC_PORT = 11434   # token proxy (exposed)
@@ -66,6 +72,7 @@ def _start_ollama() -> subprocess.Popen:
 
 @app.function(
     gpu=GPU,
+    **RESOURCES,
     volumes={OLLAMA_DIR: models},
     secrets=[secret],
     scaledown_window=IDLE_SECONDS,
@@ -82,7 +89,8 @@ def serve() -> None:
     ])
 
 
-@app.function(gpu=GPU, volumes={OLLAMA_DIR: models}, timeout=3600)
+# Downloading weights never needs a GPU: pull on a cheap CPU container.
+@app.function(volumes={OLLAMA_DIR: models}, timeout=3600)
 def pull(model: str = "qwen3:8b") -> None:
     """Download a model into the shared volume ahead of time."""
     _start_ollama()
