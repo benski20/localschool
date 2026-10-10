@@ -1,5 +1,59 @@
-@import "@fontsource-variable/inter";
+/*
+ * Design system — shared classes. Tokens live in tokens.css; Tailwind maps them in tailwind.config.js.
+ * Language: enterprise-flat. Hairline 1px borders, NO drop shadows, near-square corners (≤2px),
+ * regular-weight headings, tiny uppercase tracked section labels, near-black primary buttons,
+ * blue accent only for small details, status as UPPERCASE coloured text (no pills).
+ *
+ * Colours   bg panel subtle elevated overlay line line-strong ink muted faint
+ *           primary primary-hover primary-fg (near-black buttons; inverts in dark)
+ *           accent accent-hover accent-fg accent-soft ring (blue: small details only)
+ *           danger warning success
+ * Shadows   shadow-card = hairline ring only · shadow-card-hover · shadow-pop (menus, toasts: ring +
+ *           whisper) · shadow-overlay (dialogs) · shadow-focus. shadow-xs/sm/md are intentionally none.
+ * Radii     every rounded-* (sm…2xl) is 1–3px. rounded-full still makes dots/avatars.
+ * Type      text-2xs 11 · xs 12 · sm 13 · base 15 (body) · md 16 · lg 18 · xl 22 · 2xl 28 (page title)
+ *           · 3xl 36 · display 48. tracking-tightest/tighter/tight/wide/eyebrow. font-mono for numbers/ids.
+ * Motion    duration-instant 80 · fast 120 · DEFAULT 160 · slow 220; ease-out / in-out (no overshoot)
+ *           animate-fadein (kept) fade-in fade-out slide-up slide-down slide-in-right slide-in-left
+ *           scale-in scale-out toast-in toast-out pulse-soft pulse-ring shimmer shimmer-bg
+ *           .stagger (children fade in in sequence) or .stagger-item + style={{ "--i": n }}
+ *
+ * Buttons   .btn-primary (near-black) .btn-secondary (white + hairline) .btn-ghost
+ *           .btn-danger (quiet) .btn-danger-solid · .btn-link (blue text, e.g. "Change")
+ *           size modifiers .btn-sm .btn-lg · .btn-icon (square; combine: "btn-ghost btn-icon")
+ * Forms     .input (input, select, textarea) · .field-label (sentence-case form label)
+ *           .checkbox · aria-invalid="true" shows danger
+ * Labels    .label and .eyebrow: 12px UPPERCASE tracked grey section label ("SAVED RUNS")
+ *           .status-text + .status-success/.status-warning/.status-danger/.status-accent/.status-neutral
+ *           ("CERTIFIED" in green) · .step-num (mono blue "01") · .meta (small grey · separated)
+ * Surfaces  .card · .card-interactive (border darkens on hover) · .surface-pop · .rail (subtle grey
+ *           right column) · .divider · .scrim (dialog backdrop)
+ * Bits      .kbd · .chip (rectangular outlined suggestion; aria-pressed / data-active)
+ *           .segmented > button (aria-selected / aria-pressed / aria-current / data-active="true")
+ *           .tabs > a|button (underline tabs, same active attributes) · .table · .link · .skeleton
+ *           .text-balance .text-pretty .tnum
+ */
 @import "./tokens.css";
+
+/* Inter, variable weight, self-hosted (no external requests: privacy product). */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 @tailwind base;
 @tailwind components;
@@ -11,58 +65,416 @@
   #root {
     height: 100%;
   }
-  body {
-    @apply bg-bg text-ink font-sans text-base antialiased;
-    font-feature-settings: "cv11", "ss01", "ss03";
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
-  h1, h2, h3 {
-    @apply font-semibold tracking-tight;
+  body {
+    @apply bg-bg font-sans text-base text-ink antialiased;
+    /* cv11 single-storey a · ss03 round quotes · cv05 lowercase l with tail (clearer I/l) */
+    font-feature-settings: "cv11", "ss03", "cv05";
+    -moz-osx-font-smoothing: grayscale;
+  }
+  /* Calm, regular-weight headings. Page titles: text-2xl font-normal. */
+  h1 {
+    @apply font-normal text-ink;
+    letter-spacing: -0.02em;
+  }
+  h2,
+  h3,
+  h4 {
+    @apply font-medium text-ink;
+    letter-spacing: -0.012em;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    font-feature-settings: normal;
   }
   ::selection {
-    background: rgb(var(--accent) / 0.18);
+    background: rgb(var(--accent) / 0.16);
   }
   :focus-visible {
-    outline: 2px solid rgb(var(--accent));
+    outline: 2px solid rgb(var(--ring));
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  ::placeholder {
+    color: rgb(var(--faint));
+    opacity: 1;
+  }
+  hr {
+    border-color: rgb(var(--border));
   }
   * {
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--border-strong)) transparent;
   }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-strong));
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 @layer components {
+  /* ---------- Buttons ---------- */
   .btn {
-    @apply inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50;
+    @apply relative inline-flex h-9 cursor-default select-none items-center justify-center gap-2 whitespace-nowrap rounded border border-transparent px-3.5 text-sm font-medium;
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
   }
+  .btn:not(:disabled) {
+    cursor: pointer;
+  }
+  .btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(var(--bg)), 0 0 0 3px rgb(var(--ring));
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    @apply pointer-events-none opacity-40;
+  }
+  .btn svg {
+    flex-shrink: 0;
+  }
+
   .btn-primary {
-    @apply btn bg-accent text-accent-fg hover:bg-accent/90;
+    @apply btn bg-primary text-primary-fg;
   }
+  .btn-primary:hover {
+    @apply bg-primary-hover;
+  }
+  .btn-primary:active:not(:disabled) {
+    @apply bg-primary/80;
+  }
+
   .btn-secondary {
-    @apply btn border border-line bg-panel text-ink hover:bg-subtle;
+    @apply btn border-line bg-panel text-ink;
   }
+  .btn-secondary:hover {
+    @apply border-line-strong bg-subtle;
+  }
+  .btn-secondary:active:not(:disabled) {
+    @apply bg-ink/[0.06];
+  }
+
   .btn-ghost {
-    @apply btn text-muted hover:bg-subtle hover:text-ink;
+    @apply btn text-muted;
   }
+  .btn-ghost:hover {
+    @apply bg-subtle text-ink;
+  }
+  .btn-ghost:active:not(:disabled) {
+    @apply bg-ink/[0.07];
+  }
+  .btn-ghost[aria-pressed="true"],
+  .btn-ghost[aria-expanded="true"],
+  .btn-ghost[data-active="true"] {
+    @apply bg-subtle text-ink;
+  }
+
+  /* Quiet destructive (secondary shape, danger text). Use -solid for the final confirm. */
   .btn-danger {
-    @apply btn border border-line bg-panel text-danger hover:bg-danger/5;
+    @apply btn border-line bg-panel text-danger;
   }
+  .btn-danger:hover {
+    @apply border-danger/40 bg-danger/[0.05];
+  }
+  .btn-danger:active:not(:disabled) {
+    @apply bg-danger/10;
+  }
+  .btn-danger-solid {
+    @apply btn bg-danger text-white;
+  }
+  .btn-danger-solid:hover {
+    @apply bg-danger/90;
+  }
+  :root[data-theme="dark"] .btn-danger-solid {
+    @apply text-black;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .btn-danger-solid {
+      @apply text-black;
+    }
+  }
+
+  /* Inline text action, e.g. "Change". */
+  .btn-link {
+    @apply inline-flex cursor-pointer items-center gap-1 rounded-sm text-sm font-medium text-accent transition-colors hover:text-accent-hover hover:underline hover:underline-offset-4 disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-sm {
+    @apply h-7 gap-1.5 px-2.5 text-xs;
+  }
+  .btn-lg {
+    @apply h-11 gap-2 px-5 text-base;
+  }
+  .btn-icon {
+    @apply w-9 px-0;
+  }
+  .btn-icon.btn-sm {
+    @apply w-7;
+  }
+  .btn-icon.btn-lg {
+    @apply w-11;
+  }
+
+  /* ---------- Forms ---------- */
   .input {
-    @apply h-9 w-full rounded-md border border-line bg-panel px-3 text-base text-ink placeholder:text-faint transition-colors hover:border-line-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15;
+    @apply h-10 w-full rounded border border-line bg-panel px-3 text-base text-ink placeholder:text-faint;
+    transition-property: border-color, box-shadow, background-color;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-out);
   }
-  .label {
-    @apply mb-1.5 block text-sm font-medium text-ink;
+  .input:hover:not(:disabled):not(:focus) {
+    @apply border-line-strong;
   }
-  .card {
-    @apply rounded-lg bg-panel shadow-card;
+  .input:focus,
+  .input:focus-visible {
+    @apply border-ink/50 outline-none;
+    box-shadow: 0 0 0 1px rgb(var(--text) / 0.5);
   }
-  .kbd {
-    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-subtle px-1 font-sans text-[11px] font-medium text-faint;
+  .input:disabled {
+    @apply cursor-not-allowed bg-subtle text-muted;
   }
+  .input[readonly] {
+    @apply bg-subtle text-muted;
+  }
+  .input[aria-invalid="true"] {
+    @apply border-danger/70;
+  }
+  .input[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 1px rgb(var(--danger) / 0.7);
+  }
+  /* Long-form entry sits in a quiet grey well, like the reference's question box. */
+  textarea.input {
+    @apply h-auto bg-bg px-4 py-3 leading-[26px];
+  }
+  textarea.input:focus {
+    @apply bg-panel;
+  }
+  select.input {
+    @apply cursor-pointer appearance-none pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23737373' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4.5 6.5 3.5 3.5 3.5-3.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+  input[type="file"].input {
+    @apply h-auto py-1.5 text-sm text-muted;
+  }
+  input[type="file"].input::file-selector-button {
+    @apply mr-3 h-7 cursor-pointer rounded border border-line bg-subtle px-2.5 text-xs font-medium text-ink;
+    font-family: inherit;
+  }
+  .field-label {
+    @apply mb-2 block text-sm font-medium text-ink;
+  }
+  .checkbox {
+    @apply h-4 w-4 shrink-0 cursor-pointer rounded-sm border-line-strong;
+    accent-color: rgb(var(--primary));
+  }
+
+  /* ---------- Labels & status ---------- */
+  .label,
   .eyebrow {
-    @apply text-xs font-medium uppercase tracking-[0.06em] text-faint;
+    @apply block text-xs font-normal uppercase leading-4 tracking-eyebrow text-faint;
   }
+  .status-text {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium uppercase leading-4 tracking-[0.05em] tabular-nums;
+  }
+  .status-success { @apply text-success; }
+  .status-warning { @apply text-warning; }
+  .status-danger { @apply text-danger; }
+  .status-accent { @apply text-accent; }
+  .status-neutral { @apply text-faint; }
+  .step-num {
+    @apply font-mono text-sm tabular-nums text-accent;
+  }
+  .meta {
+    @apply text-xs text-faint;
+  }
+
+  /* ---------- Surfaces ---------- */
+  .card {
+    @apply rounded border border-line bg-panel;
+  }
+  .card-interactive {
+    @apply card cursor-pointer;
+    transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  .card-interactive:hover {
+    @apply border-line-strong;
+  }
+  .card-interactive:active {
+    @apply bg-subtle;
+  }
+  .surface-pop {
+    @apply rounded border border-line bg-elevated shadow-lg;
+  }
+  .rail {
+    @apply bg-subtle/60;
+  }
+  .scrim {
+    @apply bg-overlay/30;
+  }
+  .divider {
+    @apply h-px w-full bg-line;
+  }
+
+  /* ---------- Small parts ---------- */
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-line bg-panel px-1 font-sans text-[11px] font-medium leading-none text-faint;
+    font-feature-settings: "tnum";
+  }
+  .link {
+    @apply rounded-sm text-accent underline-offset-4 transition-colors hover:text-accent-hover hover:underline;
+  }
+
+  /* Rectangular outlined suggestion box. */
+  .chip {
+    @apply inline-flex min-h-9 min-w-0 cursor-pointer select-none items-center gap-2 rounded border border-line bg-panel px-3.5 py-1.5 text-left text-sm text-muted;
+    transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  .chip:hover {
+    @apply border-line-strong text-ink;
+  }
+  .chip:active {
+    @apply bg-subtle;
+  }
+  .chip:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(var(--bg)), 0 0 0 3px rgb(var(--ring));
+  }
+  .chip[aria-pressed="true"],
+  .chip[aria-selected="true"],
+  .chip[data-active="true"] {
+    @apply border-ink/60 text-ink;
+  }
+  .chip:disabled {
+    @apply pointer-events-none opacity-40;
+  }
+
+  .segmented {
+    @apply inline-flex items-stretch overflow-hidden rounded border border-line bg-panel;
+  }
+  .segmented > button,
+  .segmented > a {
+    @apply inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap border-l border-line px-3 text-sm text-muted first:border-l-0;
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  }
+  .segmented > :hover {
+    @apply bg-subtle/60 text-ink;
+  }
+  .segmented > :focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgb(var(--ring));
+  }
+  .segmented > [aria-selected="true"],
+  .segmented > [aria-pressed="true"],
+  .segmented > [aria-current="page"],
+  .segmented > [data-active="true"] {
+    @apply bg-subtle text-ink;
+  }
+  .segmented > :disabled {
+    @apply pointer-events-none opacity-40;
+  }
+
+  .tabs {
+    @apply flex items-center gap-6 border-b border-line;
+  }
+  .tabs > a,
+  .tabs > button {
+    @apply -mb-px inline-flex h-10 items-center gap-1.5 border-b border-transparent text-sm text-muted transition-colors hover:text-ink;
+  }
+  .tabs > [aria-selected="true"],
+  .tabs > [aria-current="page"],
+  .tabs > [data-active="true"] {
+    @apply border-ink text-ink;
+  }
+
+  .table {
+    @apply w-full border-separate border-spacing-0 text-sm tabular-nums;
+  }
+  .table th {
+    @apply h-10 border-b border-line px-3 text-left text-xs font-normal uppercase tracking-eyebrow text-faint first:pl-4 last:pr-4;
+  }
+  .table td {
+    @apply h-12 border-b border-line px-3 align-middle text-ink first:pl-4 last:pr-4;
+  }
+  .table tbody tr {
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .table tbody tr:hover {
+    @apply bg-subtle/60;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  .table tbody tr[aria-selected="true"] {
+    @apply bg-subtle;
+  }
+
+  .skeleton {
+    @apply rounded-sm bg-subtle;
+    background-image: linear-gradient(90deg, rgb(var(--subtle)) 0%, rgb(var(--text) / 0.05) 40%, rgb(var(--subtle)) 80%);
+    background-size: 200% 100%;
+    animation: shimmer-bg 1.8s linear infinite;
+  }
+
+  /* ---------- Motion helpers ---------- */
+  .stagger > * {
+    animation: slide-up var(--dur-slow) var(--ease-out) both;
+  }
+  .stagger > :nth-child(1) { animation-delay: 0ms; }
+  .stagger > :nth-child(2) { animation-delay: 30ms; }
+  .stagger > :nth-child(3) { animation-delay: 60ms; }
+  .stagger > :nth-child(4) { animation-delay: 90ms; }
+  .stagger > :nth-child(5) { animation-delay: 120ms; }
+  .stagger > :nth-child(6) { animation-delay: 150ms; }
+  .stagger > :nth-child(7) { animation-delay: 180ms; }
+  .stagger > :nth-child(8) { animation-delay: 210ms; }
+  .stagger > :nth-child(n + 9) { animation-delay: 240ms; }
+  .stagger-item {
+    animation: slide-up var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(min(var(--i, 0), 10) * 30ms);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes shimmer-bg {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -70,7 +482,9 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
