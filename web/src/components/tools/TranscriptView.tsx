@@ -10,6 +10,9 @@ export const clock = (sec: number) => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 };
 
+/** The timestamp for a line, or its line number when the transcript had no times. */
+export const stamp = (s: Segment, i: number) => (s.start === null ? `#${i + 1}` : clock(s.start));
+
 const reduceMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /** A request to bring a line into view; `n` changes on every click so the same line can be re-focused. */
@@ -52,14 +55,11 @@ export function TranscriptView({
             type="button"
             onClick={() => onFocus(i)}
             className="tnum w-11 shrink-0 self-start text-left font-mono text-xs leading-[22px] text-faint hover:text-accent"
-            aria-label={`Line at ${clock(s.start)}`}
+            aria-label={`Line ${stamp(s, i)}`}
           >
-            {clock(s.start)}
+            {stamp(s, i)}
           </button>
-          <span className="min-w-0">
-            {s.speaker && <span className="mr-1.5 text-ink">{s.speaker}:</span>}
-            {s.text}
-          </span>
+          <span className="min-w-0">{s.text}</span>
         </li>
       ))}
     </ol>
@@ -88,9 +88,9 @@ export function RefChips({
           type="button"
           onClick={() => onJump(r)}
           className="tnum inline-flex h-5 items-center rounded-sm border border-line px-1.5 font-mono text-2xs text-accent transition-colors hover:border-accent/50 hover:bg-accent-soft"
-          aria-label={`Show transcript at ${clock(segments[r]!.start)}`}
+          aria-label={`Show transcript line ${stamp(segments[r]!, r)}`}
         >
-          {clock(segments[r]!.start)}
+          {stamp(segments[r]!, r)}
         </button>
       ))}
     </span>

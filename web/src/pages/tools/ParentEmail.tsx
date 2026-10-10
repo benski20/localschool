@@ -1,10 +1,10 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { SkeletonText } from "../../components/ui";
-import { ToolPage, Narrow, Choice, Labelled, ErrorLine } from "../../components/tools/ToolPage";
+import { ToolPage, Narrow, Choice, Labelled, ErrorLine, Reveal } from "../../components/tools/ToolPage";
 import { StudentPicker, useStudent } from "../../components/tools/StudentPicker";
-import { JobProgress, useDraft } from "../../components/tools/JobProgress";
+import { DraftProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
 import { CopyButton, OutputEditor, SaveHint, useDraftOutput } from "../../components/tools/OutputEditor";
 import { DraftList } from "../../components/tools/DraftList";
 import { LANGUAGES, isWorking, tools, type Draft, type Tone } from "../../lib/tools";
@@ -20,14 +20,24 @@ export function ParentEmail() {
   const id = draftId ? Number(draftId) : null;
   const navigate = useNavigate();
   const initial = (useLocation().state as { draft?: Draft<"email"> } | null)?.draft ?? null;
-  const { draft, error } = useDraft<"email">(id, initial);
+  const { draft, restart, error } = useDraft<"email">(id, initial);
 
-  const seed = initial?.input;
-  const [studentId, setStudentId] = useState<number | null>(seed?.student_id ?? null);
-  const [topic, setTopic] = useState(seed?.topic ?? "");
-  const [tone, setTone] = useState<Tone>(seed?.tone ?? "warm");
-  const [language, setLanguage] = useState(seed?.language ?? "English");
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [topic, setTopic] = useState("");
+  const [tone, setTone] = useState<Tone>("warm");
+  const [language, setLanguage] = useState("English");
   const [busy, setBusy] = useState(false);
+
+  // A draft reopened from Recent fills the form with what it was asked, ready for a variation.
+  const seeded = useRef<number | null>(null);
+  useEffect(() => {
+    if (!draft || seeded.current === draft.id) return;
+    seeded.current = draft.id;
+    setStudentId(draft.student?.id ?? null);
+    setTopic(draft.input.topic ?? "");
+    setTone(draft.input.tone ?? "warm");
+    setLanguage(draft.input.language ?? "English");
+  }, [draft]);
   const [failure, setFailure] = useState("");
   const student = useStudent(studentId);
   const home = student?.home_language?.trim();
@@ -38,8 +48,8 @@ export function ParentEmail() {
     setBusy(true);
     setFailure("");
     try {
-      const [d] = await tools.create("email", { student_id: studentId, topic: topic.trim(), tone, language });
-      navigate(`/tools/email/${d!.id}`, { state: { draft: d } });
+      const { draft: d } = await tools.create("email", { student_id: studentId, topic: topic.trim(), tone, language });
+      navigate(`/tools/email/${d.id}`, { state: { draft: d } });
     } catch (e) {
       setFailure((e as Error).message);
     } finally {
@@ -89,6 +99,7 @@ export function ParentEmail() {
         {failure && <ErrorLine>{failure}</ErrorLine>}
       </Narrow>
 
+      <Reveal id={id}>
       {id !== null && (
         <Narrow>
           {error ? (
@@ -96,14 +107,18 @@ export function ParentEmail() {
           ) : !draft ? (
             <SkeletonText lines={4} />
           ) : isWorking(draft.status) ? (
-            <JobProgress label="Writing…" progress={draft.progress} />
+            <DraftProgress draft={draft} />
           ) : draft.status === "error" ? (
-            <ErrorLine>{draft.error || "Couldn't draft this email."}</ErrorLine>
+            <div className="space-y-4">
+              <ErrorLine>{draft.error || "Couldn't draft this email."}</ErrorLine>
+              <RetryButton<Draft<"email">> id={draft.id} onRetry={restart} />
+            </div>
           ) : (
             <EmailResult draft={draft} />
           )}
         </Narrow>
       )}
+      </Reveal>
 
       <Narrow>
         <DraftList tool="email" activeId={id} refreshKey={draft?.status} />

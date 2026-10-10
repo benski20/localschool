@@ -5,7 +5,7 @@
  *   nav: [..., toolsNavItem]
  */
 import { createElement, type ReactElement } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { LayoutGrid } from "lucide-react";
 import { ToolsHome } from "./ToolsHome";
 import { MeetingNotes } from "./MeetingNotes";
@@ -15,20 +15,15 @@ import { ParentEmail } from "./ParentEmail";
 
 const PAGES = { meeting: MeetingNotes, feedback: Feedback, adapt: Adapt, email: ParentEmail } as const;
 
-/** /tools/:tool/:draftId — the tool's own screen with that draft open. */
-function ToolDraft() {
-  const { tool } = useParams();
-  const Page = PAGES[tool as keyof typeof PAGES];
-  return Page ? createElement(Page) : createElement(Navigate, { to: "/tools", replace: true });
-}
-
+// Each tool renders the same component with or without a draft id, so the form keeps what the
+// teacher typed when a draft opens below it (e.g. the rubric stays chosen for the next batch).
 export const toolRoutes: { path: string; element: ReactElement }[] = [
   { path: "/tools", element: createElement(ToolsHome) },
-  { path: "/tools/meeting", element: createElement(MeetingNotes) },
-  { path: "/tools/feedback", element: createElement(Feedback) },
-  { path: "/tools/adapt", element: createElement(Adapt) },
-  { path: "/tools/email", element: createElement(ParentEmail) },
-  { path: "/tools/:tool/:draftId", element: createElement(ToolDraft) },
+  ...Object.entries(PAGES).flatMap(([tool, Page]) => [
+    { path: `/tools/${tool}`, element: createElement(Page) },
+    { path: `/tools/${tool}/:draftId`, element: createElement(Page) },
+  ]),
+  { path: "/tools/*", element: createElement(Navigate, { to: "/tools", replace: true }) },
 ];
 
 /** Same shape as NavItem in components/shell/nav.ts. */

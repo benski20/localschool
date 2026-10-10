@@ -1,143 +1,175 @@
 /**
- * Tools API client: every request and response type for the four tools lives here, so the shapes
- * can be adjusted in one place once the server lands (see scratchpad/design/TOOLS.md).
+ * Tools API client. The shapes mirror the server's reference (docstring of app/routes/tools.py).
  *
- *   POST   /api/tools/{tool}/drafts      json or multipart → { draft } (feedback batches may return { drafts })
- *   GET    /api/tools/{tool}/drafts      → { drafts: DraftSummary[] }
- *   GET    /api/drafts/{id}              → { draft }   (poll while queued/running)
- *   PUT    /api/drafts/{id}              { output } → { draft }
- *   POST   /api/drafts/{id}/approve      → { draft }   (meeting: deletes the audio)
- *   DELETE /api/drafts/{id}
- *   POST   /api/meetings/{id}/audio      multipart "file" → { draft } (starts transcription)
- *
- * Responses go through normalizeDraft(), which accepts either `input`/`output` or the raw
- * `input_json`/`output_json` column names, and progress as 0–1 or 0–100.
+ *   GET    /api/tools                     → ToolsMeta (meeting types + sections, adapt levels, limits)
+ *   POST   /api/tools/{tool}/drafts       json or multipart → { draft, drafts, batch, errors }
+ *   GET    /api/tools/{tool}/drafts       ?batch= → { drafts: DraftSummary[], batch: BatchProgress|null }
+ *   GET    /api/drafts/{id}               → { draft }   (poll while queued/running)
+ *   PUT    /api/drafts/{id}               { output?, title? } → { draft }   (409 while queued/running)
+ *   POST   /api/drafts/{id}/approve       → { draft }   (meeting: deletes the recording)
+ *   POST   /api/drafts/{id}/retry         → { draft }
+ *   DELETE /api/drafts/{id}               → { ok }
+ *   POST   /api/meetings/{id}/audio       multipart file + offset/final/consent → { draft, received }
  */
-import { api } from "./api";
+import { useEffect, useState } from "react";
+import { api, ApiError } from "./api";
 
 export type ToolKey = "meeting" | "feedback" | "adapt" | "email";
-export type DraftStatus = "queued" | "running" | "ready" | "error";
+export type DraftStatus = "awaiting_audio" | "queued" | "running" | "ready" | "error";
+export type Stage = "" | "starting" | "waiting" | "transcribing" | "writing";
+
+/* ---------- GET /api/tools ---------- */
+
+export type MeetingType = "iep" | "parent_conference" | "sst" | "plc" | "other";
+export interface NoteSection {
+  key: string;
+  title: string;
+  kind: "text" | "items" | "actions";
+}
+export interface ToolsMeta {
+  tools: ToolKey[];
+  meeting_types: { key: MeetingType; label: string; sections: NoteSection[] }[];
+  adapt_levels: { key: string; label: string }[];
+  email_tones: Tone[];
+  audio: { accept: string[]; max_bytes: number; chunk_bytes: number };
+  limits: { feedback_pieces: number; work_chars: number; reading_chars: number; adapt_versions: number };
+}
+
+let metaCache: Promise<ToolsMeta> | null = null;
+export const loadMeta = () =>
+  (metaCache ??= api.get<ToolsMeta>("/api/tools").catch((e) => {
+    metaCache = null;
+    throw e;
+  }));
+
+export function useToolsMeta(): ToolsMeta | null {
+  const [meta, setMeta] = useState<ToolsMeta | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadMeta()
+      .then((m) => alive && setMeta(m))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return meta;
+}
 
 /* ---------- Meeting notes ---------- */
 
-export type MeetingType = "iep" | "parent" | "sst" | "plc" | "other";
-
-export interface MeetingInput {
+export interface MeetingCreate {
   meeting_type: MeetingType;
   student_id?: number | null;
-  /** Set when the teacher pasted a transcript instead of recording. */
-  transcript?: string;
+  title?: string;
+  consent?: boolean;
+  transcript_text?: string;
 }
 
-/** One line of the transcript. `start`/`end` are seconds from the start of the recording. */
+/** One transcript line. start/end are seconds, or null for a pasted transcript without times. */
 export interface Segment {
-  start: number;
-  end: number;
+  i: number;
+  start: number | null;
+  end: number | null;
   text: string;
-  speaker?: string;
 }
 
-/** A note item. `refs` are indexes into the transcript segments ("show the receipts"). */
 export interface NoteItem {
   text: string;
-  refs?: number[];
+  refs: number[];
 }
-
 export interface ActionItem {
-  task: string;
   owner: string;
-  due?: string | null;
-  refs?: number[];
+  task: string;
+  due: string | null;
+  refs: number[];
 }
-
-/**
- * Notes per meeting type. Every type has a summary; the lists present depend on the type
- * (IEP: decisions, services_discussed, action_items; parent conference: concerns, action_items…).
- * Unknown list keys of NoteItem[] are rendered too, titled from the key.
- */
 export interface MeetingNotes {
+  meeting_type: MeetingType;
   summary: string;
-  summary_refs?: number[];
-  decisions?: NoteItem[];
-  services_discussed?: NoteItem[];
-  concerns?: NoteItem[];
-  action_items?: ActionItem[];
+  action_items: ActionItem[];
   [section: string]: unknown;
 }
 
 /* ---------- Feedback ---------- */
 
-export interface FeedbackInput {
-  /** Pasted work. Uploaded files go as multipart "files" instead. */
-  text?: string;
-  rubric_document_id?: number | null;
+export interface FeedbackCreate {
+  work?: string;
+  title?: string;
+  works?: { title: string; text: string }[];
+  rubric_document_id?: number;
   rubric_text?: string;
   focus?: string;
   student_id?: number | null;
 }
-
-export interface FeedbackPoint {
-  text: string;
-  /** Passage quoted from the student's work. */
+export interface FeedbackItem {
+  comment: string;
   quote: string;
-  /** The rubric line this maps to. */
+  span: [number, number] | null;
+  rubric_line: number;
   rubric: string;
 }
-
 export interface FeedbackOutput {
-  strengths: FeedbackPoint[];
-  next_steps: FeedbackPoint[];
+  strengths: FeedbackItem[];
+  next_steps: FeedbackItem[];
+  focus: string;
+  dropped: number;
 }
 
 /* ---------- Adapt a reading ---------- */
 
-export type AdaptMode = "level" | "student" | "translate";
-
-export interface AdaptInput {
-  text?: string;
-  mode: AdaptMode;
-  /** "2".."12" when mode = level. */
-  grade?: string;
-  student_id?: number | null;
-  /** Target language name when mode = translate, e.g. "Spanish". */
+export interface AdaptVersionIn {
+  level?: string;
+  student_id?: number;
   language?: string;
 }
-
-export interface GlossaryEntry {
-  term: string;
-  definition: string;
+export interface AdaptCreate {
+  text: string;
+  title?: string;
+  versions: AdaptVersionIn[];
 }
-
+export interface Readability {
+  words: number;
+  grade: number | null;
+}
+export interface AdaptVersion {
+  label: string;
+  level: string;
+  language: string;
+  student: { id: number; name: string } | null;
+  title: string;
+  text: string;
+  glossary: { term: string; meaning: string }[];
+  changes: string;
+  readability: Readability;
+}
 export interface AdaptOutput {
-  /** The source text as the server read it (useful for uploads). Falls back to input.text. */
-  original?: string;
-  adapted: string;
-  glossary: GlossaryEntry[];
+  original: Readability;
+  versions: AdaptVersion[];
 }
 
 /* ---------- Parent email ---------- */
 
 export type Tone = "warm" | "neutral" | "firm";
-
-export interface EmailInput {
+export interface EmailCreate {
   student_id: number;
   topic: string;
   tone: Tone;
   language: string;
 }
-
 export interface EmailOutput {
   subject: string;
   body: string;
+  language: string;
 }
 
 /* ---------- Drafts ---------- */
 
 export interface ToolIO {
-  meeting: { input: MeetingInput; output: MeetingNotes };
-  feedback: { input: FeedbackInput; output: FeedbackOutput };
-  adapt: { input: AdaptInput; output: AdaptOutput };
-  email: { input: EmailInput; output: EmailOutput };
+  meeting: { create: MeetingCreate; output: MeetingNotes };
+  feedback: { create: FeedbackCreate; output: FeedbackOutput };
+  adapt: { create: AdaptCreate; output: AdaptOutput };
+  email: { create: EmailCreate; output: EmailOutput };
 }
 
 export interface DraftSummary {
@@ -145,86 +177,160 @@ export interface DraftSummary {
   tool: ToolKey;
   title: string;
   status: DraftStatus;
+  stage: Stage;
+  /** 0–1 */
+  progress: number;
+  error: string;
+  queue_position: number | null;
+  student: { id: number | null; name: string } | null;
+  batch: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
+  edited_at: string | null;
+  approved_at: string | null;
+  preview?: string;
+  /* meeting */
+  meeting_type?: MeetingType;
+  source?: "audio" | "paste";
+  has_audio?: boolean;
+  audio_bytes?: number;
 }
 
 export interface Draft<T extends ToolKey = ToolKey> extends DraftSummary {
   tool: T;
-  input: ToolIO[T]["input"];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  input: Record<string, any>;
   output: ToolIO[T]["output"] | null;
-  /** 0–100, or null when unknown. */
-  progress: number | null;
-  error: string;
-  student_id: number | null;
-  /* Meeting only */
-  transcript?: Segment[];
-  has_audio?: boolean;
-  approved_at?: string | null;
-  /** Feedback only: the uploaded file's name, when the piece came from a file. */
-  filename?: string;
+  transcript?: Segment[] | null;
+  sections?: NoteSection[];
+  mailto?: string | null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Raw = Record<string, any>;
-
-export function normalizeDraft<T extends ToolKey = ToolKey>(r: Raw): Draft<T> {
-  let progress: number | null = typeof r.progress === "number" ? r.progress : null;
-  if (progress !== null && progress <= 1 && r.status !== "ready") progress *= 100;
-  if (r.status === "ready") progress = 100;
-  const transcript = r.transcript ?? r.transcript_json ?? undefined;
-  return {
-    id: r.id,
-    tool: r.tool,
-    title: r.title ?? "",
-    status: r.status ?? "queued",
-    created_at: r.created_at ?? new Date().toISOString(),
-    updated_at: r.updated_at,
-    input: r.input ?? r.input_json ?? {},
-    output: r.output ?? r.output_json ?? null,
-    progress,
-    error: r.error ?? "",
-    student_id: r.student_id ?? null,
-    transcript: Array.isArray(transcript) ? transcript : transcript?.segments,
-    has_audio: r.has_audio ?? (r.audio_path !== undefined ? !!r.audio_path : undefined),
-    approved_at: r.approved_at ?? null,
-    filename: r.filename ?? r.input?.filename ?? r.input_json?.filename,
-  };
+export interface BatchProgress {
+  id: string;
+  total: number;
+  ready: number;
+  error: number;
+  active: number;
+  done: boolean;
+  progress: number;
 }
 
-const one = <T extends ToolKey>(r: Raw) => normalizeDraft<T>(r.draft ?? r);
+export interface Created<T extends ToolKey> {
+  draft: Draft<T>;
+  drafts: Draft<T>[];
+  batch: string | null;
+  errors: { filename: string; error: string }[];
+}
 
 export const tools = {
   list: (tool: ToolKey) =>
-    api.get<{ drafts: DraftSummary[] }>(`/api/tools/${tool}/drafts`).then((r) => r.drafts ?? []),
+    api.get<{ drafts: DraftSummary[] }>(`/api/tools/${tool}/drafts`).then((r) => r.drafts),
 
-  get: <T extends ToolKey>(id: number) => api.get<Raw>(`/api/drafts/${id}`).then((r) => one<T>(r)),
+  batch: (tool: ToolKey, batch: string) =>
+    api.get<{ drafts: DraftSummary[]; batch: BatchProgress | null }>(
+      `/api/tools/${tool}/drafts?batch=${encodeURIComponent(batch)}`,
+    ),
 
-  /** JSON body, or FormData for uploads. Always resolves to a list (a feedback batch makes several). */
-  create: <T extends ToolKey>(tool: T, body: ToolIO[T]["input"] | FormData) =>
-    api.post<Raw>(`/api/tools/${tool}/drafts`, body).then((r) => {
-      const list: Raw[] = Array.isArray(r.drafts) ? r.drafts : [r.draft ?? r];
-      return list.map((d) => normalizeDraft<T>(d));
-    }),
+  get: <T extends ToolKey>(id: number) => api.get<{ draft: Draft<T> }>(`/api/drafts/${id}`).then((r) => r.draft),
+
+  create: <T extends ToolKey>(tool: T, body: ToolIO[T]["create"] | FormData) =>
+    api.post<Created<T>>(`/api/tools/${tool}/drafts`, body),
 
   save: <T extends ToolKey>(id: number, output: ToolIO[T]["output"]) =>
-    api.put<Raw>(`/api/drafts/${id}`, { output }).then((r) => one<T>(r)),
+    api.put<{ draft: Draft<T> }>(`/api/drafts/${id}`, { output }).then((r) => r.draft),
 
-  approve: (id: number) => api.post<Raw>(`/api/drafts/${id}/approve`).then((r) => one<"meeting">(r)),
+  approve: <T extends ToolKey>(id: number) =>
+    api.post<{ draft: Draft<T> }>(`/api/drafts/${id}/approve`).then((r) => r.draft),
 
-  remove: (id: number) => api.del<unknown>(`/api/drafts/${id}`),
+  retry: <T extends ToolKey>(id: number) =>
+    api.post<{ draft: Draft<T> }>(`/api/drafts/${id}/retry`).then((r) => r.draft),
 
-  uploadAudio: (id: number, audio: Blob, filename = "meeting.webm") => {
-    const fd = new FormData();
-    fd.append("file", audio, filename);
-    return api.post<Raw>(`/api/meetings/${id}/audio`, fd).then((r) => one<"meeting">(r));
-  },
+  remove: (id: number) => api.del<{ ok: true }>(`/api/drafts/${id}`),
+
+  uploadAudio,
 };
 
-/** Build multipart form data from an input object plus files (arrays/objects as JSON strings). */
-export function toForm(input: object, files: File[] = [], field = "files"): FormData {
+/* ---------- Recording upload (chunked, resumable) ---------- */
+
+interface ChunkReply {
+  status: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any;
+}
+
+function postChunk(url: string, form: FormData, onBytes: (n: number) => void): Promise<ChunkReply> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (e) => e.lengthComputable && onBytes(e.loaded / e.total);
+    xhr.onload = () => {
+      let body = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        body = null;
+      }
+      resolve({ status: xhr.status, body });
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Can't reach your school's server. Check your network connection."));
+    xhr.send(form);
+  });
+}
+
+/**
+ * Send a recording to POST /api/meetings/{id}/audio in chunks of `chunkBytes`. A chunk the server
+ * already has (409 with `received`) is skipped; a dropped connection is retried a few times.
+ * Resolves with the draft once the last chunk has queued transcription.
+ */
+async function uploadAudio(
+  id: number,
+  audio: Blob,
+  opts: { filename?: string; chunkBytes?: number; onProgress?: (fraction: number) => void } = {},
+): Promise<Draft<"meeting">> {
+  const size = audio.size;
+  const chunk = Math.max(256 * 1024, opts.chunkBytes ?? 8 * 1024 * 1024);
+  const url = `/api/meetings/${id}/audio`;
+  let offset = 0;
+  let failures = 0;
+  for (;;) {
+    const end = Math.min(size, offset + chunk);
+    const final = end >= size;
+    const form = new FormData();
+    form.append("offset", String(offset));
+    form.append("final", String(final));
+    form.append("consent", "true");
+    form.append("file", audio.slice(offset, end), opts.filename ?? "meeting.webm");
+    const base = offset;
+    let reply: ChunkReply;
+    try {
+      reply = await postChunk(url, form, (f) => opts.onProgress?.(size ? (base + f * (end - base)) / size : 1));
+    } catch (e) {
+      if (++failures > 3) throw e;
+      await new Promise((r) => setTimeout(r, 800 * failures));
+      continue;
+    }
+    if (reply.status === 409 && typeof reply.body?.received === "number" && failures++ < 3) {
+      offset = reply.body.received; // resume where the server left off
+      continue;
+    }
+    if (reply.status < 200 || reply.status >= 300) {
+      throw new ApiError(reply.status, reply.body?.error || "The recording didn't upload. Try again.");
+    }
+    failures = 0;
+    offset = reply.body.received ?? end;
+    opts.onProgress?.(size ? offset / size : 1);
+    if (final || offset >= size) return reply.body.draft as Draft<"meeting">;
+  }
+}
+
+/* ---------- Helpers ---------- */
+
+/** Multipart body from plain fields (skips empty values) plus files under `field`. */
+export function toForm(fields: Record<string, unknown>, files: File[] = [], field = "files"): FormData {
   const fd = new FormData();
-  for (const [k, v] of Object.entries(input)) {
+  for (const [k, v] of Object.entries(fields)) {
     if (v === undefined || v === null || v === "") continue;
     fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
   }
@@ -234,15 +340,21 @@ export function toForm(input: object, files: File[] = [], field = "files"): Form
 
 export const isWorking = (s: DraftStatus | undefined) => s === "queued" || s === "running";
 
-/* ---------- Labels shown to teachers ---------- */
+const WRITING: Record<ToolKey, string> = {
+  meeting: "Writing notes…",
+  feedback: "Writing feedback…",
+  adapt: "Adapting…",
+  email: "Writing…",
+};
 
-export const MEETING_TYPES: { value: MeetingType; label: string }[] = [
-  { value: "iep", label: "IEP meeting" },
-  { value: "parent", label: "Parent conference" },
-  { value: "sst", label: "Student support team" },
-  { value: "plc", label: "Team / PLC" },
-  { value: "other", label: "Other" },
-];
+/** The one teacher-facing line for a draft's state. */
+export function statusWord(d: Pick<DraftSummary, "tool" | "status" | "stage">): string {
+  if (d.status === "awaiting_audio") return "Uploading…";
+  if (d.status === "queued" || d.stage === "waiting") return "Waiting your turn…";
+  if (d.status === "running") return d.stage === "transcribing" ? "Transcribing…" : WRITING[d.tool];
+  if (d.status === "error") return "Didn't work";
+  return "Ready";
+}
 
 export const LANGUAGES = [
   "English",
@@ -264,8 +376,6 @@ export const LANGUAGES = [
   "Japanese",
   "Polish",
 ];
-
-export const GRADES = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export const TOOL_PATHS: Record<ToolKey, string> = {
   meeting: "/tools/meeting",
