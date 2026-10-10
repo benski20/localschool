@@ -1,6 +1,6 @@
-# Local School
+# Teacher's Desk
 
-**Private AI for schools.** Teachers ask questions in the **Local School Mac app** (or any browser) and get answers grounded in the school's own documents and their own class roster. Every claim links to its source. All models run on a GPU **runtime** the school controls; teacher Macs never run a model.
+**Private AI for schools.** Teachers ask questions in the **Teacher's Desk Mac app** (or any browser) and get answers grounded in the school's own documents and their own class roster. Every claim links to its source. All models run on a GPU **runtime** the school controls; teacher Macs never run a model.
 
 This repo is the **pilot**: grounded chat, a document library, a roster, admin tools to connect a GPU and swap models, and a native Mac app.
 
@@ -75,7 +75,7 @@ The fake runtime returns canned, cited answers so you can walk through the UI. C
 1. Create a free account at modal.com. Under **Settings → API Tokens**, create a token.
 2. In this repo, go to **Settings → Secrets and variables → Actions** and add `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, and `LS_RUNTIME_TOKEN` (any long random string, e.g. `openssl rand -hex 24`).
 3. **Actions → Deploy Modal runtime → Run workflow.** It deploys Ollama on an L4 GPU, downloads `qwen3:8b` and `nomic-embed-text`, runs the live eval against it, and prints the URL.
-4. In Local School: **Admin → Runtime**. Set type to *Ollama*, paste that URL, and paste your `LS_RUNTIME_TOKEN` as the *Access token*. **Test connection → Save.**
+4. In Teacher's Desk: **Admin → Runtime**. Set type to *Ollama*, paste that URL, and paste your `LS_RUNTIME_TOKEN` as the *Access token*. **Test connection → Save.**
 
 By hand instead: `pip install modal && modal setup`, then `modal secret create localschool-runtime LS_RUNTIME_TOKEN=…`, then `modal deploy deploy/modal/ollama_app.py`.
 

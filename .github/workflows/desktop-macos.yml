@@ -1,4 +1,4 @@
-# Builds "Local School.app" for Apple Silicon + Intel (universal), then smoke-tests it on a
+# Builds "Teacher's Desk.app" for Apple Silicon + Intel (universal), then smoke-tests it on a
 # real Mac: installs the server with scripts/install-server-mac.sh (launchd), launches the
 # app (Bonjour discovery), installs it the way teachers do (curl one-liner from the
 # server), signs in, asks a question, and tries ⌥Space. Screenshots are pushed to the
@@ -37,7 +37,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     env:
-      APP: desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Local School.app
+      APP: desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/Teacher's Desk.app
     steps:
       - uses: actions/checkout@v4
 
@@ -123,16 +123,16 @@ jobs:
           open "$APP"
           shot 1-first-launch-built-in-server 20
 
-          osascript -e 'tell application "Local School" to quit' || true
-          sleep 3; pkill -f "Local School.app/Contents/MacOS" || true
+          osascript -e "tell application \"Teacher's Desk\" to quit" || true
+          sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
 
           # 2) Teacher install, exactly as documented (pre-connects to this server).
           curl -fsSL http://127.0.0.1:8000/install/mac.sh | bash
-          xattr -l "/Applications/Local School.app" | tee -a shots/macos.txt || true
+          xattr -l "/Applications/Teacher's Desk.app" | tee -a shots/macos.txt || true
           shot 2-installed-autoconnect-signin 15
 
           # 3) Sign in as a teacher and ask a question.
-          osascript -e 'tell application "Local School" to activate'
+          osascript -e "tell application \"Teacher's Desk\" to activate"
           sleep 1
           keys 'keystroke "jordan.lee@maplegrove.demo"'
           keys 'keystroke tab'
@@ -181,7 +181,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release || github.ref_name }}
         run: |
-          gh release create "$TAG" --target "$GITHUB_SHA" --title "Local School for Mac ${TAG#desktop-v}" \
-            --notes "Universal (Apple Silicon + Intel). Install: \`curl -fsSL <your Local School link>/install/mac.sh | bash\`, or see <your link>/get." || true
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "Teacher's Desk for Mac ${TAG#desktop-v}" \
+            --notes "Universal (Apple Silicon + Intel). Install: \`curl -fsSL <your Teacher's Desk link>/install/mac.sh | bash\`, or see <your link>/get." || true
           gh release upload "$TAG" LocalSchool-macOS.zip \
             desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber

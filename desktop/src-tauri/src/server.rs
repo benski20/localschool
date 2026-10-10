@@ -51,7 +51,7 @@ fn config_path(app: &AppHandle) -> Option<PathBuf> {
 /// IT-managed default (push this file with Jamf/Mosyle/any MDM so teachers never type
 /// an address): {"url": "http://maplegrove.local:8000", "name": "Maple Grove Middle School"}
 #[cfg(target_os = "macos")]
-const MANAGED_CONFIG: &str = "/Library/Application Support/Local School/server.json";
+const MANAGED_CONFIG: &str = "/Library/Application Support/Teachers Desk/server.json";
 #[cfg(not(target_os = "macos"))]
 const MANAGED_CONFIG: &str = "/etc/localschool/server.json";
 
@@ -115,7 +115,7 @@ pub fn origin(url: &Url) -> Url {
     o
 }
 
-/// Find the first candidate that answers like a Local School server.
+/// Find the first candidate that answers like a Teacher's Desk server.
 pub fn check(input: &str) -> Result<ServerInfo, String> {
     let urls = candidates(input);
     if urls.is_empty() {
@@ -134,11 +134,11 @@ pub fn check(input: &str) -> Result<ServerInfo, String> {
                 Ok(h) if h.app == "localschool" => {
                     return Ok(ServerInfo {
                         url: base.as_str().trim_end_matches('/').to_string(),
-                        name: if h.school.is_empty() { "Local School".into() } else { h.school },
+                        name: if h.school.is_empty() { "Teacher's Desk".into() } else { h.school },
                         version: h.version,
                     })
                 }
-                _ => last_err = format!("{} isn't a Local School server.", base.host_str().unwrap_or("")),
+                _ => last_err = format!("{} isn't a Teacher's Desk server.", base.host_str().unwrap_or("")),
             },
             Err(ureq::Error::Status(code, _)) => {
                 last_err = format!("{} answered with an error ({code}).", base.host_str().unwrap_or(""))

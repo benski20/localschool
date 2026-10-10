@@ -3,62 +3,132 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Local School</title>
+    <meta name="color-scheme" content="light dark" />
+    <!-- Product name: keep in sync with PRODUCT_NAME in connect.js, which also fills [data-product]. -->
+    <title>Teacher's Desk</title>
     <link rel="stylesheet" href="connect.css" />
   </head>
   <body>
-    <div class="titlebar" data-tauri-drag-region></div>
+    <!-- Room for the traffic lights; the whole strip drags the window. -->
+    <header class="titlebar" data-tauri-drag-region>
+      <span class="brand" data-tauri-drag-region>
+        <svg class="mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <rect x="0.75" y="0.75" width="22.5" height="22.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <path d="M5 15.25h14M7.25 15.25V19M16.75 15.25V19" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <rect class="mark-accent" x="9" y="10.25" width="6" height="3.25" />
+        </svg>
+        <span class="brand-name" data-product data-tauri-drag-region></span>
+      </span>
+      <span class="titlebar-meta" data-tauri-drag-region>
+        <span class="dot" aria-hidden="true"></span>Student data stays on your school's servers
+      </span>
+    </header>
 
-    <main class="wrap">
-      <svg class="logo" width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="14" class="logo-bg" />
-        <path d="M18 44V20h6v18.5h14V44H18z" class="logo-fg" />
-        <rect x="40" y="20" width="6" height="12" rx="1.5" fill="#6B8AF0" />
-      </svg>
-
-      <!-- Reconnecting to the saved server -->
-      <section id="view-checking" class="view" hidden>
-        <h1 id="checking-title">Connecting…</h1>
-        <p class="sub"><span class="spinner" aria-hidden="true"></span><span id="checking-host"></span></p>
-      </section>
-
-      <!-- Saved server unreachable -->
-      <section id="view-unreachable" class="view" hidden>
-        <h1 id="unreachable-title">Can't reach your school server</h1>
-        <p class="sub" id="unreachable-body"></p>
-        <div class="actions">
-          <button class="btn btn-secondary" id="choose-other">Choose another server</button>
-          <button class="btn btn-primary" id="retry">Try again</button>
-        </div>
-      </section>
-
-      <!-- First run / switch -->
-      <section id="view-choose" class="view" hidden>
-        <h1>Connect to your school</h1>
-        <p class="sub">Local School answers from your school's own server. No AI models run on this Mac.</p>
-
-        <div class="card">
-          <div class="card-head">
-            <span class="eyebrow">On this network</span>
-            <button class="link" id="rescan">Search again</button>
+    <main class="main">
+      <div class="stage">
+        <!-- Reconnecting to the saved server -->
+        <section id="view-checking" class="view" hidden aria-labelledby="checking-title">
+          <h1 id="checking-title" class="title">Connecting…</h1>
+          <p class="sub">Checking that your school's server is available.</p>
+          <div class="panel">
+            <div class="panel-head">
+              <span class="label">Saved server</span>
+              <span class="status status-info">Connecting</span>
+            </div>
+            <div class="server-static">
+              <span class="monogram" id="checking-mono" aria-hidden="true"></span>
+              <span class="server-text">
+                <span class="server-name" id="checking-name"></span>
+                <span class="server-host" id="checking-host"></span>
+              </span>
+            </div>
+            <div class="progress" role="progressbar" aria-label="Connecting"><span></span></div>
           </div>
-          <ul id="found" class="found" aria-live="polite"></ul>
-          <p id="scan-status" class="muted small"></p>
-        </div>
-
-        <form id="manual" class="card" autocomplete="off">
-          <label for="address" class="label">Server address</label>
-          <div class="row">
-            <input id="address" class="input" placeholder="maplegrove.local:8000 or https://…" spellcheck="false" />
-            <button class="btn btn-primary" id="connect" type="submit">Connect</button>
+          <div class="actions actions-start">
+            <button class="btn btn-secondary reveal-late" id="checking-other" type="button">Use a different server</button>
           </div>
-          <p id="error" class="error" role="alert" hidden></p>
-          <p class="muted small">Your IT administrator can give you this address.</p>
-        </form>
-      </section>
+        </section>
+
+        <!-- Saved server unreachable -->
+        <section id="view-unreachable" class="view" hidden aria-labelledby="unreachable-title">
+          <h1 id="unreachable-title" class="title">Can't reach your school</h1>
+          <p class="sub" id="unreachable-body"></p>
+          <div class="panel">
+            <div class="panel-head">
+              <span class="label">Saved server</span>
+              <span class="status status-warn">Unreachable</span>
+            </div>
+            <div class="server-static">
+              <span class="monogram" id="unreachable-mono" aria-hidden="true"></span>
+              <span class="server-text">
+                <span class="server-name" id="unreachable-name"></span>
+                <span class="server-host" id="unreachable-host"></span>
+              </span>
+            </div>
+            <div class="panel-sep"></div>
+            <div class="panel-head"><span class="label">What to try</span></div>
+            <ol class="steps">
+              <li><span class="step-n">01</span><span><strong>Check your network</strong>Join the school Wi-Fi, or its VPN if you're away.</span></li>
+              <li><span class="step-n">02</span><span><strong>Try again</strong>The server may be restarting. Your IT team can check it's online.</span></li>
+            </ol>
+          </div>
+          <div class="actions">
+            <p class="meta" id="unreachable-meta" aria-live="polite"></p>
+            <button class="btn btn-secondary" id="choose-other" type="button">Choose another server</button>
+            <button class="btn btn-primary" id="retry" type="button">
+              <svg class="btn-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71M13.25 2.75v2.6h-2.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+              <span class="btn-label">Try again</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- First run / switch -->
+        <section id="view-choose" class="view" hidden aria-labelledby="choose-title">
+          <h1 id="choose-title" class="title">Connect to your school</h1>
+          <p class="sub"><span data-product></span> answers from your school's own server. No AI models run on this Mac.</p>
+
+          <div class="panel">
+            <div class="section">
+              <div class="panel-head">
+                <h2 class="label">On this network</h2>
+                <span class="status status-info scan-pill" id="scan-pill" aria-hidden="true"><span id="scan-pill-text">Searching</span></span>
+                <button class="link" id="rescan" type="button">Search again</button>
+              </div>
+              <div class="group" id="found-group" data-state="scanning">
+                <ul id="found" class="found" aria-live="polite" aria-label="Schools on this network"></ul>
+                <div class="skeleton" aria-hidden="true">
+                  <div class="sk-row"><span class="sk sk-tile"></span><span class="sk-lines"><span class="sk sk-a"></span><span class="sk sk-b"></span></span><span class="sk sk-btn"></span></div>
+                  <div class="sk-row"><span class="sk sk-tile"></span><span class="sk-lines"><span class="sk sk-a sk-a2"></span><span class="sk sk-b sk-b2"></span></span><span class="sk sk-btn"></span></div>
+                </div>
+                <div class="empty">
+                  <p class="empty-title" id="empty-title">No schools found yet</p>
+                  <p class="empty-body" id="scan-status"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-sep"></div>
+
+            <form id="manual" class="section" autocomplete="off" novalidate>
+              <div class="panel-head">
+                <label for="address" class="label">Or enter an address</label>
+              </div>
+              <div class="field-row">
+                <div class="field" id="field">
+                  <input id="address" class="input" placeholder="school.local:8000 or https://…" spellcheck="false" autocapitalize="off" autocorrect="off" aria-describedby="error hint" />
+                </div>
+                <button class="btn btn-primary" id="connect" type="submit">
+                  <svg class="btn-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8h9.5M8.75 4.25 12.5 8l-3.75 3.75" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                  <span class="btn-label">Connect</span>
+                </button>
+              </div>
+              <p id="error" class="error" role="alert" hidden></p>
+              <p id="hint" class="hint">Your IT administrator can give you this address.</p>
+            </form>
+          </div>
+        </section>
+      </div>
     </main>
-
-    <footer class="foot"><span aria-hidden="true">🔒</span> Student data stays on your school's servers.</footer>
     <script src="connect.js"></script>
   </body>
 </html>

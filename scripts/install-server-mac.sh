@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs the Local School server on a school Mac and keeps it running (launchd).
+# Installs the Teacher's Desk server on a school Mac and keeps it running (launchd).
 #
 #   git clone https://github.com/benski20/localschool && cd localschool
 #   ./scripts/install-server-mac.sh
@@ -154,7 +154,7 @@ curl -sf "http://127.0.0.1:$PORT/api/health" >/dev/null || fail "The server didn
 HOST="$(scutil --get LocalHostName 2>/dev/null || hostname -s).local"
 IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "")"
 echo
-bold "✅ Local School is running for $SCHOOL_NAME"
+bold "✅ Teacher's Desk is running for $SCHOOL_NAME"
 echo "   Admin:      http://$HOST:$PORT  (sign in as $ADMIN_EMAIL)"
 [ -n "$IP" ] && echo "   By IP:      http://$IP:$PORT"
 echo "   Teachers:   curl -fsSL http://$HOST:$PORT/install/mac.sh | bash"
