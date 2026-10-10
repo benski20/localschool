@@ -30,6 +30,12 @@ jobs:
           python3 -c "import json,os,sys; h=json.load(open('health.json')); sys.exit(0 if h.get('version')==os.environ['VERSION'] else 'version mismatch: '+str(h.get('version')))"
           curl -sf "$APP_URL/get" | grep -q '<div id="root">'
 
+      - name: Where the installer downloads from
+        run: |
+          ZIP=$(curl -fsSL "$APP_URL/install/mac.sh" | sed -n 's/^ZIP_URL="\${LOCALSCHOOL_ZIP_URL:-\(.*\)}"$/\1/p')
+          echo "zip url: $ZIP"
+          curl -sIL "$ZIP" | grep -iE "^(HTTP|location)" || true
+
       - name: Install exactly as teachers do
         run: |
           curl -fsSL "$APP_URL/install/mac.sh" | bash
