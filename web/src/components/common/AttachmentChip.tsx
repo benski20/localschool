@@ -11,11 +11,14 @@ export function AttachmentChip({
   item,
   onRemove,
   onRetry,
+  showReady = true,
   className,
 }: {
   item: UploadItem;
   onRemove?: () => void;
   onRetry?: () => void;
+  /** Show the word "Ready" beside the check (turn off where space is tight). */
+  showReady?: boolean;
   className?: string;
 }) {
   const { state } = item;
@@ -39,11 +42,11 @@ export function AttachmentChip({
           <FileText className={clsx("h-3.5 w-3.5", failed ? "text-danger" : "text-faint")} strokeWidth={1.75} />
         )}
       </span>
-      <span className="min-w-0 max-w-[220px] truncate text-ink">{item.name}</span>
+      <span className="min-w-0 max-w-[132px] truncate text-ink sm:max-w-[220px]">{item.name}</span>
       {failed ? (
         <span className="hidden min-w-0 max-w-[180px] truncate text-[12px] text-danger sm:inline">{status}</span>
       ) : (
-        <span className={clsx("shrink-0 text-[12px]", state === "ready" ? "text-faint" : "text-faint")}>{state === "ready" ? "Ready" : null}</span>
+        state === "ready" && showReady && <span className="shrink-0 text-[12px] text-faint">Ready</span>
       )}
       <span className="sr-only" role="status">
         {item.name}: {status}
@@ -71,11 +74,12 @@ export function AttachmentChip({
         <span className="w-1.5" aria-hidden />
       )}
       {/* Thin progress along the bottom edge; fades once ready. */}
-      <span
-        aria-hidden
-        className={clsx("ls-chip-bar absolute bottom-0 left-0 h-[2px] bg-accent", working ? "opacity-100" : "opacity-0")}
-        style={{ width: `${Math.round((state === "ready" ? 1 : item.progress) * 100)}%` }}
-      />
+      <span aria-hidden className={clsx("ls-chip-track absolute inset-x-0 bottom-0 h-[2px] bg-accent/15", working ? "opacity-100" : "opacity-0")}>
+        <span
+          className={clsx("ls-chip-bar absolute inset-y-0 left-0 bg-accent", state === "processing" && "ls-chip-pulse")}
+          style={{ width: `${Math.max(8, Math.round((state === "ready" ? 1 : item.progress) * 100))}%` }}
+        />
+      </span>
     </span>
   );
 }

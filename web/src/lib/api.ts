@@ -46,7 +46,7 @@ export const api = {
 
 /** POST a question and stream server-sent events back. */
 export async function streamChat(
-  body: { question: string; conversation_id: number | null },
+  body: { question: string; conversation_id: number | null; model?: string; attachments?: number[] },
   onEvent: (e: ChatEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {

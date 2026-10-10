@@ -131,11 +131,11 @@ function PanelBody({
     <>
       <header className={clsx("flex shrink-0 items-center justify-between gap-2 border-b border-line bg-panel px-4 md:px-5", sheet ? "h-12" : "h-14")}>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="text-[11.5px] font-medium uppercase tracking-[0.08em] text-faint">Source</span>
-          <span className="font-mono text-[12px] tabular-nums text-accent">{String(source.n).padStart(2, "0")}</span>
+          <span className="text-[13px] text-muted">Source</span>
+          <CiteNumber n={source.n} active />
           {sources.length > 1 && (
             <span className="font-mono text-[11.5px] tabular-nums text-faint">
-              · {idx + 1}/{sources.length}
+              of {sources.length}
             </span>
           )}
         </div>
@@ -167,7 +167,7 @@ function PanelBody({
 
       {sources.length > 1 && (
         <footer className="shrink-0 border-t border-line bg-subtle/50 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
-          <div className="mb-1.5 px-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">All sources in this answer</div>
+          <div className="mb-1.5 px-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Sources</div>
           <ul className="max-h-[152px] space-y-0.5 overflow-y-auto">
             {sources.map((s) => (
               <li key={s.n}>
@@ -225,7 +225,7 @@ function DocumentPassages({ source }: { source: Source }) {
       ) : error ? (
         <div className="border border-danger/30 bg-panel px-3.5 py-3 text-sm text-danger">{error}</div>
       ) : !passages ? (
-        <div className="space-y-2.5" aria-label="Loading passage">
+        <div className="space-y-2.5" aria-label="Loading">
           <div className="chat-line h-3 w-24" />
           <div className="chat-line h-3 w-full" />
           <div className="chat-line h-3 w-11/12" />
@@ -249,7 +249,7 @@ function DocumentPassages({ source }: { source: Source }) {
 
       {source.document_id && (
         <a className="btn-secondary mt-5 h-9 w-full rounded-[2px]" href={`/api/documents/${source.document_id}/file`}>
-          <ExternalLink className="h-3.5 w-3.5" /> Open original document
+          <ExternalLink className="h-3.5 w-3.5" /> Open the file
         </a>
       )}
     </>
@@ -261,7 +261,7 @@ function Highlighted({ label, children }: { label?: string; children: ReactNode 
     <figure className="chat-highlight relative border border-accent/25 bg-accent-soft px-4 py-3.5">
       <span className="absolute -left-px -top-px bottom-[-1px] w-[2px] bg-accent" aria-hidden />
       <figcaption className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-accent">
-        Cited passage{label ? <span className="normal-case tracking-normal text-accent/80">· {label}</span> : null}
+        Cited{label ? <span className="normal-case tracking-normal text-accent/80">· {label}</span> : null}
       </figcaption>
       <blockquote className="whitespace-pre-wrap text-[14px] leading-[23px] text-ink">{children}</blockquote>
     </figure>

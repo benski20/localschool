@@ -1,21 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { isDesktop } from "./lib/shell";
-import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { StatusProvider } from "./lib/status";
 import { useTheme } from "./lib/theme";
-import type { DocumentRow, Student } from "./lib/types";
 import { ToastProvider } from "./components/Toaster";
 import { Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
-import { DemoBanner } from "./components/DemoBanner";
 import { PasswordDialog } from "./components/PasswordDialog";
 import { Logo } from "./components/Logo";
-import { TopBar } from "./components/shell/TopBar";
-import { ShellContext, isTyping, type ShellState } from "./components/shell/ShellContext";
-import { navFor, SHORTCUTS } from "./components/shell/nav";
+import { MobileBar } from "./components/shell/MobileBar";
+import { ShellContext, type ShellState } from "./components/shell/ShellContext";
 import { Chat } from "./pages/Chat";
 import { Library } from "./pages/Library";
 import { Roster } from "./pages/Roster";
@@ -72,81 +68,27 @@ function Gate() {
   );
 }
 
-const COLLAPSE_KEY = "ls-sidebar-collapsed";
-function readCollapsed() {
-  try {
-    return localStorage.getItem(COLLAPSE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 function Shell() {
-  const { user } = useAuth();
   const [theme, setTheme] = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [counts, setCounts] = useState<ShellState["counts"]>({ library: null, roster: null });
 
-  useEffect(() => setNavOpen(false), [location.pathname]);
+  useEffect(() => setNavOpen(false), [location.pathname, location.key]);
 
-  // Sidebar counts: refreshed whenever the page changes (cheap; no GPU involved).
+  // ⌘K opens the quick switcher (kept for people who know it; never advertised).
   useEffect(() => {
-    api.get<{ documents: DocumentRow[] }>("/api/documents").then((r) => setCounts((c) => ({ ...c, library: r.documents.length }))).catch(() => undefined);
-    api.get<{ students: Student[] }>("/api/roster").then((r) => setCounts((c) => ({ ...c, roster: r.students.length }))).catch(() => undefined);
-  }, [location.pathname]);
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((v) => {
-      try {
-        localStorage.setItem(COLLAPSE_KEY, v ? "0" : "1");
-      } catch {
-        /* per-visit only */
-      }
-      return !v;
-    });
-  }, []);
-
-  // Keyboard: ⌘K palette, [ sidebar, C new question, G then A/L/R/S to jump.
-  const pendingG = useRef<number | null>(null);
-  useEffect(() => {
-    const nav = navFor(user?.role);
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((o) => !o);
-        return;
-      }
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e) || e.defaultPrevented) return;
-      if (document.querySelector("[role=dialog]")) return;
-      const k = e.key.toUpperCase();
-      if (pendingG.current !== null) {
-        window.clearTimeout(pendingG.current);
-        pendingG.current = null;
-        const hit = nav.find((n) => n.key === k);
-        if (hit) {
-          e.preventDefault();
-          navigate(hit.to);
-        }
-        return;
-      }
-      if (k === "G") {
-        pendingG.current = window.setTimeout(() => (pendingG.current = null), 900);
-      } else if (k === SHORTCUTS.newQuestion) {
-        e.preventDefault();
-        navigate("/chat");
-      } else if (e.key === SHORTCUTS.toggleSidebar) {
-        e.preventDefault();
-        toggleCollapsed();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate, toggleCollapsed, user?.role]);
+  }, []);
 
   const ctx = useMemo<ShellState>(
     () => ({
@@ -160,11 +102,8 @@ function Shell() {
         setNavOpen(false);
         setPwOpen(true);
       },
-      collapsed,
-      toggleCollapsed,
-      counts,
     }),
-    [theme, setTheme, collapsed, toggleCollapsed, counts],
+    [theme, setTheme],
   );
 
   const section = location.pathname.split("/")[1] || "chat";
@@ -176,8 +115,7 @@ function Shell() {
           <Sidebar />
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar onOpenNav={() => setNavOpen(true)} onNewQuestion={() => navigate("/chat")} />
-          <DemoBanner />
+          <MobileBar onOpenNav={() => setNavOpen(true)} onNewQuestion={() => navigate("/chat")} />
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
             <div key={section} className="ls-route h-full">
               <Outlet />
