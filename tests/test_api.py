@@ -177,3 +177,142 @@ def test_health_offers_demo_login_only_in_demo_mode(client, settings):
     assert "demo" not in client.get("/api/health").json()
     settings.demo_logins = True
     assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@maplegrove.demo"
+
+
+TRIP = (b"# Field trip permission\n\nGrade 7 science museum visit on November 14. "
+        b"Signed zebrafish permission forms are due November 7.")
+
+
+def _relogin(c, email, password=PASSWORD):
+    c.post("/api/auth/logout")
+    login(c, email, password)
+
+
+def test_private_documents_are_invisible_to_everyone_else(client):
+    login(client, "jordan.lee@maplegrove.demo")
+    up = client.post("/api/documents", data={"visibility": "private"},
+                     files=[("files", ("trip.md", TRIP, "text/markdown"))]).json()
+    doc_id = up["created"][0]
+    pasted = client.post("/api/documents/text", json={
+        "title": "My notes", "text": "Zebrafish tank cleaning on Fridays.", "visibility": "private"}).json()["id"]
+    assert client.post("/api/documents", data={"visibility": "secret"},
+                       files=[("files", ("x.md", b"x", "text/markdown"))]).status_code == 400
+    mine = {d["id"]: d for d in client.get("/api/documents").json()["documents"]}
+    assert mine[doc_id]["visibility"] == mine[pasted]["visibility"] == "private" and mine[doc_id]["mine"] is True
+    school = next(d for d in mine.values() if d["title"] == "Handbook")
+    assert school["visibility"] == "school" and school["mine"] is False
+    assert client.get(f"/api/documents/{doc_id}/file").status_code == 200
+    assert client.get(f"/api/documents/{doc_id}/preview").json()["passages"]
+
+    wait_index(client)  # vectors too: neither keyword nor vector search may leak it
+    done = sse(client.post("/api/chat", json={"question": "When are the zebrafish permission forms due?"}))[-1]
+    own = [s for s in done["sources"] if s["document_id"] == doc_id]
+    assert own, done  # the owner's private file is searchable for the owner
+    passage = f"/api/documents/{doc_id}/chunks/{own[0]['chunk_id']}"
+    assert client.get(passage).status_code == 200
+
+    _relogin(client, "sam.patel@maplegrove.demo")
+    assert not {doc_id, pasted} & {d["id"] for d in client.get("/api/documents").json()["documents"]}
+    assert client.get(f"/api/documents/{doc_id}/file").status_code == 404
+    assert client.get(f"/api/documents/{doc_id}/preview").status_code == 404
+    assert client.get(passage).status_code == 404
+    assert client.delete(f"/api/documents/{doc_id}").status_code == 404
+    for body in ({"question": "When are the zebrafish permission forms due?"},
+                 {"question": "When are the zebrafish permission forms due?", "attachments": [doc_id, pasted]}):
+        events = sse(client.post("/api/chat", json=body))
+        assert events[0]["attachments"] == []
+        srcs = next(e for e in events if e["type"] == "sources")["sources"]
+        assert not {s["document_id"] for s in srcs} & {doc_id, pasted}
+        assert all(s["kind"] != "attachment" for s in srcs)
+        assert "zebrafish" not in events[-1]["content"].lower()
+
+    # admins don't see a teacher's private files either, but can remove them
+    _relogin(client, "admin@test.local", "admin-pass-123")
+    assert doc_id not in {d["id"] for d in client.get("/api/documents").json()["documents"]}
+    assert client.get(f"/api/documents/{doc_id}/file").status_code == 404
+    assert client.delete(f"/api/documents/{doc_id}").status_code == 200
+    # and owners delete their own
+    _relogin(client, "jordan.lee@maplegrove.demo")
+    assert client.delete(f"/api/documents/{pasted}").status_code == 200
+    assert not {doc_id, pasted} & {d["id"] for d in client.get("/api/documents").json()["documents"]}
+
+
+def test_chat_attachment_is_cited_and_kept_for_follow_ups(client):
+    login(client, "jordan.lee@maplegrove.demo")
+    doc_id = client.post("/api/documents", data={"visibility": "private"},
+                         files=[("files", ("trip.md", TRIP, "text/markdown"))]).json()["created"][0]
+    events = sse(client.post("/api/chat", json={"question": "When are forms due?", "attachments": [doc_id, 99999]}))
+    assert events[0]["attachments"] == [doc_id]
+    done = events[-1]
+    assert done["type"] == "done" and "November 7" in done["content"]
+    cited = done["sources"][0]
+    assert cited["kind"] == "attachment" and cited["document_id"] == doc_id and cited["title"] == "trip"
+    conv_id = events[0]["id"]
+    # a follow-up that doesn't re-send the attachment still uses it
+    events = sse(client.post("/api/chat", json={"question": "What grade is it for?", "conversation_id": conv_id}))
+    assert events[0]["attachments"] == [doc_id]
+    assert next(e for e in events if e["type"] == "sources")["sources"][0]["kind"] == "attachment"
+    conv = client.get(f"/api/conversations/{conv_id}").json()
+    assert conv["attachments"] == [{"id": doc_id, "title": "trip"}]
+    assert conv["messages"][1]["sources"][0]["kind"] == "attachment"
+    # deleting the file detaches it
+    client.delete(f"/api/documents/{doc_id}")
+    assert client.get(f"/api/conversations/{conv_id}").json()["attachments"] == []
+
+
+def _wait_pulls(c):
+    deadline = time.time() + 3
+    while time.time() < deadline and not all(p["done"] for p in c.get("/api/admin/models/pulls").json()["pulls"]):
+        time.sleep(0.02)
+
+
+def test_teacher_model_choices(client, settings):
+    login(client, "jordan.lee@maplegrove.demo")
+    # the seeded Fast/Thorough (qwen3) aren't on the fake runtime: the active model is the one option
+    assert client.get("/api/models").json() == {"default": "fake-chat", "options": [
+        {"model": "fake-chat", "label": "Standard", "description": "", "installed": True}]}
+    assert client.get("/api/admin/models/choices").status_code == 403
+    assert client.put("/api/admin/models/choices", json={"options": []}).status_code == 403
+
+    _relogin(client, "admin@test.local", "admin-pass-123")
+    seeded = client.get("/api/admin/models/choices").json()
+    assert [(o["model"], o["label"], o["installed"]) for o in seeded["options"]] == [
+        ("qwen3:1.7b", "Fast", False), ("qwen3:4b-instruct-2507-q4_K_M", "Thorough", False)]
+    assert client.put("/api/admin/models/choices", json={"options": []}).status_code == 400
+    assert client.put("/api/admin/models/choices", json={
+        "options": [{"model": "fake-chat", "label": "Fast"}], "default": "nope"}).status_code == 400
+    r = client.put("/api/admin/models/choices", json={"default": "qwen3:4b-instruct-2507-q4_K_M", "options": [
+        {"model": "fake-chat", "label": "Fast", "description": "Quick answers in a few seconds."},
+        {"model": "qwen3:4b-instruct-2507-q4_K_M", "label": "Thorough", "description": "Takes a little longer."}]}).json()
+    assert r["default"] == "qwen3:4b-instruct-2507-q4_K_M" and [o["installed"] for o in r["options"]] == [True, False]
+
+    _relogin(client, "jordan.lee@maplegrove.demo")
+    m = client.get("/api/models").json()
+    assert [o["model"] for o in m["options"]] == ["fake-chat"] and m["default"] == "fake-chat"
+    done = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))[-1]
+    assert done["model"] == "fake-chat"  # offered but not installed → silently the active model
+
+    _relogin(client, "admin@test.local", "admin-pass-123")
+    client.post("/api/admin/models/pull", json={"model": "qwen3:4b-instruct-2507-q4_K_M"})
+    _wait_pulls(client)
+
+    _relogin(client, "jordan.lee@maplegrove.demo")
+    m = client.get("/api/models").json()
+    assert [(o["model"], o["label"]) for o in m["options"]] == [("fake-chat", "Fast"), ("qwen3:4b-instruct-2507-q4_K_M", "Thorough")]
+    assert m["default"] == "qwen3:4b-instruct-2507-q4_K_M"
+    events = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))
+    assert events[-1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    assert client.get(f"/api/conversations/{events[0]['id']}").json()["messages"][1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    # adapt drafts with the most thorough option, other tools with the default; an explicit choice wins
+    from app.db import connect
+    with connect(settings.db_path) as db:
+        ava = db.execute("SELECT id FROM students WHERE name = 'Ava Thompson'").fetchone()[0]
+    email = {"student_id": ava, "topic": "Field trip"}
+    assert client.post("/api/tools/email/drafts", json=email).json()["draft"]["model"] == m["default"]
+    reading = {"text": "Volcanoes are openings in the crust.", "versions": [{"level": "grade_3"}]}
+    tool = client.post("/api/tools/adapt/drafts", json=reading).json()["draft"]
+    assert tool["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    tool = client.post("/api/tools/adapt/drafts", json={**reading, "model": "fake-chat"}).json()["draft"]
+    assert tool["model"] == "fake-chat"
+    # installed but not offered to teachers → not allowed
+    assert sse(client.post("/api/chat", json={"question": "hi", "model": "fake-embed"}))[-1]["model"] == "fake-chat"

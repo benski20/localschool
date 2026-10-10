@@ -3,6 +3,10 @@
 # `min_expect`: how many of `expect` must appear (default 1).
 # `forbid`: names that must NOT appear in the answer (a wrong answer).
 # `other_teachers_students`: must never appear as sources for this teacher (privacy).
+# `model`: ask with this teacher-selectable model (skipped, with a note, unless /api/models
+#   offers it); the answer must come from that model.
+# `attach`: a file (relative to this folder) uploaded as the teacher's private document and
+#   attached to the question; one of its passages must be among the sources.
 teacher: jordan.lee@maplegrove.demo
 other_teachers_students: [Grace Lewis, Daniel Walker, Layla Hassan, Jack Young, Chloe King,
   Samuel Wright, Nora Scott, Leo Green, Hana Sato, David Adams]
@@ -41,3 +45,9 @@ questions:
     expect: ["couldn't find", "could not find", "not in your", "no information", "don't have", "not listed", "not found"]
   - q: What is the school's mascot?
     expect: ["couldn't find", "could not find", "not in your", "no information", "don't have", "not mentioned", "not found"]
+  - q: How many tardies lead to a detention?
+    model: qwen3:4b-instruct-2507-q4_K_M  # "Thorough"
+    expect: ["three", "3"]
+  - q: When are the permission forms for the museum trip due?
+    attach: field-trip-permission.md
+    expect: ["November 7", "Nov 7", "Nov. 7", "11/7"]

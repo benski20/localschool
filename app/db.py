@@ -143,6 +143,56 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX messages_conversation ON messages(conversation_id);
     """,
+    # 2 — teacher-selectable chat models; private documents (chat attachments)
+    """
+    -- Chat models teachers may pick from ("Fast", "Thorough", ...). The teacher-facing
+    -- default lives in settings under 'chat_default'.
+    CREATE TABLE chat_choices (
+        model       TEXT PRIMARY KEY,
+        label       TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        position    INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- 'private' documents are visible (and citable) only to their owner.
+    ALTER TABLE documents ADD COLUMN visibility TEXT NOT NULL DEFAULT 'school'
+        CHECK (visibility IN ('school', 'private'));
+    CREATE INDEX documents_owner ON documents(owner_id);
+
+    -- Private documents attached to a conversation (JSON list of ids); follow-ups reuse them.
+    ALTER TABLE conversations ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';
+    """,
+    # 3 — teacher tools (meeting notes, feedback, adapt a reading, parent email): every
+    # output is a private draft of its teacher. The table is also the job queue.
+    """
+    CREATE TABLE drafts (
+        id              INTEGER PRIMARY KEY,
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        tool            TEXT NOT NULL CHECK (tool IN ('meeting', 'feedback', 'adapt', 'email')),
+        title           TEXT NOT NULL DEFAULT '',
+        input_json      TEXT NOT NULL DEFAULT '{}',
+        output_json     TEXT,               -- NULL until generated; teacher edits replace it
+        status          TEXT NOT NULL DEFAULT 'queued'
+                        CHECK (status IN ('awaiting_audio', 'queued', 'running', 'ready', 'error')),
+        stage           TEXT NOT NULL DEFAULT '',   -- what a running job is doing right now
+        error           TEXT NOT NULL DEFAULT '',
+        progress        REAL NOT NULL DEFAULT 0,    -- 0..1
+        student_id      INTEGER REFERENCES students(id) ON DELETE SET NULL,
+        batch_id        TEXT,                       -- feedback: pieces submitted together
+        model           TEXT NOT NULL DEFAULT '',
+        -- meetings
+        audio_path      TEXT,                       -- file name under DATA_DIR/audio; deleted on approve
+        audio_bytes     INTEGER NOT NULL DEFAULT 0,
+        transcript_json TEXT,                       -- [{start, end, text}]
+        approved_at     TEXT,
+        edited_at       TEXT,
+        created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX drafts_owner ON drafts(user_id, tool, updated_at);
+    CREATE INDEX drafts_queue ON drafts(status, id);
+    CREATE INDEX drafts_batch ON drafts(batch_id);
+    """,
 ]
 
 

@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
 import clsx from "clsx";
-import { CornerDownLeft, Download, KeyRound, LogOut, MessageSquare, Monitor, Moon, PanelLeft, Plus, Search, Sun } from "lucide-react";
+import { Download, KeyRound, LogOut, MessageSquare, Monitor, Moon, Plus, Search, Sun } from "lucide-react";
 import { api, relativeTime } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { isDesktop } from "../lib/shell";
 import type { ConversationSummary } from "../lib/types";
 import { useShell } from "./shell/ShellContext";
-import { navFor, SHORTCUTS } from "./shell/nav";
+import { navFor } from "./shell/nav";
 
 /** ⌘K: jump anywhere, start a question, change preferences. Opened by the shell. */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -51,38 +51,33 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                 autoFocus
                 value={query}
                 onValueChange={setQuery}
-                placeholder="Search pages, conversations and actions…"
+                placeholder="Search questions and pages…"
                 className="h-14 min-w-0 flex-1 bg-transparent text-[16px] text-ink placeholder:text-faint focus:outline-none"
               />
-              <kbd className="kbd hidden sm:inline-flex">esc</kbd>
             </div>
 
             <Command.List className="overflow-y-auto overscroll-contain pb-2">
               <Command.Empty className="flex flex-col items-center gap-1 px-3 py-10 text-center">
                 <span className="text-sm font-medium text-ink">No matches</span>
-                <span className="text-xs text-faint">Try a page name, or part of a past question.</span>
-              </Command.Empty>
+                              </Command.Empty>
 
               <Command.Group heading="Actions">
-                <Item icon={<Plus />} onSelect={() => go("/chat")} keys={[SHORTCUTS.newQuestion]} value="new question ask">
+                <Item icon={<Plus />} onSelect={() => go("/chat")} value="new question ask">
                   New question
-                </Item>
-                <Item icon={<PanelLeft />} onSelect={() => run(shell.toggleCollapsed)} keys={[SHORTCUTS.toggleSidebar]} value="toggle sidebar collapse expand" className="max-md:hidden">
-                  {shell.collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 </Item>
               </Command.Group>
 
               <Command.Group heading="Go to">
-                {nav.map(({ to, label, hint, icon: Icon, key }) => (
-                  <Item key={to} icon={<Icon />} onSelect={() => go(to)} keys={["G", key]} hint={hint} value={`${label} ${hint}`}>
+                {nav.map(({ to, label, icon: Icon }) => (
+                  <Item key={to} icon={<Icon />} onSelect={() => go(to)} value={label}>
                     {label}
                   </Item>
                 ))}
               </Command.Group>
 
               {recent.length > 0 && (
-                <Command.Group heading="Recent conversations">
-                  {recent.slice(0, 8).map((c) => (
+                <Command.Group heading="Recent">
+                  {recent.slice(0, 20).map((c) => (
                     <Item
                       key={c.id}
                       value={`conversation ${c.title} ${c.id}`}
@@ -97,13 +92,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               )}
 
               <Command.Group heading="Preferences">
-                <Item icon={<Monitor />} value="theme system appearance" onSelect={() => run(() => shell.setTheme("system"))} meta={shell.theme === "system" ? "CURRENT" : undefined}>
+                <Item icon={<Monitor />} value="theme system appearance" onSelect={() => run(() => shell.setTheme("system"))} meta={shell.theme === "system" ? "Current" : undefined}>
                   Theme: match system
                 </Item>
-                <Item icon={<Sun />} value="theme light appearance" onSelect={() => run(() => shell.setTheme("light"))} meta={shell.theme === "light" ? "CURRENT" : undefined}>
+                <Item icon={<Sun />} value="theme light appearance" onSelect={() => run(() => shell.setTheme("light"))} meta={shell.theme === "light" ? "Current" : undefined}>
                   Theme: light
                 </Item>
-                <Item icon={<Moon />} value="theme dark appearance" onSelect={() => run(() => shell.setTheme("dark"))} meta={shell.theme === "dark" ? "CURRENT" : undefined}>
+                <Item icon={<Moon />} value="theme dark appearance" onSelect={() => run(() => shell.setTheme("dark"))} meta={shell.theme === "dark" ? "Current" : undefined}>
                   Theme: dark
                 </Item>
               </Command.Group>
@@ -123,21 +118,6 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               </Command.Group>
             </Command.List>
 
-            <div className="flex h-10 items-center justify-between gap-3 border-t border-line px-4 text-xs text-faint">
-              <span className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5">
-                  <kbd className="kbd">↑</kbd>
-                  <kbd className="kbd">↓</kbd> to navigate
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <kbd className="kbd">
-                    <CornerDownLeft className="h-3 w-3" aria-hidden />
-                  </kbd>{" "}
-                  to open
-                </span>
-              </span>
-              <span className="hidden truncate sm:inline">{user?.name}</span>
-            </div>
           </Command>
         </Dialog.Content>
       </Dialog.Portal>
@@ -150,8 +130,6 @@ function Item({
   children,
   onSelect,
   value,
-  keys,
-  hint,
   meta,
   className,
 }: {
@@ -159,8 +137,6 @@ function Item({
   children: ReactNode;
   onSelect: () => void;
   value?: string;
-  keys?: string[];
-  hint?: string;
   meta?: string;
   className?: string;
 }) {
@@ -179,18 +155,8 @@ function Item({
       </span>
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="min-w-0 truncate text-ink">{children}</span>
-        {hint && <span className="hidden truncate text-xs text-faint sm:inline">{hint}</span>}
       </span>
-      {meta && <span className="shrink-0 font-mono text-[11px] tabular-nums text-faint">{meta}</span>}
-      {keys && (
-        <span className="hidden shrink-0 gap-1 sm:flex" aria-hidden>
-          {keys.map((k) => (
-            <kbd key={k} className="kbd">
-              {k}
-            </kbd>
-          ))}
-        </span>
-      )}
+      {meta && <span className="shrink-0 text-[12px] text-faint">{meta}</span>}
     </Command.Item>
   );
 }

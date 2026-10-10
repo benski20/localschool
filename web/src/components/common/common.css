@@ -1,0 +1,37 @@
+/* Motion for the shared upload / picker pieces. Subtle; reduced motion turns it off. */
+
+.ls-drop { transition: opacity 160ms ease-out; }
+.ls-drop-frame { transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes ls-chip-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.ls-chip { animation: ls-chip-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.ls-chip-bar { transition: width 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+.ls-chip-track { transition: opacity 300ms ease-out 250ms; }
+@keyframes ls-chip-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.ls-chip-pulse { animation: ls-chip-pulse 1.2s ease-in-out infinite; }
+
+@keyframes ls-check-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+.ls-check { animation: ls-check-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes ls-pop-scale-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ls-pop-scale-down {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.ls-popover-up { animation: ls-pop-scale-up 160ms cubic-bezier(0.16, 1, 0.3, 1) both; transform-origin: 0 100%; }
+.ls-popover-down { animation: ls-pop-scale-down 160ms cubic-bezier(0.16, 1, 0.3, 1) both; transform-origin: 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-drop, .ls-drop-frame, .ls-chip-bar, .ls-chip-track { transition: none; }
+  .ls-chip, .ls-check, .ls-popover-up, .ls-popover-down, .ls-chip-pulse { animation: none; }
+}

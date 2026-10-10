@@ -171,17 +171,24 @@ def store_document(
     data: bytes,
     owner_id: int | None,
     files_dir: Path,
+    visibility: str = "school",
 ) -> int:
-    """Parse, chunk and store. Raises IngestError for unreadable input."""
+    """Parse, chunk and store. Raises IngestError for unreadable input.
+
+    `visibility='private'`: only the owner can see and cite it (a chat attachment)."""
+    if visibility not in ("school", "private"):
+        raise IngestError("visibility must be 'school' or 'private'.")
+    if visibility == "private" and owner_id is None:
+        raise IngestError("A private document needs an owner.")
     pages = parse_file(filename, data)
     chunks = chunk_pages(pages)
     if not chunks:
         raise IngestError("No text found in this document.")
     cur = db.execute(
-        "INSERT INTO documents(title, filename, mime, size, owner_id, status, pages) "
-        "VALUES (?, ?, ?, ?, ?, 'ready', ?)",
+        "INSERT INTO documents(title, filename, mime, size, owner_id, status, pages, visibility) "
+        "VALUES (?, ?, ?, ?, ?, 'ready', ?, ?)",
         (title.strip() or Path(filename).stem, filename, mime, len(data), owner_id,
-         max((p.number or 0) for p in pages)),
+         max((p.number or 0) for p in pages), visibility),
     )
     doc_id = int(cur.lastrowid)
     db.executemany(

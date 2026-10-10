@@ -10,6 +10,7 @@ from .. import deps
 from ..config import Settings
 from ..llm import Runtime, RuntimeConfig, RuntimeError_
 from ..services import auth, embeddings
+from ..services import models as models_service
 from ..services.embeddings import EmbeddingWorker
 from ..services.models import PullManager, load_presets
 
@@ -125,6 +126,7 @@ async def models(
     try:
         installed = [asdict(m) for m in await provider.list_models()]
         runtime.note_ok()
+        runtime.forget_installed()  # models may have been added on the runtime directly
     except RuntimeError_ as e:
         error = str(e)
         runtime.note_error(error)
@@ -196,7 +198,48 @@ async def delete_model(
         await provider.delete(name)
     except RuntimeError_ as e:
         raise HTTPException(400, str(e)) from e
+    finally:
+        runtime.forget_installed()
     return {"ok": True}
+
+
+# -- chat models teachers can pick ------------------------------------------------------
+
+@router.get("/models")
+async def teacher_models(_: sqlite3.Row = Depends(deps.current_user), runtime: Runtime = Depends(deps.runtime)):
+    """The installed chat models a teacher may pick (friendly names), and the preselected one."""
+    return await models_service.teacher_choices(runtime)
+
+
+@router.get("/admin/models/choices")
+async def get_choices(_: sqlite3.Row = Depends(deps.admin_user), runtime: Runtime = Depends(deps.runtime)):
+    return await models_service.admin_choices(runtime)
+
+
+class ChoiceIn(BaseModel):
+    model: str = Field(min_length=1, max_length=200)
+    label: str = Field(min_length=1, max_length=40)
+    description: str = Field(default="", max_length=200)
+
+
+class ChoicesIn(BaseModel):
+    options: list[ChoiceIn] = Field(max_length=12)
+    default: str | None = None
+
+
+@router.put("/admin/models/choices")
+async def put_choices(
+    body: ChoicesIn,
+    _: sqlite3.Row = Depends(deps.admin_user),
+    runtime: Runtime = Depends(deps.runtime),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
+):
+    try:
+        models_service.set_choices(db, [o.model_dump() for o in body.options], body.default)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    db.commit()
+    return await models_service.admin_choices(runtime)
 
 
 # -- users -------------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 """Grounded chat: retrieve → assemble numbered sources → stream → validate citations.
 
-The model only sees sources the user is allowed to see (documents + their own roster),
+The model only sees sources the user is allowed to see (school documents, their own
+private files, their own roster),
 every claim must cite one, and citations are checked server-side before saving.
 """
 
@@ -17,8 +18,10 @@ from datetime import date
 from ..db import connect
 from ..llm import ChatMessage, Runtime, RuntimeError_
 from . import embeddings, retrieval, roster
+from .models import resolve_chat_model
 
 DOC_K = 6
+ATTACH_K = 4  # passages from the teacher's attached files, always placed first
 MAX_STUDENTS = 80
 HISTORY_TURNS = 6
 WARM_AFTER_S = 6.0
@@ -38,7 +41,7 @@ _CITE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 @dataclass
 class Source:
     n: int
-    kind: str  # "document" | "student"
+    kind: str  # "attachment" (the teacher's own attached file) | "document" | "student"
     title: str
     subtitle: str
     text: str
@@ -48,7 +51,7 @@ class Source:
     student_id: int | None = None
 
     def prompt_block(self) -> str:
-        label = "Document" if self.kind == "document" else "Roster"
+        label = {"document": "Document", "attachment": "Your file"}.get(self.kind, "Roster")
         sub = f" — {self.subtitle}" if self.subtitle else ""
         return f"[{self.n}] {label}: {self.title}{sub}\n{self.text.strip()}\n"
 
@@ -76,12 +79,23 @@ def build_sources(
     *,
     space_id: int | None,
     query_vec: list[float] | None,
+    attachments: list[int] | None = None,
 ) -> list[Source]:
     sources: list[Source] = []
-    for h in retrieval.hybrid_search(db, question, k=DOC_K, space_id=space_id, query_vec=query_vec):
+
+    def add(kind: str, h: retrieval.Hit) -> None:
         sub = " · ".join(x for x in (f"p. {h.page}" if h.page else "", h.heading) if x)
-        sources.append(Source(len(sources) + 1, "document", h.title, sub, h.text,
+        sources.append(Source(len(sources) + 1, kind, h.title, sub, h.text,
                               document_id=h.document_id, chunk_id=h.chunk_id, page=h.page))
+
+    attached = valid_attachments(db, user["id"], attachments or [])
+    for h in attachment_hits(db, user["id"], attached, question):
+        add("attachment", h)
+    seen = {s.chunk_id for s in sources}
+    for h in retrieval.hybrid_search(db, question, user_id=user["id"], k=DOC_K,
+                                     space_id=space_id, query_vec=query_vec):
+        if h.chunk_id not in seen:
+            add("document", h)
 
     students = roster.students_for(db, user)
     names = [s["name"] for s in students]
@@ -104,6 +118,45 @@ def build_sources(
             sources.append(Source(len(sources) + 1, "student", s["name"], sub, roster.student_card(s),
                                   student_id=s["id"]))
     return sources
+
+
+def valid_attachments(db: sqlite3.Connection, user_id: int, doc_ids: list[int]) -> list[int]:
+    """Keep only ids of this user's own private documents (deduplicated, in order)."""
+    ids = list(dict.fromkeys(int(i) for i in doc_ids))
+    if not ids:
+        return []
+    own = {r[0] for r in db.execute(
+        f"SELECT id FROM documents WHERE id IN ({','.join('?' * len(ids))}) "
+        "AND visibility = 'private' AND owner_id = ?",
+        (*ids, user_id),
+    )}
+    return [i for i in ids if i in own]
+
+
+def attachment_hits(
+    db: sqlite3.Connection, user_id: int, doc_ids: list[int], question: str, k: int = ATTACH_K
+) -> list[retrieval.Hit]:
+    """The attached files' best keyword matches; a file with no match contributes its
+    opening passage instead ("summarize this"). Keyword-only on purpose: chunks exist the
+    moment a file is uploaded, long before its vectors do."""
+    if not doc_ids:
+        return []
+    ids = retrieval.keyword_search(db, question, user_id=user_id, doc_ids=doc_ids, limit=k)
+    matched = {r[0] for r in db.execute(
+        f"SELECT DISTINCT document_id FROM chunks WHERE id IN ({','.join('?' * len(ids))})", ids,
+    )} if ids else set()
+    missing = [d for d in doc_ids if d not in matched]
+    if missing:
+        # Opening passages, round-robin across files: all of them if nothing matched,
+        # otherwise one per file that had no match.
+        per_file, limit = (1, len(missing)) if ids else (k, max(k, len(missing)))
+        rows = db.execute(
+            f"SELECT id FROM chunks WHERE document_id IN ({','.join('?' * len(missing))}) "
+            "AND ord < ? ORDER BY ord, document_id LIMIT ?",
+            (*missing, per_file, limit),
+        ).fetchall()
+        ids += [r[0] for r in rows]
+    return retrieval.fetch_hits(db, [(cid, 0.0, ("attachment",)) for cid in ids], user_id=user_id)
 
 
 # Roster filters: questions like "which of my students have an IEP?" are answered from
@@ -147,6 +200,11 @@ def filter_students(question: str, students: list[sqlite3.Row]) -> tuple[str, li
 
 def system_prompt(user: sqlite3.Row, sources: list[Source], today: date) -> str:
     body = "\n".join(s.prompt_block() for s in sources) if sources else "(no sources matched)\n"
+    attached = (
+        "- Sources marked \"Your file\" are files the teacher attached to this question; "
+        "questions about \"this\" or \"the file\" refer to them.\n"
+        if any(s.kind == "attachment" for s in sources) else ""
+    )
     return (
         f"You are the Local School assistant, helping {user['name']} ({user['role']}). "
         f"Today is {today:%A, %B} {today.day}, {today.year} ({today.isoformat()}).\n\n"
@@ -159,7 +217,8 @@ def system_prompt(user: sqlite3.Row, sources: list[Source], today: date) -> str:
         "dates, or policies.\n"
         "- Lead with the direct answer, then short bullets if helpful. Be concise.\n"
         "- Use student names exactly as written. Compare dates against today's date.\n"
-        "- Brief greetings or thanks may be answered without sources.\n\n"
+        "- Brief greetings or thanks may be answered without sources.\n"
+        f"{attached}\n"
         f"Sources:\n{body}"
     )
 
@@ -200,6 +259,19 @@ def _conversation(db: sqlite3.Connection, user_id: int, conversation_id: int | N
     ).lastrowid)
 
 
+def conversation_attachments(
+    db: sqlite3.Connection, user_id: int, conversation_id: int, new: list[int] | None = None
+) -> list[int]:
+    """Attachments stay with the conversation: follow-ups keep using earlier files. New ids
+    are added; files since deleted (or not the user's own private ones) drop out."""
+    row = db.execute("SELECT attachments_json FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+    saved = json.loads(row["attachments_json"] or "[]") if row else []
+    ids = valid_attachments(db, user_id, [*saved, *(new or [])])
+    if ids != saved:
+        db.execute("UPDATE conversations SET attachments_json = ? WHERE id = ?", (json.dumps(ids), conversation_id))
+    return ids
+
+
 def _history(db: sqlite3.Connection, conversation_id: int) -> list[ChatMessage]:
     rows = db.execute(
         "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?",
@@ -216,25 +288,31 @@ async def answer(
     question: str,
     conversation_id: int | None = None,
     *,
+    model: str | None = None,
+    attachments: list[int] | None = None,
     today: date | None = None,
 ) -> AsyncIterator[dict]:
+    """`model`: a teacher-picked chat model (used only if allowed and installed, else the
+    active one). `attachments`: the user's own private document ids, saved with the
+    conversation so follow-ups keep citing them."""
     question = question.strip()
     if not question:
         yield {"type": "error", "message": "Ask a question to get started."}
         return
     today = today or date.today()
-    chat_model = runtime.active_model("chat")
+    chat_model = await resolve_chat_model(runtime, model)
     embed_model = runtime.active_model("embed")
 
     with connect(runtime.db_path) as db:
         conv_id = _conversation(db, user["id"], conversation_id, question)
+        attached = conversation_attachments(db, user["id"], conv_id, attachments)
         history = _history(db, conv_id)
         db.execute(
             "INSERT INTO messages(conversation_id, role, content) VALUES (?, 'user', ?)", (conv_id, question)
         )
         db.execute("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?", (conv_id,))
         space = embeddings.get_space(db, embed_model)
-    yield {"type": "conversation", "id": conv_id}
+    yield {"type": "conversation", "id": conv_id, "attachments": attached}
 
     # Query vector (best effort — keyword search alone still works)
     query_vec = None
@@ -247,7 +325,7 @@ async def answer(
 
     with connect(runtime.db_path) as db:
         sources = build_sources(db, user, question, space_id=space["id"] if space else None,
-                                query_vec=query_vec)
+                                query_vec=query_vec, attachments=attached)
     yield {"type": "sources", "sources": [asdict(s) for s in sources]}
 
     messages = [ChatMessage("system", system_prompt(user, sources, today)), *history,
@@ -291,7 +369,10 @@ async def answer(
         runtime.generation_slots.release()
     runtime.note_ok()
 
-    content, cited = validate_citations("".join(parts), sources)
+    text = "".join(parts)
+    if "</think>" in text:  # an always-reasoning model that ignored think:false
+        text = text.rsplit("</think>", 1)[1].lstrip()
+    content, cited = validate_citations(text, sources)
     if not content:
         content = NOT_FOUND
     with connect(runtime.db_path) as db:

@@ -2,15 +2,18 @@
 # Any Ollama model tag works; these are the ones we've sized for pilot GPUs.
 presets:
   chat:
-    - name: qwen3:8b
+    - name: qwen3:1.7b
       label: Fast
-      note: Good default. Runs well on a 16–24 GB GPU (T4, L4, A10G).
+      note: Quick answers in a few seconds, even without a GPU. The hosted pilot's default.
+    - name: qwen3:4b-instruct-2507-q4_K_M
+      label: Thorough
+      note: Better on tricky questions; about 10–15 s per answer on CPU, quick on any GPU.
+    - name: qwen3:8b
+      label: GPU default
+      note: Good default with a GPU. Runs well on a 16–24 GB GPU (T4, L4, A10G).
     - name: gpt-oss:20b
       label: Quality
       note: Best answers. Needs ~16 GB of GPU memory; use an L4/A10G or larger.
-    - name: qwen3:4b
-      label: Lightweight
-      note: For small GPUs or quick demos. Noticeably weaker reasoning.
   embed:
     - name: nomic-embed-text
       label: Default
@@ -18,3 +21,14 @@ presets:
     - name: mxbai-embed-large
       label: Higher recall
       note: Larger embedding model; slower indexing.
+
+# Chat models teachers can pick from on the Ask page. Loaded once, on first start (when
+# the list is empty); after that admins edit it in Settings → AI. Only models installed
+# on the runtime are offered.
+choices:
+  - model: qwen3:1.7b
+    label: Fast
+    description: Quick answers in a few seconds.
+  - model: qwen3:4b-instruct-2507-q4_K_M
+    label: Thorough
+    description: Takes a little longer; better for tricky questions.

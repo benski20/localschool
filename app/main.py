@@ -19,24 +19,27 @@ from .db import connect, init_db
 from .discovery import Advertiser
 from .llm import Runtime
 from .llm.registry import ProviderFactory, default_factory
-from .routes import admin, auth, chat, install, library, roster
+from .routes import admin, auth, chat, install, library, roster, tools
 from .services.auth import create_user
 from .services.embeddings import EmbeddingWorker
-from .services.models import PullManager
+from .services.models import PullManager, seed_choices
+from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.1.0"
+VERSION = "0.3.0"
 DEMO_TEACHER = ("jordan.lee@maplegrove.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
 def bootstrap(settings: Settings) -> None:
     init_db(settings.db_path, settings.sqlite_journal)
     settings.files_dir.mkdir(parents=True, exist_ok=True)
+    settings.audio_dir.mkdir(parents=True, exist_ok=True)
     with connect(settings.db_path) as db:
         if not db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             create_user(db, email=settings.admin_email, name="Administrator", role="admin",
                         password=settings.admin_password)
             log.warning("Created first admin %s — change its password.", settings.admin_email)
+        seed_choices(db)
 
 
 def create_app(settings: Settings | None = None, *, factory: ProviderFactory = default_factory) -> FastAPI:
@@ -49,7 +52,9 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         app.state.runtime = Runtime(settings, factory=factory)
         app.state.worker = EmbeddingWorker(app.state.runtime)
         app.state.pulls = PullManager(app.state.runtime)
+        app.state.tools = ToolWorker(app.state.runtime, settings)
         app.state.worker.start()
+        app.state.tools.start()
         advertiser = None
         if settings.advertise_mdns:
             advertiser = Advertiser(settings.school_name, settings.public_port, VERSION)
@@ -58,12 +63,14 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         if advertiser:
             await advertiser.stop()
         await app.state.pulls.stop()
+        await app.state.tools.stop()
         await app.state.worker.stop()
         await app.state.runtime.aclose()
 
     app = FastAPI(title="Local School", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
-    for r in (auth.router, chat.router, library.router, roster.router, admin.router, install.router):
+    for r in (auth.router, chat.router, library.router, roster.router, admin.router, install.router,
+              tools.router):
         app.include_router(r)
 
     @app.get("/api/health")

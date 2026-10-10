@@ -25,6 +25,9 @@ on:
         description: "Load the fictional demo school and show 'Try the demo' on the login page"
         type: boolean
         default: true
+      whisper_model:
+        description: "Speech-to-text model for meeting notes (CPU, int8): base.en, small.en, …"
+        default: base.en
 
 jobs:
   deploy:
@@ -37,6 +40,10 @@ jobs:
       LS_GPU: ${{ inputs.gpu || 'none' }}
       CHAT: ${{ inputs.chat_model || 'qwen3:1.7b' }}
       EMBED: nomic-embed-text
+      THOROUGH: qwen3:4b-instruct-2507-q4_K_M
+      WHISPER_MODEL: ${{ inputs.whisper_model || 'base.en' }}
+      # The meeting-notes check's recording, and the facts its notes must contain.
+      MEETING_TEXT: "This is an IEP meeting for Ava Thompson. We agreed to add a daily check-in with Ms. Rivera starting Monday."
     steps:
       - name: Check secrets
         id: secrets
@@ -59,6 +66,13 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         with:
           python-version: "3.12"
+
+      - name: Make a test recording (espeak-ng)
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
+          espeak-ng -s 150 -w "$RUNNER_TEMP/meeting.wav" "$MEETING_TEXT"
+          ls -l "$RUNNER_TEMP/meeting.wav"
 
       - name: Deploy
         if: steps.secrets.outputs.ready == 'true'
@@ -84,6 +98,10 @@ jobs:
         run: |
           modal run deploy/modal/ollama_app.py::pull --model "$CHAT"
           modal run deploy/modal/ollama_app.py::pull --model "$EMBED"
+          # Teachers' "Thorough" choice (config/models.yaml); the live eval asks it one question.
+          if [ "$CHAT" != "$THOROUGH" ]; then modal run deploy/modal/ollama_app.py::pull --model "$THOROUGH"; fi
+          # Speech-to-text weights for meeting notes (WHISPER_MODEL, cached on the same volume).
+          modal run deploy/modal/ollama_app.py::pull_whisper --model "$WHISPER_MODEL"
 
       - name: Wake the runtime and check auth
         if: steps.secrets.outputs.ready == 'true'
@@ -93,6 +111,11 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' --max-time 300 "$URL/api/version")" = 401
           curl -sf --max-time 300 -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/version"
           curl -sf -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/tags" | python -c "import json,sys;print([m['name'] for m in json.load(sys.stdin)['models']])"
+          # Speech-to-text behind the same token: OpenAI verbose_json with timed segments.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -F file=@"$RUNNER_TEMP/meeting.wav" "$URL/v1/audio/transcriptions")" = 401
+          curl -sf --max-time 600 -H "Authorization: Bearer $LS_RUNTIME_TOKEN" \
+            -F file=@"$RUNNER_TEMP/meeting.wav" -F model=whisper -F response_format=verbose_json \
+            "$URL/v1/audio/transcriptions" | python -c "import json,sys;d=json.load(sys.stdin);assert not d.get('error'),d;assert d['segments'],d;print([(s['start'],s['end'],s['text']) for s in d['segments']])"
 
       - uses: actions/setup-node@v4
         if: steps.secrets.outputs.ready == 'true'
@@ -122,14 +145,31 @@ jobs:
           curl -sf "$APP/api/health"
           curl -sf "$APP/" | grep -q '<div id="root">'
 
-      - name: Live eval through the hosted app
+      - name: Live eval through the hosted app (chat + teacher tools)
         if: steps.secrets.outputs.ready == 'true' && inputs.demo != false
         env:
           APP: ${{ steps.app.outputs.url }}
           ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
         run: |
           pip install -q httpx pyyaml
-          python -m scripts.live_eval --base "$APP" --admin "admin@school.local:$ADMIN_PW" --min-score 0.75 --cleanup
+          # Teachers choose between the two models this run pulled.
+          python - <<'PY'
+          import os, httpx
+          c = httpx.Client(base_url=os.environ["APP"], timeout=60)
+          c.post("/api/auth/login", json={"email": "admin@school.local", "password": os.environ["ADMIN_PW"]}).raise_for_status()
+          c.put("/api/admin/models/choices", json={"default": os.environ["CHAT"], "options": [
+              {"model": os.environ["CHAT"], "label": "Fast", "description": "Quick answers in a few seconds."},
+              {"model": os.environ["THOROUGH"], "label": "Thorough", "description": "Takes a little longer; better for tricky questions."},
+          ]}).raise_for_status()
+          PY
+          # --tools: parent email, adapt, feedback, and meeting notes from the espeak-ng
+          # recording (uploaded to the app → transcribed by the runtime → notes by the model).
+          python -m scripts.live_eval --base "$APP" --admin "admin@school.local:$ADMIN_PW" --min-score 0.75 \
+            --tools --audio "$RUNNER_TEMP/meeting.wav" --audio-expect "check-in|check in,monday,rivera" --cleanup
+
+      - name: Hosted app logs (on failure)
+        if: failure() && steps.secrets.outputs.ready == 'true'
+        run: timeout 30 modal app logs localschool-app 2>&1 | tail -150 || true
 
       - name: Connection details
         if: steps.secrets.outputs.ready == 'true'
@@ -144,5 +184,5 @@ jobs:
             echo ""
             echo "- Sign in as admin: \`admin@school.local\` with your \`LS_ADMIN_PASSWORD\` secret (or \`LS_RUNTIME_TOKEN\` if you didn't set one). Change it under the key icon."
             echo "- Testers can press **Try the demo** on the login page (fictional school), or you add them in Admin → People."
-            echo "- Model runtime: \`$URL\` · compute: $LS_GPU · models: \`$CHAT\`, \`$EMBED\` · both apps sleep when idle."
+            echo "- Model runtime: \`$URL\` · compute: $LS_GPU · models: \`$CHAT\`, \`$EMBED\`, speech-to-text \`$WHISPER_MODEL\` · both apps sleep when idle."
           } >> "$GITHUB_STEP_SUMMARY"
