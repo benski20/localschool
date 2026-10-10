@@ -21,6 +21,7 @@ services:
     restart: unless-stopped
     environment:
       OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_CONTEXT_LENGTH: "8192"  # teacher tools send prompts up to ~7k tokens
       OLLAMA_NUM_PARALLEL: "4"
       OLLAMA_MAX_LOADED_MODELS: "2"
     volumes: ["ollama-models:/root/.ollama"]

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mimetypes
 import time
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import httpx
 
@@ -17,9 +19,17 @@ from .base import (
     RuntimeError_,
     RuntimeHealth,
     RuntimeUnavailable,
+    TRANSCRIBE_MODEL,
+    TRANSCRIBE_UNSUPPORTED,
+    TranscriptSegment,
 )
 
 _RETRYABLE = (httpx.ConnectError, httpx.ConnectTimeout, httpx.RemoteProtocolError)
+# A long meeting on a CPU runtime takes minutes to transcribe. Our runtime's sidecar
+# sends keep-alive whitespace while it works; other servers may stay silent until done.
+TRANSCRIBE_READ_TIMEOUT_S = 3600.0
+_AUDIO_MIME = {".webm": "audio/webm", ".ogg": "audio/ogg", ".m4a": "audio/mp4", ".mp3": "audio/mpeg",
+               ".wav": "audio/wav"}
 
 
 class ThinkFilter:
@@ -77,6 +87,8 @@ class OpenAICompatProvider:
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.timeout_s = timeout_s
+        self._no_response_format: set[str] = set()  # models whose server rejects json_schema
         hdrs = {"User-Agent": "localschool/0.1"}
         if token:
             hdrs["Authorization"] = f"Bearer {token}"
@@ -115,19 +127,36 @@ class OpenAICompatProvider:
     # -- ModelProvider ---------------------------------------------------------------
 
     async def chat(
-        self, model: str, messages: list[ChatMessage], *, temperature: float = 0.2
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.2,
+        json_schema: dict | None = None,
     ) -> AsyncIterator[str]:
-        body = {
+        body: dict = {
             "model": model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "stream": True,
             "temperature": temperature,
         }
+        if json_schema and model not in self._no_response_format:
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "reply", "schema": json_schema, "strict": False},
+            }
         think = ThinkFilter()
         try:
             async with self._client.stream("POST", "/v1/chat/completions", json=body) as resp:
                 if resp.status_code >= 400:
                     await resp.aread()
+                    if resp.status_code == 400 and "response_format" in body:
+                        # A server without structured outputs: the prompt alone asks for JSON.
+                        self._no_response_format.add(model)
+                        async for piece in self.chat(model, messages, temperature=temperature,
+                                                     json_schema=json_schema):
+                            yield piece
+                        return
                     _raise_for_status(resp)
                 async for line in resp.aiter_lines():
                     if not line.startswith("data:"):
@@ -161,6 +190,44 @@ class OpenAICompatProvider:
         data = sorted(resp.json()["data"], key=lambda d: d["index"])
         return [d["embedding"] for d in data]
 
+    async def transcribe(
+        self, audio_path: Path, *, language: str | None = None, prompt: str = ""
+    ) -> list[TranscriptSegment]:
+        """OpenAI-compatible speech-to-text: multipart POST /v1/audio/transcriptions."""
+        path = Path(audio_path)
+        form = {"model": TRANSCRIBE_MODEL, "response_format": "verbose_json"}
+        if language:
+            form["language"] = language
+        if prompt:
+            form["prompt"] = prompt
+        mime = (_AUDIO_MIME.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
+                or "application/octet-stream")
+        timeout = httpx.Timeout(connect=15.0, read=max(self.timeout_s, TRANSCRIBE_READ_TIMEOUT_S),
+                                write=None, pool=None)
+        delay = 1.0
+        for attempt in range(3):
+            try:
+                with path.open("rb") as fh:  # reopened per attempt: a retry resends from the start
+                    resp = await self._client.post("/v1/audio/transcriptions", data=form,
+                                                   files={"file": (path.name, fh, mime)}, timeout=timeout)
+            except _RETRYABLE as e:
+                if attempt == 2:
+                    raise RuntimeUnavailable(f"Cannot reach model runtime at {self.base_url}: {e}") from e
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+            except httpx.TimeoutException as e:
+                raise RuntimeUnavailable("The runtime timed out while transcribing.") from e
+            if resp.status_code in (404, 405, 501):
+                raise RuntimeError_(TRANSCRIBE_UNSUPPORTED)
+            if resp.status_code in (502, 503, 504) and attempt < 2:
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+            _raise_for_status(resp)
+            return parse_transcription(resp.text)
+        raise RuntimeUnavailable("unreachable")  # pragma: no cover
+
     async def list_models(self) -> list[ModelInfo]:
         resp = await self._request("GET", "/v1/models")
         return [ModelInfo(name=m["id"]) for m in resp.json().get("data", [])]
@@ -186,6 +253,33 @@ class OpenAICompatProvider:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+def parse_transcription(body: str) -> list[TranscriptSegment]:
+    """Read an OpenAI `verbose_json` transcription. Leading whitespace is fine (our
+    sidecar's keep-alive bytes), and so is an `{"error": …}` body: the sidecar sends that
+    with a 200 when the failure came after the response had started."""
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as e:
+        raise RuntimeError_(f"The runtime's transcription wasn't readable: {body.strip()[:200]}") from e
+    if not isinstance(data, dict):
+        raise RuntimeError_("The runtime's transcription wasn't readable.")
+    if data.get("error"):
+        err = data["error"]
+        msg = err.get("message") if isinstance(err, dict) else str(err)
+        raise RuntimeError_(f"Transcription failed: {msg}")
+    out: list[TranscriptSegment] = []
+    for seg in data.get("segments") or []:
+        text = " ".join(str(seg.get("text") or "").split())
+        if text:
+            start = float(seg.get("start") or 0.0)
+            end = max(float(seg.get("end") or start), start)
+            out.append(TranscriptSegment(round(start, 2), round(end, 2), text))
+    if not out and str(data.get("text") or "").strip():
+        out.append(TranscriptSegment(0.0, round(float(data.get("duration") or 0.0), 2),
+                                     " ".join(str(data["text"]).split())))
+    return out
 
 
 def _raise_for_status(resp: httpx.Response) -> None:

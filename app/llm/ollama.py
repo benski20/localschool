@@ -34,7 +34,12 @@ class OllamaProvider(OpenAICompatProvider):
         self._no_think_param: set[str] = set()
 
     async def chat(
-        self, model: str, messages: list[ChatMessage], *, temperature: float = 0.2
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.2,
+        json_schema: dict | None = None,
     ) -> AsyncIterator[str]:
         """Native /api/chat: lets us switch reasoning off (`think: false`) so answers
         start immediately — on a CPU or a shared GPU that's the difference between
@@ -48,6 +53,8 @@ class OllamaProvider(OpenAICompatProvider):
         }
         if model not in self._no_think_param:
             body["think"] = False
+        if json_schema:
+            body["format"] = json_schema  # structured outputs: decoding follows the schema
         think = ThinkFilter()
         try:
             async with self._client.stream("POST", "/api/chat", json=body) as resp:
@@ -55,7 +62,8 @@ class OllamaProvider(OpenAICompatProvider):
                     await resp.aread()
                     if "think" in resp.text.lower() and "think" in body:
                         self._no_think_param.add(model)
-                        async for piece in self.chat(model, messages, temperature=temperature):
+                        async for piece in self.chat(model, messages, temperature=temperature,
+                                                     json_schema=json_schema):
                             yield piece
                         return
                     _raise_for_status(resp)

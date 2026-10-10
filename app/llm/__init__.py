@@ -7,6 +7,8 @@ from .base import (
     RuntimeError_,
     RuntimeHealth,
     RuntimeUnavailable,
+    TRANSCRIBE_UNSUPPORTED,
+    TranscriptSegment,
 )
 from .registry import Runtime, RuntimeConfig, is_local_url
 
@@ -21,5 +23,7 @@ __all__ = [
     "RuntimeError_",
     "RuntimeHealth",
     "RuntimeUnavailable",
+    "TRANSCRIBE_UNSUPPORTED",
+    "TranscriptSegment",
     "is_local_url",
 ]

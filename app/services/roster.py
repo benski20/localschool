@@ -163,17 +163,28 @@ def link_sections(db: sqlite3.Connection, email: str, user_id: int) -> int:
     ).rowcount
 
 
+_STUDENTS_SQL = (
+    "SELECT st.*, se.name AS section_name, se.period AS period, u.name AS teacher_name "
+    "FROM students st JOIN sections se ON se.id = st.section_id "
+    "LEFT JOIN users u ON u.id = se.teacher_id "
+)
+
+
 def students_for(db: sqlite3.Connection, user: sqlite3.Row) -> list[sqlite3.Row]:
-    sql = (
-        "SELECT st.*, se.name AS section_name, se.period AS period, u.name AS teacher_name "
-        "FROM students st JOIN sections se ON se.id = st.section_id "
-        "LEFT JOIN users u ON u.id = se.teacher_id "
-    )
     if user["role"] == "admin":
-        return db.execute(sql + "ORDER BY se.period, se.name, st.name").fetchall()
+        return db.execute(_STUDENTS_SQL + "ORDER BY se.period, se.name, st.name").fetchall()
     return db.execute(
-        sql + "WHERE se.teacher_id = ? ORDER BY se.period, se.name, st.name", (user["id"],)
+        _STUDENTS_SQL + "WHERE se.teacher_id = ? ORDER BY se.period, se.name, st.name", (user["id"],)
     ).fetchall()
+
+
+def student_for(db: sqlite3.Connection, user: sqlite3.Row, student_id: int) -> sqlite3.Row | None:
+    """One student, only if `user` may see them (same rule as `students_for`)."""
+    if user["role"] == "admin":
+        return db.execute(_STUDENTS_SQL + "WHERE st.id = ?", (student_id,)).fetchone()
+    return db.execute(
+        _STUDENTS_SQL + "WHERE st.id = ? AND se.teacher_id = ?", (student_id, user["id"])
+    ).fetchone()
 
 
 def sections_for(db: sqlite3.Connection, user: sqlite3.Row) -> list[sqlite3.Row]:

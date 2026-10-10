@@ -125,7 +125,8 @@ In a browser, the web app is also an installable **PWA**: Chrome or Edge shows *
 ```
 app/
   llm/            The one interface to a model runtime
-    base.py         ModelProvider protocol: chat(stream) · embed · list/pull/delete models · health
+    base.py         ModelProvider protocol: chat(stream, optional JSON schema) · embed · transcribe ·
+                    list/pull/delete models · health
     ollama.py       Ollama (Modal, Kaggle, box): OpenAI-compatible /v1 + native model management
     openai_compat.py  vLLM / llama.cpp; strips <think> reasoning from streams; retries + clear errors
     fake.py         Deterministic offline provider (tests, demos)
@@ -138,11 +139,15 @@ app/
     roster.py       CSV import + SQL-enforced scoping (teachers see only their sections)
     chat.py         retrieve → numbered sources → stream → server-side citation validation → persist
     models.py       background model pulls with progress
+    tools/          teacher tools (meeting notes, feedback, adapt a reading, parent email): prompts,
+                    strict-JSON jobs with one repair retry, verbatim-quote checks, private drafts;
+                    the drafts table is the job queue (API reference atop routes/tools.py)
     auth.py         local accounts (scrypt) + cookie sessions
   routes/         thin HTTP layer (FastAPI); SSE for chat
 web/              Vite + React + TypeScript + Tailwind (design tokens in src/styles/tokens.css)
 desktop/          Mac app (Tauri): connect screen, Bonjour discovery, menus, ⌥Space, downloads
-deploy/           modal/ · kaggle/ · box/   (runtime-as-code for every target)
+deploy/           modal/ · kaggle/ · box/   (runtime-as-code for every target); token_proxy.py guards
+                  the runtime, whisper_server.py is its speech-to-text (/v1/audio/transcriptions)
 ```
 
 Key decisions:
@@ -152,6 +157,7 @@ Key decisions:
 - **Grounding is enforced, not requested.** The model only sees sources the user may see. Citations that don't map to a real source are removed before saving. With no sources, the answer is "I couldn't find that…".
 - **Access is enforced in SQL, not in the prompt.** Roster scoping happens in `roster.students_for`, the same rule as the SIS.
 - **Costs stay predictable.** Status comes from last-known state (no polling of the GPU), a semaphore caps concurrent generations, and Modal scales to zero.
+- **Tools are drafts, with receipts.** Every tool output is a private draft the teacher edits; nothing is sent or graded. Feedback quotes are checked word for word against the student's work, and meeting notes cite transcript lines. Recordings are deleted when the teacher approves the notes.
 - **Zero ops.** One SQLite file holds everything (FTS5 + sqlite-vec). Backup is a file copy.
 
 ## Development
