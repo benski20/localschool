@@ -1,0 +1,121 @@
+/*
+ * Workspace (Library / Roster / Admin): flat, square, hairline. Matches the reference
+ * (radius 0–2px, no drop shadows, near-black primary, blue only for links and step numbers).
+ *
+ * The .ws-root block re-states the shared contract classes in that language so these pages
+ * render correctly even before the Foundation restyle lands; it only touches radius,
+ * shadow and the primary fill, and is safe to delete once Foundation matches.
+ */
+
+.ws-root .card {
+  border-radius: 2px;
+  box-shadow: none;
+  border: 1px solid rgb(var(--border));
+}
+.ws-root :is(.btn-primary, .btn-secondary, .btn-ghost, .input, .kbd) {
+  border-radius: 2px;
+}
+.ws-root .btn-primary {
+  background-color: rgb(var(--text));
+  color: rgb(var(--bg));
+}
+.ws-root .btn-primary:hover {
+  background-color: rgb(var(--text) / 0.86);
+}
+.ws-root .input:focus {
+  border-color: rgb(var(--text) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--text) / 0.06);
+}
+/* Same treatment for overlays rendered in a portal. */
+.ws-layer :is(.btn-primary, .btn-secondary, .btn-ghost, .input, .kbd) {
+  border-radius: 2px;
+}
+.ws-layer .btn-primary {
+  background-color: rgb(var(--text));
+  color: rgb(var(--bg));
+}
+.ws-layer .btn-primary:hover {
+  background-color: rgb(var(--text) / 0.86);
+}
+
+@keyframes ws-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ws-rise {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ws-sheet-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ws-sheet-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ws-pop {
+  from { opacity: 0; transform: translate(-50%, 2px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.ws-rise {
+  animation: ws-rise 200ms ease-out both;
+}
+/* Staggered list entrance: set --i on each row. */
+.ws-stagger > * {
+  animation: ws-fade 200ms ease-out both;
+  animation-delay: calc(min(var(--i, 0), 12) * 14ms);
+}
+.ws-overlay {
+  animation: ws-fade 140ms ease-out both;
+}
+.ws-sheet {
+  animation: ws-sheet-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (max-width: 639px) {
+  .ws-sheet {
+    animation-name: ws-sheet-up;
+  }
+}
+.ws-dialog {
+  animation: ws-pop 160ms ease-out both;
+}
+.ws-pulse {
+  animation: ws-pulse 1.6s ease-in-out infinite;
+}
+
+/* Section label: tiny uppercase tracked gray text. */
+.ws-label {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--faint));
+}
+
+/* Status as uppercase colored text, no fill. */
+.ws-status {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-rise,
+  .ws-stagger > *,
+  .ws-overlay,
+  .ws-sheet,
+  .ws-dialog,
+  .ws-pulse {
+    animation: none !important;
+  }
+}
