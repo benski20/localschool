@@ -36,6 +36,13 @@ def login(base: str, email: str, password: str) -> httpx.Client:
     c = httpx.Client(base_url=base, timeout=httpx.Timeout(900, connect=15))
     r = c.post("/api/auth/login", json={"email": email, "password": password})
     r.raise_for_status()
+    # Send the session cookie explicitly: some Python cookie-jar policies refuse to
+    # store cookies for bare-IP hosts like 127.0.0.1.
+    token = r.cookies.get("ls_session")
+    if not token:
+        raise SystemExit(f"login for {email} returned no session cookie: {r.headers.get('set-cookie')!r}")
+    c.cookies.clear()
+    c.headers["Cookie"] = f"ls_session={token}"
     return c
 
 
