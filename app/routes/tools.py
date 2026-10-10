@@ -19,8 +19,8 @@ POST /api/tools/{tool}/drafts           JSON, or multipart/form-data with the sa
     Creates the draft(s) and queues the job; poll GET /api/drafts/{id} until status is
     "ready" or "error". `drafts` has more than one entry only for a feedback batch.
     400 bad input · 404 student/rubric not visible · 422 invalid fields.
-    All tools accept "model": a teacher-pickable chat model (GET /api/models); else the most
-    thorough one teachers may pick (the last option), since drafts favor quality over speed.
+    All tools accept "model": a teacher-pickable chat model (GET /api/models). Otherwise adapt uses
+    the most thorough option (small models don't reliably simplify text) and the rest the default.
 
   meeting  {"meeting_type": "iep"|"parent_conference"|"sst"|"plc"|"other", "student_id"?: int,
             "title"?: str, "consent"?: bool, "language"?: "en" (spoken-language hint),
@@ -261,7 +261,7 @@ async def create_draft(
             req = module.Request.model_validate(payload)
         except ValidationError as e:
             raise HTTPException(422, describe_error(e)) from e
-        model = await resolve_tool_model(runtime, req.model)
+        model = await resolve_tool_model(runtime, req.model, thorough=getattr(module, "THOROUGH", False))
         with connect(settings.db_path) as db:
             try:
                 prepared = module.prepare(db, user, req)

@@ -14,6 +14,9 @@ from .common import (JobContext, Prepared, clip, generate_json, grade_estimate, 
 
 TOOL = "adapt"
 MAX_CHARS = 12_000  # ~2,000 words: the reading and its rewrite both fit an 8k context
+# Small models don't reliably hit a reading level; draft with the most thorough choice.
+THOROUGH = True
+
 LEVELS = {f"grade_{n}": f"Grade {n}" for n in range(2, 13)} | {
     "simpler": "Simpler", "same_chunked": "Same level, chunked"}
 ENGLISH = ("", "english", "en")

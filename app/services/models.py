@@ -155,13 +155,16 @@ async def resolve_chat_model(runtime: Runtime, requested: str | None) -> str:
     return requested if requested in allowed else active
 
 
-async def resolve_tool_model(runtime: Runtime, requested: str | None) -> str:
-    """Teacher tools run in the background and produce drafts, so quality beats speed: with
-    no explicit choice they use the last (most thorough) model teachers may pick."""
+async def resolve_tool_model(runtime: Runtime, requested: str | None, *, thorough: bool = False) -> str:
+    """The model a teacher tool drafts with: an explicit choice if allowed; else, for tools
+    that need the stronger model (`thorough`, e.g. adapting to a reading level), the last
+    (most thorough) option teachers may pick; else the teachers' default."""
     if (requested or "").strip():
         return await resolve_chat_model(runtime, requested)
-    options = (await teacher_choices(runtime))["options"]
-    return options[-1]["model"] if options else runtime.active_model("chat")
+    choices = await teacher_choices(runtime)
+    if thorough and choices["options"]:
+        return choices["options"][-1]["model"]
+    return choices["default"] or runtime.active_model("chat")
 
 
 @dataclass
