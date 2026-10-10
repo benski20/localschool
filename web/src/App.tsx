@@ -18,6 +18,7 @@ import { Roster } from "./pages/Roster";
 import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
 import { GetApp } from "./pages/GetApp";
+import { toolRoutes } from "./pages/tools";
 import "./components/shell/shell.css";
 
 export function App() {
@@ -60,6 +61,9 @@ function Gate() {
           <Route path="/chat/:id" element={<Chat />} />
           <Route path="/library" element={<Library />} />
           <Route path="/roster" element={<Roster />} />
+          {toolRoutes.map((r) => (
+            <Route key={r.path} path={r.path} element={r.element} />
+          ))}
           <Route path="/admin" element={user.role === "admin" ? <Admin /> : <Navigate to="/chat" replace />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>

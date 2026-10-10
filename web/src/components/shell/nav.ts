@@ -1,4 +1,4 @@
-import { FileText, MessageSquare, Settings, Users, type LucideIcon } from "lucide-react";
+import { FileText, LayoutGrid, MessageSquare, Settings, Users, type LucideIcon } from "lucide-react";
 import type { Role } from "../../lib/types";
 
 export interface NavItem {
@@ -9,6 +9,7 @@ export interface NavItem {
 
 const ALL: (NavItem & { admin?: boolean })[] = [
   { to: "/chat", label: "Ask", icon: MessageSquare },
+  { to: "/tools", label: "Tools", icon: LayoutGrid },
   { to: "/library", label: "Documents", icon: FileText },
   { to: "/roster", label: "Students", icon: Users },
   { to: "/admin", label: "Settings", icon: Settings, admin: true },
