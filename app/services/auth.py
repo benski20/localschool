@@ -76,3 +76,12 @@ def session_user(db: sqlite3.Connection, token: str | None) -> sqlite3.Row | Non
 def end_session(db: sqlite3.Connection, token: str | None) -> None:
     if token:
         db.execute("DELETE FROM sessions WHERE token = ?", (token,))
+
+
+def change_password(db: sqlite3.Connection, user_id: int, current: str, new: str) -> None:
+    row = db.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not row or not verify_password(current, row["password_hash"]):
+        raise ValueError("Your current password is incorrect.")
+    if len(new) < 8:
+        raise ValueError("Use at least 8 characters.")
+    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(new), user_id))

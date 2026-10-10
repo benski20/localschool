@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import clsx from "clsx";
-import { BookOpen, LogOut, MessageSquare, Monitor, Moon, Plus, Settings2, Sun, Users } from "lucide-react";
+import { BookOpen, KeyRound, LogOut, MessageSquare, Monitor, Moon, Plus, Settings2, Sun, Users } from "lucide-react";
+import { PasswordDialog } from "./PasswordDialog";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useStatus } from "../lib/status";
@@ -19,6 +20,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
+  const [pwOpen, setPwOpen] = useState(false);
 
   useEffect(() => {
     const load = () =>
@@ -123,11 +125,15 @@ export function Sidebar() {
           >
             <ThemeIcon className="h-4 w-4" />
           </button>
+          <button className="btn-ghost h-7 w-7 px-0" onClick={() => setPwOpen(true)} aria-label="Change password" title="Change password">
+            <KeyRound className="h-4 w-4" />
+          </button>
           <button className="btn-ghost h-7 w-7 px-0" onClick={logout} aria-label="Sign out" title="Sign out">
             <LogOut className="h-4 w-4" />
           </button>
         </div>
       </div>
+      <PasswordDialog open={pwOpen} onOpenChange={setPwOpen} />
     </aside>
   );
 }

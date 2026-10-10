@@ -177,11 +177,12 @@ def _open(path: Path | str) -> sqlite3.Connection:
     return conn
 
 
-def init_db(path: Path) -> None:
+def init_db(path: Path, journal: str = "wal") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = _open(path)
     try:
-        conn.execute("PRAGMA journal_mode = WAL")
+        mode = "DELETE" if journal.lower() == "delete" else "WAL"
+        conn.execute(f"PRAGMA journal_mode = {mode}")
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         for i, script in enumerate(MIGRATIONS[version:], start=version + 1):
             conn.executescript(f"BEGIN; {script}; PRAGMA user_version = {i}; COMMIT;")
