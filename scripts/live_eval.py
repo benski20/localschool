@@ -80,6 +80,8 @@ def main() -> int:
     ap.add_argument("--switch-model", default="", help="installed chat model to switch to mid-run")
     ap.add_argument("--min-score", type=float, default=0.6)
     ap.add_argument("--index-timeout", type=float, default=900)
+    ap.add_argument("--cleanup", action="store_true",
+                    help="delete the conversations this run created (for evals against a shared server)")
     args = ap.parse_args()
 
     spec = yaml.safe_load(Path(args.questions).read_text())
@@ -99,8 +101,10 @@ def main() -> int:
     forbidden = set(spec.get("other_teachers_students", []))
     hard: list[str] = []
     rows = []
+    created: set[int] = set()
     for item in spec["questions"]:
         events, secs = ask(teacher, item["q"])
+        created.update(e["id"] for e in events if e["type"] == "conversation")
         done = next((e for e in events if e["type"] == "done"), None)
         err = next((e for e in events if e["type"] == "error"), None)
         all_sources = next((e["sources"] for e in events if e["type"] == "sources"), [])
@@ -131,12 +135,17 @@ def main() -> int:
             hard.append(f"model switch failed: {r.text}")
         else:
             events, secs = ask(teacher, spec["questions"][0]["q"])
+            created.update(e["id"] for e in events if e["type"] == "conversation")
             done = next((e for e in events if e["type"] == "done"), None)
             if not done or done["model"] != args.switch_model:
                 hard.append(f"answer after switch not from {args.switch_model}: {events[-1]}")
             else:
                 switched = f"Switched chat model live to `{args.switch_model}` → answered in {secs:.1f}s."
             admin.put("/api/admin/models/active", json={"role": "chat", "model": active["chat"]})
+
+    if args.cleanup:
+        for cid in created:
+            teacher.delete(f"/api/conversations/{cid}")
 
     score = sum(r[1] == "✅" for r in rows) / len(rows)
     report = [

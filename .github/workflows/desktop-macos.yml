@@ -113,9 +113,9 @@ jobs:
           sw_vers | tee shots/macos.txt
           curl -sf http://127.0.0.1:8000/api/health | tee -a shots/macos.txt
 
-          # 1) First launch, nothing saved: Bonjour should list the school.
+          # 1) First launch, nothing saved: opens the built-in hosted server (desktop/default-server.txt).
           open "$APP"
-          shot 1-first-launch-discovery 20
+          shot 1-first-launch-built-in-server 20
 
           osascript -e 'tell application "Local School" to quit' || true
           sleep 3; pkill -f "Local School.app/Contents/MacOS" || true

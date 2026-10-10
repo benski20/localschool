@@ -45,3 +45,21 @@ def logout(request: Request, response: Response, db: sqlite3.Connection = Depend
 @router.get("/me")
 def me(user: sqlite3.Row = Depends(deps.current_user)):
     return {"user": deps.public_user(user)}
+
+
+class PasswordIn(BaseModel):
+    current: str
+    new: str
+
+
+@router.put("/password")
+def change_password(
+    body: PasswordIn,
+    user: sqlite3.Row = Depends(deps.current_user),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
+):
+    try:
+        auth.change_password(db, user["id"], body.current, body.new)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True}

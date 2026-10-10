@@ -26,10 +26,11 @@ from .services.models import PullManager
 
 log = logging.getLogger("localschool")
 VERSION = "0.1.0"
+DEMO_TEACHER = ("jordan.lee@maplegrove.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
 def bootstrap(settings: Settings) -> None:
-    init_db(settings.db_path)
+    init_db(settings.db_path, settings.sqlite_journal)
     settings.files_dir.mkdir(parents=True, exist_ok=True)
     with connect(settings.db_path) as db:
         if not db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
@@ -68,7 +69,11 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
     @app.get("/api/health")
     def health():
         # Public: the Mac app uses this to confirm it found a Local School server.
-        return {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
+        out = {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
+        if settings.demo_logins:
+            # Synthetic demo school only: lets the login page offer one-click demo sign-in.
+            out["demo"] = {"email": DEMO_TEACHER[0], "password": DEMO_TEACHER[1]}
+        return out
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException):

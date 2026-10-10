@@ -4,6 +4,9 @@
 #   MODAL_TOKEN_ID, MODAL_TOKEN_SECRET  from modal.com → Settings → API Tokens → New token
 #   LS_RUNTIME_TOKEN                    any long random string (e.g. `openssl rand -hex 24`);
 #                                       paste the same value into Admin → Runtime → Access token
+# Also deploys the hosted Local School app (server + web UI) next to the runtime, so
+# testers only need a link. Optional secret LS_ADMIN_PASSWORD sets the first admin's
+# password (otherwise LS_RUNTIME_TOKEN is used).
 name: Deploy Modal runtime
 
 on:
@@ -11,10 +14,17 @@ on:
     inputs:
       gpu:
         description: "GPU type (L4, A10G, T4) or none for CPU-only. Any GPU needs a payment method on the Modal account."
-        default: L4
+        default: none
       chat_model:
         description: "Chat model to pull and evaluate (use qwen3:1.7b with gpu=none)"
-        default: qwen3:8b
+        default: qwen3:1.7b
+      school_name:
+        description: School name shown in the hosted app
+        default: Maple Grove Middle School
+      demo:
+        description: "Load the fictional demo school and show 'Try the demo' on the login page"
+        type: boolean
+        default: true
 
 jobs:
   deploy:
@@ -24,8 +34,8 @@ jobs:
       MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
       MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       LS_RUNTIME_TOKEN: ${{ secrets.LS_RUNTIME_TOKEN }}
-      LS_GPU: ${{ inputs.gpu || 'L4' }}
-      CHAT: ${{ inputs.chat_model || 'qwen3:8b' }}
+      LS_GPU: ${{ inputs.gpu || 'none' }}
+      CHAT: ${{ inputs.chat_model || 'qwen3:1.7b' }}
       EMBED: nomic-embed-text
     steps:
       - name: Check secrets
@@ -69,13 +79,13 @@ jobs:
           test -n "$URL" || { echo "could not find the endpoint URL"; exit 1; }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Pull models onto the GPU volume
+      - name: Pull models onto the runtime volume
         if: steps.secrets.outputs.ready == 'true'
         run: |
           modal run deploy/modal/ollama_app.py::pull --model "$CHAT"
           modal run deploy/modal/ollama_app.py::pull --model "$EMBED"
 
-      - name: Wake the GPU and check auth
+      - name: Wake the runtime and check auth
         if: steps.secrets.outputs.ready == 'true'
         env:
           URL: ${{ steps.deploy.outputs.url }}
@@ -84,30 +94,55 @@ jobs:
           curl -sf --max-time 300 -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/version"
           curl -sf -H "Authorization: Bearer $LS_RUNTIME_TOKEN" "$URL/api/tags" | python -c "import json,sys;print([m['name'] for m in json.load(sys.stdin)['models']])"
 
-      - name: Live eval against the Modal GPU
+      - uses: actions/setup-node@v4
         if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version: 22
+
+      - name: Deploy the hosted app (server + web UI)
+        if: steps.secrets.outputs.ready == 'true'
+        id: app
         env:
-          DATA_DIR: ${{ runner.temp }}/ls-data
-          RUNTIME_KIND: ollama
-          RUNTIME_URL: ${{ steps.deploy.outputs.url }}
-          RUNTIME_TOKEN: ${{ secrets.LS_RUNTIME_TOKEN }}
-          RUNTIME_TIMEOUT_S: "600"
-          CHAT_MODEL: ${{ env.CHAT }}
-          EMBED_MODEL: ${{ env.EMBED }}
+          RUNTIME: ${{ steps.deploy.outputs.url }}
+          ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
+          SCHOOL: ${{ inputs.school_name || 'Maple Grove Middle School' }}
+          DEMO: ${{ inputs.demo == false && '0' || '1' }}
         run: |
-          pip install -q -e .
-          python -m scripts.seed_demo
-          nohup python -m uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/server.log" 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/health && break; sleep 1; done
-          python -m scripts.live_eval --base http://127.0.0.1:8000 --admin admin@school.local:change-me --min-score 0.75
+          (cd web && npm ci --no-audit --no-fund && npm run build)
+          modal secret create localschool-app --force \
+            ADMIN_EMAIL=admin@school.local ADMIN_PASSWORD="$ADMIN_PW" \
+            RUNTIME_URL="$RUNTIME" RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" \
+            CHAT_MODEL="$CHAT" EMBED_MODEL="$EMBED" SCHOOL_NAME="$SCHOOL" \
+            LS_SEED_DEMO="$DEMO" MAC_APP_URL="https://github.com/${{ github.repository }}/releases/latest/download/LocalSchool-macOS.zip" DEMO_LOGINS="$([ "$DEMO" = 1 ] && echo true || echo false)" >/dev/null
+          modal deploy deploy/modal/web_app.py 2>&1 | tee app.log
+          APP=$(grep -oE 'https://[A-Za-z0-9.-]*localschool-app[A-Za-z0-9.-]*\.modal\.run' app.log | head -1)
+          test -n "$APP" || { echo "could not find the app URL"; exit 1; }
+          echo "url=$APP" >> "$GITHUB_OUTPUT"
+          for i in $(seq 1 30); do curl -sf --max-time 60 "$APP/api/health" && break; sleep 5; done
+          curl -sf "$APP/api/health"
+          curl -sf "$APP/" | grep -q '<div id="root">'
+
+      - name: Live eval through the hosted app
+        if: steps.secrets.outputs.ready == 'true' && inputs.demo != false
+        env:
+          APP: ${{ steps.app.outputs.url }}
+          ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
+        run: |
+          pip install -q httpx pyyaml
+          python -m scripts.live_eval --base "$APP" --admin "admin@school.local:$ADMIN_PW" --min-score 0.75 --cleanup
 
       - name: Connection details
         if: steps.secrets.outputs.ready == 'true'
         env:
           URL: ${{ steps.deploy.outputs.url }}
+          APP: ${{ steps.app.outputs.url }}
         run: |
           {
-            echo "### Modal runtime deployed ✅"
-            echo "Paste into **Admin → Runtime**: type *Ollama*, URL \`$URL\`, Access token = your \`LS_RUNTIME_TOKEN\`."
-            echo "GPU: $LS_GPU · models: \`$CHAT\`, \`$EMBED\` · sleeps after 5 idle minutes."
+            echo "### Local School is live ✅"
+            echo ""
+            echo "**Share this link with testers:** $APP"
+            echo ""
+            echo "- Sign in as admin: \`admin@school.local\` with your \`LS_ADMIN_PASSWORD\` secret (or \`LS_RUNTIME_TOKEN\` if you didn't set one). Change it under the key icon."
+            echo "- Testers can press **Try the demo** on the login page (fictional school), or you add them in Admin → People."
+            echo "- Model runtime: \`$URL\` · compute: $LS_GPU · models: \`$CHAT\`, \`$EMBED\` · both apps sleep when idle."
           } >> "$GITHUB_STEP_SUMMARY"

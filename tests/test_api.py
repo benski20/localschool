@@ -137,6 +137,15 @@ def test_mac_install_script_served_with_this_servers_address(client, settings):
     assert client.get("/api/admin/install").json()["mac_app_present"]
 
 
+def test_mac_install_falls_back_to_release_url_behind_https_proxy(client, settings):
+    settings.mac_app_url = "https://github.com/o/r/releases/latest/download/LocalSchool-macOS.zip"
+    script = client.get("/install/mac.sh", headers={"x-forwarded-proto": "https"}).text
+    assert 'LOCALSCHOOL_SERVER:-https://testserver}' in script
+    assert f'LOCALSCHOOL_ZIP_URL:-{settings.mac_app_url}}}' in script
+    r = client.get("/install/LocalSchool-macOS.zip", follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == settings.mac_app_url
+
+
 def test_db_dependency_commits_before_the_response_is_sent():
     """With FastAPI's default request scope, a yield dependency's teardown (our commit)
     can run after the response is sent, so a client's very next request (e.g. right after
@@ -151,3 +160,19 @@ def test_db_dependency_commits_before_the_response_is_sent():
     assert uses, "expected database dependencies"
     unscoped = [u for u in uses if 'scope="function"' not in u[1]]
     assert not unscoped, unscoped
+
+
+def test_change_password(client):
+    login(client, "jordan.lee@maplegrove.demo")
+    assert client.put("/api/auth/password", json={"current": "wrong", "new": "brand-new-pass"}).status_code == 400
+    assert client.put("/api/auth/password", json={"current": PASSWORD, "new": "short"}).status_code == 400
+    assert client.put("/api/auth/password", json={"current": PASSWORD, "new": "brand-new-pass"}).status_code == 200
+    client.post("/api/auth/logout")
+    assert client.post("/api/auth/login", json={"email": "jordan.lee@maplegrove.demo", "password": PASSWORD}).status_code == 401
+    login(client, "jordan.lee@maplegrove.demo", "brand-new-pass")
+
+
+def test_health_offers_demo_login_only_in_demo_mode(client, settings):
+    assert "demo" not in client.get("/api/health").json()
+    settings.demo_logins = True
+    assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@maplegrove.demo"

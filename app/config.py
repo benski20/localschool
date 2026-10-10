@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     school_name: str = "Local School"
     advertise_mdns: bool = False
     public_port: int = 8000
+    # Where teacher Macs download the app when DATA_DIR/downloads has no zip
+    mac_app_url: str = ""
+
+    # Hosted demo: show the demo-teacher sign-in on the login page (synthetic data only)
+    demo_logins: bool = False
+    # SQLite journal: "wal" (default) or "delete" — use delete on network/snapshot volumes
+    # (Modal), where the db file alone must always be a consistent snapshot.
+    sqlite_journal: str = "wal"
 
     # Serving
     web_dist: Path = ROOT / "web" / "dist"

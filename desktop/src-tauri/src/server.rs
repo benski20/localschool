@@ -59,11 +59,18 @@ fn read(path: &std::path::Path) -> Option<SavedServer> {
     serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
 }
 
-/// The teacher's own choice wins; otherwise the IT-managed default, if any.
+/// The teacher's own choice wins; then the IT-managed default; then the server this
+/// build ships with (desktop/default-server.txt), if any.
 pub fn load(app: &AppHandle) -> Option<SavedServer> {
     config_path(app)
         .and_then(|p| read(&p))
         .or_else(|| read(std::path::Path::new(MANAGED_CONFIG)))
+        .or_else(built_in)
+}
+
+fn built_in() -> Option<SavedServer> {
+    let url = env!("LS_DEFAULT_SERVER").trim();
+    (!url.is_empty()).then(|| SavedServer { url: url.to_string(), name: "your school".into() })
 }
 
 pub fn save(app: &AppHandle, server: &SavedServer) -> Result<(), String> {
