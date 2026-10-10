@@ -266,7 +266,7 @@ def _wait_pulls(c):
         time.sleep(0.02)
 
 
-def test_teacher_model_choices(client):
+def test_teacher_model_choices(client, settings):
     login(client, "jordan.lee@maplegrove.demo")
     # the seeded Fast/Thorough (qwen3) aren't on the fake runtime: the active model is the one option
     assert client.get("/api/models").json() == {"default": "fake-chat", "options": [
@@ -303,5 +303,14 @@ def test_teacher_model_choices(client):
     events = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))
     assert events[-1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
     assert client.get(f"/api/conversations/{events[0]['id']}").json()["messages"][1]["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    # teacher tools default to the most thorough option; an explicit choice still wins
+    from app.db import connect
+    with connect(settings.db_path) as db:
+        ava = db.execute("SELECT id FROM students WHERE name = 'Ava Thompson'").fetchone()[0]
+    email = {"student_id": ava, "topic": "Field trip"}
+    tool = client.post("/api/tools/email/drafts", json=email).json()["draft"]
+    assert tool["model"] == "qwen3:4b-instruct-2507-q4_K_M"
+    tool = client.post("/api/tools/email/drafts", json={**email, "model": "fake-chat"}).json()["draft"]
+    assert tool["model"] == "fake-chat"
     # installed but not offered to teachers → not allowed
     assert sse(client.post("/api/chat", json={"question": "hi", "model": "fake-embed"}))[-1]["model"] == "fake-chat"

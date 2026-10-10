@@ -193,7 +193,11 @@ def test_adapt_versions_side_by_side(client, settings, fake):
     for v in out["versions"]:
         assert v["text"] and v["glossary"] and v["readability"]["words"] < out["original"]["words"]
     assert out["versions"][2]["readability"]["grade"] is None  # not English: no estimate
-    prompts = [p[0].content for p in fake.prompts[-3:]]
+    adapt_calls = [p for p in fake.prompts if p[0].content.startswith("Teacher's Desk — Adapt")]
+    prompts = list(dict.fromkeys(p[0].content for p in adapt_calls))  # one per version (retries repeat it)
+    # a version that reads far above its target gets one rewrite request
+    assert any("reads at about grade" in p[-1].content and "target is grade 3" in p[-1].content
+               for p in adapt_calls)
     assert "grade 3 reading level" in prompts[0] and "shorter than the original" in prompts[0]
     assert "for one student" in prompts[1] and "In Spanish" in prompts[1]  # bilingual glossary
     assert "English learner" in prompts[1] and "Sofia" not in prompts[1]

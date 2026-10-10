@@ -155,6 +155,15 @@ async def resolve_chat_model(runtime: Runtime, requested: str | None) -> str:
     return requested if requested in allowed else active
 
 
+async def resolve_tool_model(runtime: Runtime, requested: str | None) -> str:
+    """Teacher tools run in the background and produce drafts, so quality beats speed: with
+    no explicit choice they use the last (most thorough) model teachers may pick."""
+    if (requested or "").strip():
+        return await resolve_chat_model(runtime, requested)
+    options = (await teacher_choices(runtime))["options"]
+    return options[-1]["model"] if options else runtime.active_model("chat")
+
+
 @dataclass
 class PullState:
     model: str

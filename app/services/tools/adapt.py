@@ -225,16 +225,23 @@ async def run(ctx: JobContext, draft: dict) -> dict:
         _, grade = _target(version, original)
         goal = _length_goal(version, original, grade)
 
-        def check(r: AdaptedReading, goal=goal) -> list[str]:
+        english = (version["language"] or "").lower() in ENGLISH
+
+        def check(r: AdaptedReading, goal=goal, grade=grade, english=english) -> list[str]:
+            problems = []
             words = word_count(r.text)
             if goal and words > goal * 1.15:
-                return [f"Your version has {words} words; it must be shorter, about {goal} words or fewer."]
-            return []
+                problems.append(f"Your version has {words} words; it must be shorter, about {goal} words or fewer.")
+            reads = grade_estimate(r.text) if english and grade else None
+            if reads is not None and reads > grade + 2:
+                problems.append(
+                    f"Your version reads at about grade {round(reads)}, but the target is grade {grade}. "
+                    f"Rewrite it much more simply: {_band(grade)} Split every long sentence.")
+            return problems
 
         reply = await generate_json(ctx, [ChatMessage("system", system_prompt(inp, version)),
                                           ChatMessage("user", user_prompt(inp))],
                                     AdaptedReading, check=check, temperature=0.3)
-        english = (version["language"] or "").lower() in ENGLISH
         student = version["student"]
         out.append(VersionOut(
             **reply.model_dump(), label=version["label"], level=version["level"], language=version["language"],
