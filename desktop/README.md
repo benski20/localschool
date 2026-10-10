@@ -14,14 +14,21 @@ browser tab can't do:
 | **Downloads** | Original documents and templates save to ~/Downloads and are revealed in Finder. |
 | **Contained** | Only the connect screen and the school server load in the window; other links open in the default browser. Server pages get no native access beyond dragging the window. |
 
-## Install (pilot)
+## Install: no Apple Developer ID needed
 
-Download `Local School_x.y.z_universal.dmg` from the **Desktop (macOS)** GitHub Action
-(or a `desktop-v*` release), open it, and drag *Local School* to Applications.
+**Teachers: one line in Terminal** (Admin → People → *Teacher Macs* shows it, with your server's address):
 
-Until the app is signed with an Apple Developer ID, macOS shows a warning the first
-time. **Right-click the app → Open → Open**, once. For a district rollout, add the signing
-secrets listed in `.github/workflows/desktop-macos.yml` so builds are signed and notarized.
+```bash
+curl -fsSL http://<school-server>:8000/install/mac.sh | bash
+```
+
+This downloads the app from the school server, puts it in Applications, and opens it already connected. There's no security prompt. macOS only checks apps carrying the "quarantine" tag that browsers add to downloads; `curl` (and MDM) never add it. The server installer (`scripts/install-server-mac.sh`) puts the app on the server for you via `LS_APP_ZIP`. The app itself comes from the **Desktop (macOS)** GitHub Action (`LocalSchool-macOS.zip`) or a `desktop-v*` release.
+
+**IT with an MDM** (Jamf, Mosyle, Kandji): deploy `LocalSchool-macOS.zip` (or the app inside it) plus the managed `server.json` below. MDM installs aren't quarantined either.
+
+**Opening a DMG downloaded in a browser** works too. Because the app is ad-hoc signed rather than notarized, macOS shows a warning the first time. On macOS 15+, open **System Settings → Privacy & Security** and click **Open Anyway**; on older versions, right-click the app and choose **Open**.
+
+**When a Developer ID ($99/yr) is worth it:** only if staff outside your MDM will install from browser downloads, or a district security review asks for notarized software. Add the secrets listed in `.github/workflows/desktop-macos.yml` and builds come out signed and notarized. Nothing else changes.
 
 ## Pre-configure for every teacher (IT)
 

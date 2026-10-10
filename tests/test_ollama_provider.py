@@ -10,6 +10,7 @@ import pytest
 
 from app.llm import ChatMessage, RuntimeError_
 from app.llm.ollama import OllamaProvider
+from app.llm.openai_compat import OpenAICompatProvider
 from app.services.ingest import parse_file
 
 
@@ -17,6 +18,16 @@ def handler(request: httpx.Request) -> httpx.Response:
     assert request.headers["authorization"] == "Bearer tok"
     assert request.headers["modal-key"] == "k"
     path = request.url.path
+    if path == "/api/chat":
+        body = json.loads(request.content)
+        assert body["stream"] is True and body["model"] in ("qwen3:8b", "plain")
+        if body["model"] == "plain" and "think" in body:
+            return httpx.Response(400, json={"error": '"plain" does not support thinking'})
+        lines = [{"message": {"role": "assistant", "content": "", "thinking": "plan the answer"}, "done": False},
+                 {"message": {"role": "assistant", "content": "Room "}, "done": False},
+                 {"message": {"role": "assistant", "content": "114 [1]."}, "done": False},
+                 {"message": {"role": "assistant", "content": ""}, "done": True}]
+        return httpx.Response(200, text="\n".join(json.dumps(x) for x in lines) + "\n")
     if path == "/v1/chat/completions":
         body = json.loads(request.content)
         assert body["stream"] is True and body["model"] == "qwen3:8b"
@@ -58,6 +69,18 @@ def provider():
 
 async def test_chat_streams_visible_text_only(provider):
     out = [t async for t in provider.chat("qwen3:8b", [ChatMessage("user", "hi")])]
+    assert "".join(out) == "Room 114 [1]."
+
+
+async def test_chat_retries_without_think_for_models_that_reject_it(provider):
+    out = [t async for t in provider.chat("plain", [ChatMessage("user", "hi")])]
+    assert "".join(out) == "Room 114 [1]." and "plain" in provider._no_think_param
+
+
+async def test_openai_compat_chat_strips_think_tags():
+    p = OpenAICompatProvider("https://demo--ollama.modal.run", token="tok", headers={"Modal-Key": "k"},
+                             transport=httpx.MockTransport(handler))
+    out = [t async for t in p.chat("qwen3:8b", [ChatMessage("user", "hi")])]
     assert "".join(out) == "Room 114 [1]."
 
 

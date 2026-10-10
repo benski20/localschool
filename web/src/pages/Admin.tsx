@@ -130,7 +130,7 @@ function RuntimeTab() {
           <Field label="URL" htmlFor="rt-url" hint="e.g. https://your-name--localschool-ollama-serve.modal.run or http://localschool-box.local:11434">
             <input id="rt-url" className="input font-mono text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" required={kind !== "fake"} disabled={kind === "fake"} />
           </Field>
-          <Field label="Access token" htmlFor="rt-token" hint={cfg.has_token ? `Saved (${cfg.token}). Leave blank to keep it.` : "Optional. Sent as a Bearer token."}>
+          <Field label="Access token" htmlFor="rt-token" hint={cfg.has_token ? `Saved (${cfg.token}). Leave blank to keep it.` : "For Modal or a tunnel: your LS_RUNTIME_TOKEN. Sent as a Bearer token."}>
             <input id="rt-token" className="input font-mono text-sm" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder={cfg.has_token ? "••••••••" : "Optional"} />
           </Field>
           <div>
@@ -139,8 +139,8 @@ function RuntimeTab() {
             </button>
             {showAdvanced && (
               <div className="mt-3">
-                <Field label="Extra headers (JSON)" htmlFor="rt-headers" hint={cfg.headers ? `Saved: ${cfg.headers}. Leave blank to keep.` : 'For Modal proxy auth: {"Modal-Key": "wk-…", "Modal-Secret": "ws-…"}'}>
-                  <textarea id="rt-headers" className="input h-20 resize-y py-2 font-mono text-sm" value={headers} onChange={(e) => setHeaders(e.target.value)} placeholder='{"Modal-Key": "…", "Modal-Secret": "…"}' />
+                <Field label="Extra headers (JSON)" htmlFor="rt-headers" hint={cfg.headers ? `Saved: ${cfg.headers}. Leave blank to keep.` : 'Rarely needed: extra HTTP headers as JSON, e.g. {"X-Api-Key": "…"}'}>
+                  <textarea id="rt-headers" className="input h-20 resize-y py-2 font-mono text-sm" value={headers} onChange={(e) => setHeaders(e.target.value)} placeholder='{"X-Api-Key": "…"}' />
                 </Field>
               </div>
             )}
@@ -176,7 +176,7 @@ function RuntimeTab() {
       <aside className="space-y-3 text-sm">
         <div className="eyebrow">Where the GPU lives</div>
         {[
-          { title: "Modal (pilot)", body: "Free monthly credits; scales to zero when idle. Deploy deploy/modal/ollama_app.py, paste the URL and proxy-auth headers." },
+          { title: "Modal (pilot)", body: "Free monthly credits; sleeps when idle. Run the “Deploy Modal runtime” GitHub Action, then paste its URL and your LS_RUNTIME_TOKEN." },
           { title: "Kaggle notebook ($0 demo)", body: "Run deploy/kaggle/runtime.ipynb, paste the tunnel URL it prints. Sessions last ≤12 hours." },
           { title: "School box (production)", body: "Any NVIDIA PC or Mac with Ollama on the LAN. Real student data only goes here." },
         ].map((x) => (
@@ -453,6 +453,8 @@ function PeopleTab() {
   }
 
   return (
+    <div className="space-y-6">
+    <TeacherMacs />
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <section className="card overflow-hidden">
         {!users ? (
@@ -526,5 +528,50 @@ function PeopleTab() {
         </form>
       </section>
     </div>
+    </div>
+  );
+}
+
+/** One-line install for teacher Macs, served by this server (no Apple Developer ID needed). */
+function TeacherMacs() {
+  const [info, setInfo] = useState<{ mac_app_present: boolean; command: string; zip_location: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    api.get<{ mac_app_present: boolean; command: string; zip_location: string }>("/api/admin/install").then(setInfo).catch(() => undefined);
+  }, []);
+  if (!info) return null;
+  return (
+    <section className="card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-md font-semibold text-ink">Teacher Macs</h2>
+          <p className="mt-0.5 text-sm text-muted">
+            Teachers paste this into Terminal once. The app installs, opens without a security prompt, and is already connected to this server.
+          </p>
+        </div>
+        {info.mac_app_present ? <Badge tone="success">App ready</Badge> : <Badge tone="warning">App not uploaded</Badge>}
+      </div>
+      {info.mac_app_present ? (
+        <div className="mt-4 flex items-center gap-2">
+          <code className="flex-1 truncate rounded-md border border-line bg-subtle px-3 py-2 font-mono text-sm text-ink">{info.command}</code>
+          <button
+            className="btn-secondary"
+            onClick={() =>
+              navigator.clipboard?.writeText(info.command).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+              })
+            }
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted">
+          Put <span className="font-mono text-ink">LocalSchool-macOS.zip</span> (from the “Desktop (macOS)” GitHub Action or a release) at{" "}
+          <span className="font-mono text-ink">{info.zip_location}</span>, or re-run the server installer with <span className="font-mono text-ink">LS_APP_ZIP</span>.
+        </p>
+      )}
+    </section>
   );
 }

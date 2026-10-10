@@ -1,0 +1,75 @@
+"""Teacher Mac install, served by the school server itself.
+
+    curl -fsSL http://<server>:8000/install/mac.sh | bash
+
+The script is scripts/install-mac-app.sh with this server's address filled in, so the app
+installs without a Gatekeeper prompt and opens already connected. The app zip is whatever
+the admin placed at DATA_DIR/downloads/LocalSchool-macOS.zip (the install-server script
+does this for you).
+"""
+
+from __future__ import annotations
+
+import re
+import sqlite3
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, PlainTextResponse
+
+from .. import deps
+from ..config import ROOT, Settings
+
+router = APIRouter(tags=["install"])
+SCRIPT = ROOT / "scripts" / "install-mac-app.sh"
+ZIP_NAME = "LocalSchool-macOS.zip"
+
+
+def zip_path(settings: Settings) -> Path:
+    return settings.data_dir / "downloads" / ZIP_NAME
+
+
+def _shell_safe(value: str) -> str:
+    # Values land inside "${VAR:-…}" — strip anything that could break out of it.
+    return re.sub(r'[\\"`$\n\r]', "", value)
+
+
+def _base(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
+
+
+@router.get("/install/mac.sh", response_class=PlainTextResponse)
+def install_script(request: Request, settings: Settings = Depends(deps.settings)):
+    if not zip_path(settings).exists():
+        raise HTTPException(404, "The Mac app hasn't been uploaded to this server yet. Ask your administrator.")
+    base = _base(request)
+    text = (
+        SCRIPT.read_text()
+        .replace("__SERVER__", _shell_safe(base))
+        .replace("__ZIP_URL__", _shell_safe(f"{base}/install/{ZIP_NAME}"))
+        .replace("__SCHOOL__", _shell_safe(settings.school_name))
+    )
+    return PlainTextResponse(text, media_type="text/x-shellscript")
+
+
+@router.get(f"/install/{ZIP_NAME}")
+def install_zip(settings: Settings = Depends(deps.settings)):
+    path = zip_path(settings)
+    if not path.exists():
+        raise HTTPException(404, "The Mac app hasn't been uploaded to this server yet.")
+    return FileResponse(path, filename=ZIP_NAME, media_type="application/zip")
+
+
+@router.get("/api/admin/install")
+def install_info(
+    request: Request,
+    _: sqlite3.Row = Depends(deps.admin_user),
+    settings: Settings = Depends(deps.settings),
+):
+    path = zip_path(settings)
+    return {
+        "mac_app_present": path.exists(),
+        "mac_app_size": path.stat().st_size if path.exists() else 0,
+        "command": f"curl -fsSL {_base(request)}/install/mac.sh | bash",
+        "zip_location": str(path),
+    }

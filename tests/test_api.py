@@ -118,3 +118,20 @@ def test_spa_fallback_message_without_build(client):
     r = client.get("/chat")
     assert r.status_code == 404 and "not built" in r.json()["error"]
     assert client.get("/api/nope").status_code == 404
+
+
+def test_mac_install_script_served_with_this_servers_address(client, settings):
+    login(client, "admin@test.local", "admin-pass-123")
+    info = client.get("/api/admin/install").json()
+    assert not info["mac_app_present"] and info["command"].endswith("/install/mac.sh | bash")
+    assert client.get("/install/mac.sh").status_code == 404  # no app uploaded yet
+
+    zip_file = settings.data_dir / "downloads" / "LocalSchool-macOS.zip"
+    zip_file.parent.mkdir(parents=True, exist_ok=True)
+    zip_file.write_bytes(b"PK\x05\x06" + b"\x00" * 18)
+    script = client.get("/install/mac.sh").text
+    assert 'LOCALSCHOOL_SERVER:-http://testserver}' in script
+    assert 'LOCALSCHOOL_ZIP_URL:-http://testserver/install/LocalSchool-macOS.zip}' in script
+    assert "__SERVER__" not in script and "set -euo pipefail" in script
+    assert client.get("/install/LocalSchool-macOS.zip").content.startswith(b"PK")
+    assert client.get("/api/admin/install").json()["mac_app_present"]

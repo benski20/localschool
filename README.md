@@ -17,6 +17,15 @@ Moving from the pilot GPU to the school box is a URL change in **Admin → Runti
 
 ---
 
+## Pilot in 30 minutes
+
+1. **GPU runtime.** Add the Modal secrets, then run **Actions → Deploy Modal runtime** (below). It prints a URL.
+2. **Mac app.** Run **Actions → Desktop (macOS)** and download `LocalSchool-macOS.zip`.
+3. **Server.** On a school Mac that stays on: `git clone … && ./scripts/install-server-mac.sh`. Answer the prompts, then paste the runtime URL and token. Set `LS_APP_ZIP=~/Downloads/LocalSchool-macOS.zip` to offer the app to teachers. It starts at login (launchd) and announces itself on the network.
+4. **Teachers.** Each runs the one-liner from Admin → People → *Teacher Macs*. Then press ⌥Space anywhere to ask.
+
+Undo with `./scripts/uninstall-server-mac.sh`.
+
 ## Quick start: offline demo (2 minutes, no GPU)
 
 ```bash
@@ -34,18 +43,16 @@ The fake runtime returns canned, cited answers so you can walk through the UI. C
 
 ### Option A: Modal (recommended; free monthly credits, sleeps when idle)
 
-```bash
-pip install modal && modal setup
-modal deploy deploy/modal/ollama_app.py                        # prints https://…modal.run
-modal run deploy/modal/ollama_app.py::pull --model qwen3:8b       # optional pre-pull
-modal run deploy/modal/ollama_app.py::pull --model nomic-embed-text
-```
+**From GitHub, no local setup:**
 
-1. In the Modal dashboard: **Settings → Proxy Auth Tokens → New token**.
-2. In Local School: **Admin → Runtime**. Set type to *Ollama*, paste the URL, then under *Advanced headers* paste `{"Modal-Key": "wk-…", "Modal-Secret": "ws-…"}`.
-3. **Test connection → Save.** Then go to **Admin → Models**: pull or choose `qwen3:8b` (chat) and `nomic-embed-text` (embeddings).
+1. Create a free account at modal.com. Under **Settings → API Tokens**, create a token.
+2. In this repo, go to **Settings → Secrets and variables → Actions** and add `MODAL_TOKEN_ID`, `MODAL_TOKEN_SECRET`, and `LS_RUNTIME_TOKEN` (any long random string, e.g. `openssl rand -hex 24`).
+3. **Actions → Deploy Modal runtime → Run workflow.** It deploys Ollama on an L4 GPU, downloads `qwen3:8b` and `nomic-embed-text`, runs the live eval against it, and prints the URL.
+4. In Local School: **Admin → Runtime**. Set type to *Ollama*, paste that URL, and paste your `LS_RUNTIME_TOKEN` as the *Access token*. **Test connection → Save.**
 
-The GPU (L4 by default; set `LS_GPU=A10G` to change) shuts down after 5 idle minutes. The first question after that takes about 1–2 minutes while it wakes, and the UI says so. Status displays never ping the GPU, so leaving the app open costs nothing.
+By hand instead: `pip install modal && modal setup`, then `modal secret create localschool-runtime LS_RUNTIME_TOKEN=…`, then `modal deploy deploy/modal/ollama_app.py`.
+
+Ollama has no authentication, so a small token proxy (`deploy/token_proxy.py`) runs in front of it, and requests without the token get a 401. The GPU sleeps after 5 idle minutes. The first question after that takes about 1–2 minutes while it wakes, and the UI says so. Status displays never ping the GPU, so leaving the app open costs nothing.
 
 ### Option B: Kaggle notebook ($0, short demos)
 
@@ -71,7 +78,7 @@ Teachers open `http://<box-name>.local:8000`. Ollama is never exposed to the net
 - **Mac behavior.** Closing the window keeps the app in the Dock.
 - **IT rollout.** IT can push the server address with any MDM.
 
-Build the `.dmg` from the **Desktop (macOS)** GitHub Action (no Mac needed), or run `make desktop-mac` on a Mac. Details: [desktop/README.md](desktop/README.md).
+Build it with the **Desktop (macOS)** GitHub Action (no Mac needed; produces `LocalSchool-macOS.zip` and a `.dmg`). Teachers install with one line from the school server, `curl -fsSL http://<server>:8000/install/mac.sh | bash`, which needs **no Apple Developer ID** and shows no security prompt. Details: [desktop/README.md](desktop/README.md).
 
 To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="Maple Grove Middle School"`.
 

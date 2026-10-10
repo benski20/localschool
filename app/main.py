@@ -19,7 +19,7 @@ from .db import connect, init_db
 from .discovery import Advertiser
 from .llm import Runtime
 from .llm.registry import ProviderFactory, default_factory
-from .routes import admin, auth, chat, library, roster
+from .routes import admin, auth, chat, install, library, roster
 from .services.auth import create_user
 from .services.embeddings import EmbeddingWorker
 from .services.models import PullManager
@@ -62,7 +62,7 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
 
     app = FastAPI(title="Local School", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
-    for r in (auth.router, chat.router, library.router, roster.router, admin.router):
+    for r in (auth.router, chat.router, library.router, roster.router, admin.router, install.router):
         app.include_router(r)
 
     @app.get("/api/health")

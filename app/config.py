@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     runtime_kind: str = Field("ollama", description="ollama | openai | fake")
     runtime_url: str = "http://127.0.0.1:11434"
     runtime_token: str = ""
-    runtime_headers: str = Field("", description='Extra headers as JSON, e.g. {"Modal-Key": "..."}')
+    runtime_headers: str = Field("", description='Extra headers as JSON, e.g. {"X-Api-Key": "..."}')
     runtime_timeout_s: float = 120.0
 
     # Default models per role (used until an admin picks others)
