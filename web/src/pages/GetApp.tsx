@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Check, Copy, Download, Globe, Keyboard, PanelTop } from "lucide-react";
+import { ArrowRight, Check, Copy, Globe, Keyboard, PanelTop } from "lucide-react";
 import type { ReactNode } from "react";
 import { api } from "../lib/api";
 import { Logo } from "../components/Logo";
@@ -7,7 +7,6 @@ import { Logo } from "../components/Logo";
 /** Public page (/get): the ways to open Local School, easiest first. No sign-in needed. */
 export function GetApp() {
   const [school, setSchool] = useState("Local School");
-  const [releasePage, setReleasePage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const origin = window.location.origin;
   const command = `curl -fsSL ${origin}/install/mac.sh | bash`;
@@ -15,10 +14,9 @@ export function GetApp() {
 
   useEffect(() => {
     api
-      .get<{ school?: string; mac_release_page?: string }>("/api/health")
+      .get<{ school?: string }>("/api/health")
       .then((h) => {
         if (h.school) setSchool(h.school);
-        setReleasePage(h.mac_release_page ?? null);
       })
       .catch(() => undefined);
   }, []);
@@ -72,21 +70,9 @@ export function GetApp() {
           </Option>
         </div>
 
-        {releasePage && (
-          <details className="mt-6 text-sm text-muted">
-            <summary className="cursor-pointer select-none text-faint hover:text-muted">Prefer a .dmg download?</summary>
-            <div className="mt-3 space-y-2 rounded-md border border-line p-4">
-              <a href={releasePage} className="inline-flex items-center gap-1.5 font-medium text-accent hover:underline">
-                <Download className="h-3.5 w-3.5" aria-hidden /> Download Local School for Mac
-              </a>
-              <p>
-                Apps downloaded in a browser need one extra step the first time: open the app, then go to{" "}
-                <span className="text-ink">System Settings → Privacy &amp; Security</span> and click{" "}
-                <span className="text-ink">Open Anyway</span>. The Terminal line above skips this.
-              </p>
-            </div>
-          </details>
-        )}
+        <p className="mt-6 text-center text-xs text-faint">
+          Saw “Not Opened” after downloading from the browser? Use the Terminal line above instead. It installs without that warning.
+        </p>
       </div>
     </div>
   );

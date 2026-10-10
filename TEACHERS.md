@@ -37,6 +37,8 @@ All the options are on one page: **https://highlightcenter1234--localschool-app-
 
   It installs Local School in Applications and opens it, already connected.
 
+  Don't download the app in your browser. macOS will say “Not Opened” for an app downloaded that way. The Terminal line above avoids that.
+
 ## Privacy
 
 This pilot link holds only **fictional demo data**. Don't upload real student information here. Real student data belongs on your school's own Local School server, which never sends it off-site.
