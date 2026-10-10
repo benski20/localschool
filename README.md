@@ -17,6 +17,23 @@ Moving from the pilot GPU to the school box is a URL change in **Admin → Runti
 
 ---
 
+## Try it on your Mac (10 minutes)
+
+The GPU/CPU runtime is already deployed on Modal. One Mac runs the server; that same Mac (or any other) runs the app.
+
+```bash
+brew install python@3.12 node            # once, if you don't have them
+git clone https://github.com/benski20/localschool && cd localschool
+LS_SEED_DEMO=1 ./scripts/install-server-mac.sh
+#   runtime type: ollama
+#   runtime URL:  the URL from the "Deploy Modal runtime" run
+#   token:        your LS_RUNTIME_TOKEN
+#   chat model:   qwen3:1.7b (CPU runtime)
+curl -fsSL http://localhost:8000/install/mac.sh | bash     # installs + opens the Mac app
+```
+
+Sign in as `jordan.lee@maplegrove.demo` / `demo-pass-123` (demo teacher), or with the admin account you chose. `LS_SEED_DEMO=1` loads the fictional Maple Grove school. Leave it off for your own data.
+
 ## Pilot in 30 minutes
 
 1. **GPU runtime.** Add the Modal secrets, then run **Actions → Deploy Modal runtime** (below). It prints a URL.
