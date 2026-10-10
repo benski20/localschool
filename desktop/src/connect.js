@@ -2,7 +2,8 @@
 // Native work (Bonjour, health checks, saving) happens in Rust; see src-tauri/src/lib.rs.
 "use strict";
 
-// The product name is about to change: this is the only place it lives in the connect screen.
+// The product name is about to change: this const is the single source for the connect screen
+// (the static <title> in index.html mirrors it for the first paint).
 const PRODUCT_NAME = "Teacher's Desk";
 
 const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
@@ -96,6 +97,7 @@ async function reconnect(saved) {
   show("checking");
   $("checking-mono").textContent = monogramOf(saved.name);
   $("checking-title").textContent = `Connecting to ${saved.name}…`;
+  $("checking-name").textContent = saved.name;
   $("checking-host").textContent = hostOf(saved.url);
   $("checking-other").onclick = () => {
     attempt++;
@@ -115,10 +117,9 @@ function unreachable(saved) {
   show("unreachable");
   $("unreachable-mono").textContent = monogramOf(saved.name);
   $("unreachable-title").textContent = `Can't reach ${saved.name}`;
-  const host = document.createElement("span");
-  host.className = "host-chip";
-  host.textContent = hostOf(saved.url);
-  $("unreachable-body").replaceChildren(host, " isn't responding right now.");
+  $("unreachable-body").textContent = "Your saved server isn't responding right now.";
+  $("unreachable-name").textContent = saved.name;
+  $("unreachable-host").textContent = hostOf(saved.url);
   $("unreachable-meta").textContent = `Last tried at ${timeFmt.format(new Date())}`;
   $("choose-other").onclick = () => {
     attempt++;
