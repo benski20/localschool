@@ -39,6 +39,10 @@ def _base(request: Request) -> str:
     # Behind a TLS-terminating proxy (Modal, a reverse proxy) keep the public scheme.
     if request.headers.get("x-forwarded-proto") == "https" and base.startswith("http://"):
         base = "https://" + base[len("http://"):]
+    # Behind a front door (e.g. Vercel → Modal) teachers should see the public address.
+    host = request.headers.get("x-forwarded-host", "").split(",")[0].strip()
+    if host and re.fullmatch(r"[A-Za-z0-9.-]+(:\d+)?", host):
+        base = f"{base.split('://', 1)[0]}://{host}"
     return base
 
 

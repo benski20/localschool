@@ -11,7 +11,7 @@ GET  /api/tools
     → {"tools": [...], "meeting_types": [{"key", "label", "sections": [{"key", "title", "kind"}]}],
        "adapt_levels": [{"key", "label"}], "email_tones": ["warm", "neutral", "firm"],
        "audio": {"accept": [".webm", ".ogg", ".m4a", ".mp3", ".wav"], "max_bytes": 209715200,
-                 "chunk_bytes": 8388608},
+                 "chunk_bytes": 4194304},
        "limits": {"feedback_pieces": 40, "work_chars": 16000, "reading_chars": 12000, "adapt_versions": 3}}
 
 POST /api/tools/{tool}/drafts           JSON, or multipart/form-data with the same fields
@@ -125,7 +125,7 @@ DRAFT_NOT_FOUND = "Draft not found."
 # Routes that write commit before returning: the tools worker writes from the event loop,
 # and must never wait on a lock held by a request whose teardown needs that same loop.
 MAX_DOC_UPLOAD = 10 * 1024 * 1024
-CHUNK_HINT = 8 * 1024 * 1024
+CHUNK_HINT = 4 * 1024 * 1024  # stays under proxy body limits (e.g. Vercel's ~4.5 MB)
 CONSENT = "Confirm that everyone in the recording agreed to be recorded."
 
 
