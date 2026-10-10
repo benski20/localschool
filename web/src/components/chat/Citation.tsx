@@ -75,14 +75,13 @@ function Preview({ anchor, source }: { anchor: HTMLElement; source: Source }) {
     >
       <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-2">
         <SourceKindLabel kind={source.kind} />
-        <span className="font-mono text-[11px] tabular-nums text-accent">[{String(source.n).padStart(2, "0")}]</span>
+        <span className="font-mono text-[11px] tabular-nums text-faint">{source.n}</span>
       </div>
       <div className="px-3.5 py-3">
         <div className="line-clamp-1 text-[13.5px] font-medium text-ink">{source.title}</div>
         {source.subtitle && <div className="line-clamp-1 text-xs text-faint">{source.subtitle}</div>}
         <p className="mt-2 line-clamp-4 text-[12.5px] leading-[19px] text-muted">{snippet}</p>
       </div>
-      <div className="border-t border-line px-3.5 py-1.5 text-[11px] text-faint">Click to open the source</div>
     </div>,
     document.body,
   );

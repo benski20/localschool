@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ChevronsUpDown, Command, Download, KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { ChevronsUpDown, Download, KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { isDesktop } from "../../lib/shell";
 import type { Theme } from "../../lib/theme";
-import { MOD, useShell } from "./ShellContext";
+import { useShell } from "./ShellContext";
 
 export function initials(name: string) {
   return (
@@ -35,9 +35,9 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
-export function UserMenu({ compact }: { compact?: boolean }) {
+export function UserMenu() {
   const { user, logout } = useAuth();
-  const { theme, setTheme, openPassword, openPalette } = useShell();
+  const { theme, setTheme, openPassword } = useShell();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -83,25 +83,14 @@ export function UserMenu({ compact }: { compact?: boolean }) {
     <div ref={root} className="relative">
       <button
         ref={trigger}
-        className={clsx(
-          "group flex w-full items-center gap-3 text-left transition-colors hover:bg-subtle aria-expanded:bg-subtle",
-          compact ? "h-10 justify-center px-0" : "h-12 px-2",
-        )}
+        className="group flex h-11 w-full items-center gap-3 rounded-[2px] px-2 text-left transition-colors hover:bg-subtle aria-expanded:bg-subtle"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        title={compact ? `${user.name} · ${user.role}` : undefined}
       >
-        <Avatar name={user.name} size={30} />
-        {!compact && (
-          <>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-sm font-medium text-ink">{user.name}</span>
-              <span className="block truncate text-xs capitalize text-faint">{user.role}</span>
-            </span>
-            <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-faint transition-colors group-hover:text-muted" aria-hidden />
-          </>
-        )}
+        <Avatar name={user.name} size={28} />
+        <span className="min-w-0 flex-1 truncate text-sm text-ink">{user.name}</span>
+        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100 group-aria-expanded:opacity-100" aria-hidden />
       </button>
 
       {open && (
@@ -109,10 +98,7 @@ export function UserMenu({ compact }: { compact?: boolean }) {
           ref={menu}
           role="menu"
           aria-label="Account"
-          className={clsx(
-            "ls-menu absolute bottom-full z-50 mb-2 w-[248px] border border-line bg-panel py-1.5",
-            compact ? "left-0" : "left-0 right-0 w-auto",
-          )}
+          className="ls-menu absolute bottom-full left-0 right-0 z-50 mb-2 border border-line bg-panel py-1.5 shadow-lg"
         >
           <div className="flex items-center gap-3 border-b border-line px-3 pb-3 pt-1.5">
             <Avatar name={user.name} size={32} />
@@ -142,14 +128,6 @@ export function UserMenu({ compact }: { compact?: boolean }) {
             ))}
           </div>
 
-          <button data-item role="menuitem" className={item} onClick={close(openPalette)}>
-            <Command className="h-4 w-4" strokeWidth={1.6} aria-hidden />
-            <span className="flex-1">Command menu</span>
-            <span className="flex gap-0.5">
-              <kbd className="kbd">{MOD}</kbd>
-              <kbd className="kbd">K</kbd>
-            </span>
-          </button>
           <button data-item role="menuitem" className={item} onClick={close(openPassword)}>
             <KeyRound className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Change password
           </button>

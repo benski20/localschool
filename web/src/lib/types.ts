@@ -9,7 +9,8 @@ export interface User {
 
 export interface Source {
   n: number;
-  kind: "document" | "student";
+  /** "attachment" = the teacher's own private file attached to the question (UI: "Your file"). */
+  kind: "document" | "student" | "attachment";
   title: string;
   subtitle: string;
   text: string;
