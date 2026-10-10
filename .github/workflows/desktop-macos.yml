@@ -8,11 +8,17 @@
 # without a Gatekeeper prompt, optionally add APPLE_CERTIFICATE (base64 .p12),
 # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID.
 #
-# Push a tag like desktop-v0.1.0 to publish the .dmg and .zip as a release.
+# Push a tag like desktop-v0.1.0, or run it by hand with "release" set, to publish the
+# .dmg and .zip as the latest release (the hosted /get page and installers link there).
 name: Desktop (macOS)
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish as a release with this tag (e.g. desktop-v0.1.0); empty = build only"
+        required: false
+        default: ""
   push:
     tags: ["desktop-v*"]
   pull_request:
@@ -170,11 +176,12 @@ jobs:
           if-no-files-found: ignore
 
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        if: startsWith(github.ref, 'refs/tags/desktop-v') || inputs.release != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "Local School for Mac ${GITHUB_REF_NAME#desktop-v}" \
-            --notes "Universal (Apple Silicon + Intel). Install: \`curl -fsSL http://<school-server>:8000/install/mac.sh | bash\`" || true
-          gh release upload "$GITHUB_REF_NAME" LocalSchool-macOS.zip \
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "Local School for Mac ${TAG#desktop-v}" \
+            --notes "Universal (Apple Silicon + Intel). Install: \`curl -fsSL <your Local School link>/install/mac.sh | bash\`, or see <your link>/get." || true
+          gh release upload "$TAG" LocalSchool-macOS.zip \
             desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
