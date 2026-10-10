@@ -1,0 +1,65 @@
+/*
+ * Shell motion + shell-only surfaces. Keyframes use the individual `translate` / `scale`
+ * properties so they compose with Tailwind's transform-based centering.
+ */
+:root {
+  --ls-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ls-ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes ls-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ls-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes ls-pop-in {
+  from { opacity: 0; translate: 0 -4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes ls-pop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes ls-drawer-in { from { translate: -100% 0; } to { translate: 0 0; } }
+@keyframes ls-drawer-out { from { translate: 0 0; } to { translate: -100% 0; } }
+@keyframes ls-rise {
+  from { opacity: 0; translate: 0 3px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes ls-menu-in {
+  from { opacity: 0; translate: 0 3px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.ls-overlay[data-state="open"] { animation: ls-overlay-in 180ms ease-out; }
+.ls-overlay[data-state="closed"] { animation: ls-overlay-out 140ms ease-in forwards; }
+.ls-pop[data-state="open"] { animation: ls-pop-in 180ms var(--ls-ease-out); }
+.ls-pop[data-state="closed"] { animation: ls-pop-out 120ms var(--ls-ease-in) forwards; }
+.ls-drawer[data-state="open"] { animation: ls-drawer-in 280ms var(--ls-ease-out); }
+.ls-drawer[data-state="closed"] { animation: ls-drawer-out 200ms var(--ls-ease-in) forwards; }
+.ls-menu { animation: ls-menu-in 160ms var(--ls-ease-out); transform-origin: 50% 100%; }
+
+/* Route changes: fade + rise. `backwards` fill so no transform lingers to trap fixed children. */
+.ls-route { animation: ls-rise 200ms var(--ls-ease-out) backwards; }
+
+/* Staggered entrances: set --i on children. */
+.ls-stagger > * { animation: ls-rise 360ms var(--ls-ease-out) backwards; animation-delay: calc(var(--i, 0) * 50ms + 30ms); }
+
+/* Sidebar collapse animates width. */
+.ls-sidebar { transition: width 220ms var(--ls-ease-out); }
+
+/* cmdk */
+.ls-cmdk [cmdk-group-heading] {
+  padding: 14px 12px 6px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--faint));
+}
+.ls-cmdk [cmdk-list] {
+  height: min(var(--cmdk-list-height), 400px);
+  max-height: 400px;
+  transition: height 160ms var(--ls-ease-out);
+}
+@media (max-height: 640px) {
+  .ls-cmdk [cmdk-list] { height: min(var(--cmdk-list-height), 52vh); max-height: 52vh; }
+}
