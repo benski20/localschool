@@ -1,17 +1,16 @@
-import { ShieldAlert } from "lucide-react";
 import { useStatus } from "../lib/status";
 
-/** Shown whenever models run outside the building: synthetic data only. */
+/**
+ * Shown whenever models run outside the building: synthetic data only.
+ * On wide screens the top bar's status meta carries this; phones get a slim strip.
+ */
 export function DemoBanner() {
   const { status } = useStatus();
   if (!status || status.runtime.is_local) return null;
   return (
-    <div role="note" className="flex items-center justify-center gap-2 border-b border-warning/25 bg-warning/[0.07] px-4 py-1.5 text-xs text-warning">
-      <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      <span>
-        <span className="font-semibold">Demo runtime.</span> Models are running on a cloud GPU. Use synthetic data only,
-        not real student records.
-      </span>
+    <div role="note" className="flex h-8 shrink-0 items-center gap-2.5 border-b border-line bg-panel px-4 text-xs text-muted md:hidden">
+      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-warning">Demo</span>
+      <span className="truncate">Use synthetic data only, not real student records.</span>
     </div>
   );
 }

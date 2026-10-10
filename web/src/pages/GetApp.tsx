@@ -1,25 +1,20 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, Check, Copy, Globe, Keyboard, PanelTop } from "lucide-react";
-import type { ReactNode } from "react";
-import { api } from "../lib/api";
+import { useState, type ReactNode } from "react";
+import { ArrowRight, Check, Copy, Globe, Lock, PanelTop, Terminal } from "lucide-react";
+import { PRODUCT_NAME } from "../lib/brand";
 import { Logo } from "../components/Logo";
+import { schoolName, useHealth } from "../components/shell/health";
+import "../components/shell/shell.css";
 
-/** Public page (/get): the ways to open Local School, easiest first. No sign-in needed. */
+const eyebrow = "text-[11px] font-medium uppercase leading-4 tracking-[0.08em] text-faint";
+
+/** Public page (/get): the ways to open the app, easiest first. No sign-in needed. */
 export function GetApp() {
-  const [school, setSchool] = useState("Local School");
+  const health = useHealth();
+  const school = schoolName(health?.school);
   const [copied, setCopied] = useState(false);
   const origin = window.location.origin;
   const command = `curl -fsSL ${origin}/install/mac.sh | bash`;
   const safari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent);
-
-  useEffect(() => {
-    api
-      .get<{ school?: string }>("/api/health")
-      .then((h) => {
-        if (h.school) setSchool(h.school);
-      })
-      .catch(() => undefined);
-  }, []);
 
   async function copy() {
     try {
@@ -32,64 +27,142 @@ export function GetApp() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[560px] animate-fadein px-4 py-14">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <Logo size={40} />
-          <h1 className="mt-5 text-xl text-ink">Get Local School</h1>
-          <p className="mt-1.5 text-sm text-muted">{school} · private AI for your school</p>
+    <div className="h-full overflow-y-auto bg-bg">
+      <header className="sticky top-0 z-10 border-b border-line bg-panel">
+        <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
+          <a href="/" className="flex items-center gap-3">
+            <Logo size={22} />
+            <span className="text-[15px] font-medium tracking-[-0.01em] text-ink">{PRODUCT_NAME}</span>
+          </a>
+          {school && (
+            <span className="hidden items-center gap-2.5 border-l border-line pl-4 text-sm text-muted sm:flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
+              {school}
+            </span>
+          )}
+          <span className="flex-1" />
+          <a href="/" className="text-sm text-muted transition-colors hover:text-ink">
+            <span aria-hidden>← </span>Back to sign in
+          </a>
+        </div>
+      </header>
+
+      <main className="ls-stagger mx-auto w-full max-w-[760px] px-4 pb-20 pt-12 sm:px-6 sm:pt-16">
+        <div style={{ ["--i" as string]: 0 }}>
+          <div className={eyebrow}>{school ? `For ${school}` : "Get the app"}</div>
+          <h1 className="mt-3 text-[32px] font-normal leading-[1.15] tracking-[-0.02em] text-ink sm:text-[36px]">Get {PRODUCT_NAME}</h1>
+          <p className="mt-3 max-w-[520px] text-[16px] leading-[26px] text-muted">Three ways to open it, easiest first. All of them connect to your school's private server.</p>
         </div>
 
-        <div className="space-y-3">
-          <Option icon={<Globe className="h-4 w-4" />} title="Use it in your browser" tag="Easiest" body="Nothing to install. Works in Safari, Chrome, and Edge.">
-            <a href="/" className="btn-primary h-9 shrink-0">
-              Open <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </a>
-          </Option>
-
+        <ol className="mt-10 border border-line bg-panel" style={{ ["--i" as string]: 1 }}>
           <Option
-            icon={<PanelTop className="h-4 w-4" />}
-            title="Keep it in your Dock"
-            body={
-              safari
-                ? "In Safari's menu bar choose File → Add to Dock. It opens in its own window, like an app."
-                : "In Safari choose File → Add to Dock. In Chrome: ⋮ → Cast, save, and share → Install page as app."
+            n={1}
+            icon={<Globe />}
+            title="Use it in your browser"
+            tag="Easiest"
+            body="Nothing to install. Works in Safari, Chrome and Edge."
+            action={
+              <a href="/" className="group inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[2px] bg-ink px-4 text-sm text-bg transition-opacity hover:opacity-90">
+                Open <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" strokeWidth={1.75} aria-hidden />
+              </a>
             }
           />
 
-          <Option icon={<Keyboard className="h-4 w-4" />} title="Install the Mac app" body="Adds ⌥ Space to ask from anywhere. Open Terminal, paste this line, and press Return.">
-            <div className="mt-3 flex w-full items-center gap-2 rounded-md border border-line bg-subtle p-1.5 pl-3">
-              <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink" title={command}>
+          <Option
+            n={2}
+            icon={<PanelTop />}
+            title="Keep it in your Dock"
+            body={
+              safari ? (
+                <>
+                  In Safari's menu bar choose <Path>File → Add to Dock</Path>. It opens in its own window, like an app.
+                </>
+              ) : (
+                <>
+                  In Safari choose <Path>File → Add to Dock</Path>. In Chrome: <Path>⋮ → Cast, save, and share → Install page as app</Path>.
+                </>
+              )
+            }
+          />
+
+          <Option
+            n={3}
+            icon={<Terminal />}
+            title={`${PRODUCT_NAME} for Mac`}
+            body={
+              <>
+                Adds <kbd className="kbd">⌥</kbd> <kbd className="kbd">Space</kbd> to ask from anywhere. Open Terminal, paste this line and press Return.
+              </>
+            }
+          >
+            <div className="mt-4 flex items-stretch border border-line bg-bg">
+              <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap px-3.5 py-3 font-mono text-[13px] leading-5 text-ink" title={command}>
+                <span className="select-none text-faint">$ </span>
                 {command}
               </code>
-              <button type="button" className="btn-secondary h-7 shrink-0 px-2 text-xs" onClick={copy}>
-                {copied ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+              <button
+                type="button"
+                onClick={copy}
+                className="inline-flex shrink-0 items-center gap-1.5 border-l border-line bg-panel px-3.5 text-sm text-ink transition-colors hover:bg-subtle"
+                aria-live="polite"
+              >
+                {copied ? <Check className="h-4 w-4 text-success" strokeWidth={1.75} aria-hidden /> : <Copy className="h-4 w-4" strokeWidth={1.6} aria-hidden />}
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
+            <p className="mt-3 text-sm text-faint">
+              Saw "Not Opened"? That happens with downloads from the browser. Use the line above instead, it installs without that warning.
+            </p>
           </Option>
-        </div>
+        </ol>
 
-        <p className="mt-6 text-center text-xs text-faint">
-          Saw “Not Opened” after downloading from the browser? Use the Terminal line above instead. It installs without that warning.
+        <p className="mt-8 flex items-center gap-1.5 text-xs text-faint" style={{ ["--i" as string]: 2 }}>
+          <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> Your school's data stays on your school's servers.
         </p>
-      </div>
+      </main>
     </div>
   );
 }
 
-function Option({ icon, title, body, tag, children }: { icon: ReactNode; title: string; body: string; tag?: string; children?: ReactNode }) {
+function Path({ children }: { children: ReactNode }) {
+  return <span className="text-ink">{children}</span>;
+}
+
+function Option({
+  n,
+  icon,
+  title,
+  body,
+  tag,
+  action,
+  children,
+}: {
+  n: number;
+  icon: ReactNode;
+  title: string;
+  body: ReactNode;
+  tag?: string;
+  action?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
-    <div className="card flex flex-wrap items-center gap-3 p-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-sm font-medium text-ink">
-          {title}
-          {tag && <span className="rounded bg-subtle px-1.5 py-0.5 text-[11px] font-medium text-muted">{tag}</span>}
+    <li className="border-line px-5 py-6 transition-colors [&+&]:border-t sm:px-7">
+      <div className="flex items-start gap-4 sm:gap-5">
+        <span className="w-6 shrink-0 pt-0.5 font-mono text-[13px] text-accent">{String(n).padStart(2, "0")}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="text-faint [&>svg]:h-4 [&>svg]:w-4 [&>svg]:[stroke-width:1.6]" aria-hidden>
+              {icon}
+            </span>
+            <h2 className="text-[16px] font-normal text-ink">{title}</h2>
+            {tag && <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-success">{tag}</span>}
+          </div>
+          <p className="mt-1.5 text-sm leading-[22px] text-muted">{body}</p>
+          {action && <div className="mt-4 sm:hidden [&>*]:w-full">{action}</div>}
+          {children}
         </div>
-        <div className="text-xs text-muted">{body}</div>
+        {action && <div className="hidden sm:block">{action}</div>}
       </div>
-      {children}
-    </div>
+    </li>
   );
 }
