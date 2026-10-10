@@ -1,6 +1,8 @@
 # Live evaluation against a real model (scripts/live_eval.py).
 # `expect`: any of these (case-insensitive) in the answer counts as correct.
-# `forbid_students`: students that must never appear as sources for this teacher.
+# `min_expect`: how many of `expect` must appear (default 1).
+# `forbid`: names that must NOT appear in the answer (a wrong answer).
+# `other_teachers_students`: must never appear as sources for this teacher (privacy).
 teacher: jordan.lee@maplegrove.demo
 other_teachers_students: [Grace Lewis, Daniel Walker, Layla Hassan, Jack Young, Chloe King,
   Samuel Wright, Nora Scott, Leo Green, Hana Sato, David Adams]
@@ -17,6 +19,17 @@ questions:
     expect: ["October 23", "Oct 23", "Oct. 23", "2026-10-23", "10/23"]
   - q: Which of my students have an IEP?
     expect: ["Ava Thompson", "Lucas Martin", "Mateo Hernandez", "Aaliyah Jackson"]
+    min_expect: 2
+    # Jordan's students without an IEP: naming any of them is a wrong answer
+    forbid: [Liam Okafor, Sofia Ramirez, Noah Kim, Mia Johnson, Ethan Nguyen, Isabella Rossi,
+      Amara Diallo, Oliver Brown, Charlotte Davis, Harper Wilson, Elijah Moore, Zara Ahmed,
+      James Taylor, Benjamin Lee, Camila Torres, Henry Clark]
+  - q: Which of my students get extended time on tests?
+    expect: ["Ava Thompson", "Mia Johnson", "Amara Diallo", "Mateo Hernandez", "Elijah Moore", "Aaliyah Jackson"]
+    min_expect: 3
+    forbid: [Liam Okafor, Sofia Ramirez, Noah Kim, Ethan Nguyen, Isabella Rossi, Lucas Martin,
+      Oliver Brown, Charlotte Davis, Harper Wilson, Zara Ahmed, James Taylor, Benjamin Lee,
+      Camila Torres, Henry Clark]
   - q: When is Mateo Hernandez's plan review date?
     expect: ["October 27", "Oct 27", "2026-10-27", "10/27"]
   - q: What accommodations does Camila Torres have?

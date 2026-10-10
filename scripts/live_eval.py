@@ -10,7 +10,8 @@ a teacher, and checks:
   hard (any failure exits 1): every answer completes; every [n] in an answer maps to a
       returned source; no source ever belongs to another teacher's student; the index is
       fully embedded; switching the chat model through the admin API takes effect live.
-  soft (scored): the answer contains an expected fact. Fails below --min-score.
+  soft (scored): the answer contains enough expected facts (`min_expect`) and none of the
+      `forbid` names (a wrong student listed is a wrong answer). Fails below --min-score.
 
 Writes a Markdown report (to $GITHUB_STEP_SUMMARY when set, else stdout).
 """
@@ -115,8 +116,12 @@ def main() -> int:
         leaked = {s["title"] for s in all_sources if s["kind"] == "student"} & forbidden
         if leaked:
             hard.append(f"other teacher's students in sources for {item['q']!r}: {leaked}")
-        ok = any(x.lower() in content.lower() for x in item["expect"])
-        rows.append((item["q"], "✅" if ok else "❌", secs, content.replace("\n", " ")[:160]))
+        low = content.lower()
+        hits = sum(x.lower() in low for x in item["expect"])
+        wrong = [n for n in item.get("forbid", []) if n.lower() in low]
+        ok = hits >= item.get("min_expect", 1) and not wrong
+        note = f" ⚠️ wrongly named: {', '.join(wrong)}" if wrong else ""
+        rows.append((item["q"], "✅" if ok else "❌", secs, content.replace("\n", " ")[:160] + note))
         print(f"{'PASS' if ok else 'MISS'} {secs:5.1f}s  {item['q']}\n      → {content[:200]!r}", flush=True)
 
     switched = ""

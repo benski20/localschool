@@ -152,4 +152,5 @@ echo "   Logs:       $LOGS/server.log"
 echo
 echo "Keep this Mac awake and on the school network:"
 echo "   sudo pmset -c sleep 0 disksleep 0     # never sleep on power"
-echo "If macOS asks whether Python may accept incoming connections, choose Allow."
+echo "If macOS asks whether Python may accept incoming connections or find devices on"
+echo "local networks, choose Allow: teachers' Macs find this server through Bonjour."

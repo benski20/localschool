@@ -10,7 +10,7 @@ import asyncio
 import json
 import re
 import sqlite3
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import asdict, dataclass
 from datetime import date
 
@@ -87,12 +87,62 @@ def build_sources(
     names = [s["name"] for s in students]
     if students and wants_roster(question, names):
         named = match_students(question, names)
-        chosen = [s for s in students if s["name"] in named] if named else students[:MAX_STUDENTS]
+        if named:
+            chosen = [s for s in students if s["name"] in named]
+        else:
+            filtered = filter_students(question, students)
+            if filtered is None:
+                chosen = students[:MAX_STUDENTS]
+            else:
+                label, chosen = filtered
+                if not chosen:
+                    # Say "none" explicitly; otherwise a small model guesses from other cards.
+                    sources.append(Source(len(sources) + 1, "student", "Roster search", "Your sections",
+                                          f"No students in your sections have {label}."))
         for s in chosen:
             sub = s["section_name"] + (f" · Period {s['period']}" if s["period"] else "")
             sources.append(Source(len(sources) + 1, "student", s["name"], sub, roster.student_card(s),
                                   student_id=s["id"]))
     return sources
+
+
+# Roster filters: questions like "which of my students have an IEP?" are answered from
+# the matching rows only. Handing a model every card and asking it to filter is where
+# small models go wrong (they list students who don't qualify).
+_FILTERS: list[tuple[re.Pattern, str, Callable[[sqlite3.Row], bool]]] = []
+
+
+def _has_acc(*needles: str) -> Callable[[sqlite3.Row], bool]:
+    return lambda s: any(n in s["accommodations"].lower() for n in needles)
+
+
+def _register_filters() -> None:
+    f = _FILTERS.append
+    f((re.compile(r"\biep", re.I), "an IEP", lambda s: s["plan_type"].upper() == "IEP"))
+    f((re.compile(r"\b504\b", re.I), "a 504 plan", lambda s: s["plan_type"] == "504"))
+    f((re.compile(r"extended[- ]time", re.I), "extended time", _has_acc("extended time")))
+    f((re.compile(r"separate setting", re.I), "a separate-setting accommodation", _has_acc("separate setting")))
+    f((re.compile(r"read[- ]aloud", re.I), "a read-aloud accommodation", _has_acc("read-aloud", "read aloud")))
+    f((re.compile(r"\bbreaks?\b", re.I), "a breaks accommodation", _has_acc("breaks")))
+    f((re.compile(r"\b(ell|english learners?|el level|el students?)\b", re.I), "an English learner level",
+       lambda s: bool(s["el_level"])))
+    f((re.compile(r"plan review|review date|annual review", re.I), "a plan review date",
+       lambda s: bool(s["iep_review_date"])))
+
+
+_register_filters()
+_ANY_ACCOMMODATION = re.compile(r"\baccommodat", re.I)
+
+
+def filter_students(question: str, students: list[sqlite3.Row]) -> tuple[str, list[sqlite3.Row]] | None:
+    """Apply every roster filter the question mentions (AND). None = no filter applies."""
+    active = [(label, pred) for rx, label, pred in _FILTERS if rx.search(question)]
+    if not active and _ANY_ACCOMMODATION.search(question):
+        active = [("any accommodations", lambda s: bool(s["accommodations"]))]
+    if not active:
+        return None
+    chosen = [s for s in students if all(pred(s) for _, pred in active)]
+    return " and ".join(label for label, _ in active), chosen
 
 
 def system_prompt(user: sqlite3.Row, sources: list[Source], today: date) -> str:

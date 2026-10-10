@@ -49,12 +49,12 @@ async function reconnect(saved) {
 
 let scanning = false;
 
-async function scan() {
+async function scan(quiet = false) {
   if (scanning) return;
   scanning = true;
   const list = $("found");
   const status = $("scan-status");
-  status.innerHTML = '<span class="spinner" aria-hidden="true" style="vertical-align:-2px;margin-right:6px"></span>Looking for Local School servers…';
+  if (!quiet) status.innerHTML = '<span class="spinner" aria-hidden="true" style="vertical-align:-2px;margin-right:6px"></span>Looking for Local School servers…';
   try {
     const servers = await invoke("discover_servers");
     list.replaceChildren(
@@ -73,12 +73,24 @@ async function scan() {
     );
     status.textContent = servers.length
       ? ""
-      : "No servers found on this network. Enter the address below, or check you're on school Wi-Fi.";
+      : "No servers found yet. If macOS asked about local networks, choose Allow. Or enter the address below.";
+    // Keep looking while nothing is found: the first scan often runs before the teacher
+    // answers macOS's local-network prompt, and the school should appear on its own after.
+    if (!servers.length) scheduleRescan();
   } catch (err) {
     status.textContent = String(err);
+    scheduleRescan();
   } finally {
     scanning = false;
   }
+}
+
+let rescanTimer = null;
+function scheduleRescan() {
+  clearTimeout(rescanTimer);
+  rescanTimer = setTimeout(() => {
+    if (!$("view-choose").hidden && !$("found").children.length) scan(true);
+  }, 4000);
 }
 
 async function tryAddress(address, button) {
@@ -107,7 +119,7 @@ function choose(saved) {
   scan();
 }
 
-$("rescan").onclick = scan;
+$("rescan").onclick = () => scan();
 $("manual").onsubmit = (e) => {
   e.preventDefault();
   const v = $("address").value.trim();

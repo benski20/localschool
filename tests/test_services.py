@@ -49,9 +49,9 @@ def test_roster_scoping_per_teacher(seeded, settings):
     sam = user(settings, "sam.patel@maplegrove.demo")
     admin = user(settings, "admin@test.local")
     with connect(settings.db_path) as db:
-        j = chat.build_sources(db, jordan, "Which of my students have extended time?", space_id=None, query_vec=None)
-        s = chat.build_sources(db, sam, "Which of my students have extended time?", space_id=None, query_vec=None)
-        a = chat.build_sources(db, admin, "Which students have extended time?", space_id=None, query_vec=None)
+        j = chat.build_sources(db, jordan, "Who is in my class?", space_id=None, query_vec=None)
+        s = chat.build_sources(db, sam, "Who is in my class?", space_id=None, query_vec=None)
+        a = chat.build_sources(db, admin, "Who is in each class?", space_id=None, query_vec=None)
     j_students = {x.title for x in j if x.kind == "student"}
     s_students = {x.title for x in s if x.kind == "student"}
     assert len(j_students) == 20 and len(s_students) == 10
@@ -148,3 +148,30 @@ async def test_pull_manager_runs_in_background(runtime, fake):
     state = await pm.wait("qwen3:8b")
     assert state.done and not state.error and state.percent == 100.0
     assert "qwen3:8b" in fake.models
+
+
+def _student_sources(settings, question):
+    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    with connect(settings.db_path) as db:
+        return [x.title for x in chat.build_sources(db, jordan, question, space_id=None, query_vec=None)
+                if x.kind == "student"]
+
+
+def test_roster_filters_give_the_model_only_matching_students(seeded, settings):
+    assert sorted(_student_sources(settings, "Which of my students have an IEP?")) == [
+        "Aaliyah Jackson", "Ava Thompson", "Lucas Martin", "Mateo Hernandez"]
+    assert sorted(_student_sources(settings, "Who has extended-time accommodations?")) == [
+        "Aaliyah Jackson", "Amara Diallo", "Ava Thompson", "Elijah Moore", "Mateo Hernandez", "Mia Johnson"]
+    assert sorted(_student_sources(settings, "Which IEP students get extended time?")) == [
+        "Aaliyah Jackson", "Ava Thompson", "Mateo Hernandez"]
+    assert sorted(_student_sources(settings, "Which of my students are English learners?")) == [
+        "Amara Diallo", "Camila Torres", "Mateo Hernandez", "Sofia Ramirez"]
+
+
+def test_roster_filter_with_no_matches_says_so(seeded, settings):
+    assert _student_sources(settings, "Which of my students have a 504 plan and a read-aloud accommodation?") \
+        == ["Roster search"]
+
+
+def test_unfiltered_roster_question_still_gets_whole_class(seeded, settings):
+    assert len(_student_sources(settings, "Who is in my class?")) == 20
