@@ -16,6 +16,18 @@ a teacher, and checks:
   soft (scored): the answer contains enough expected facts (`min_expect`) and none of the
       `forbid` names (a wrong student listed is a wrong answer). Fails below --min-score.
 
+With --tools, the teacher tools too (each draft must finish; scored separately against
+--tools-min-score):
+  parent email   mentions the topic it was asked about
+  adapt          the Grade 3 version is shorter than the original
+  feedback       has strengths and next steps, and every quote is verbatim from the work
+                 and every rubric line exists (hard)
+  meeting notes  from --audio (a short speech clip; CI makes one with espeak-ng) through the
+                 runtime's speech-to-text, or from a pasted transcript without it: the notes
+                 contain the clip's known facts (--audio-expect); approving deletes the
+                 recording (hard)
+  scoping (hard) targeting another teacher's student is a 404
+
 Writes a Markdown report (to $GITHUB_STEP_SUMMARY when set, else stdout).
 """
 
@@ -110,6 +122,133 @@ def upload_private(c: httpx.Client, path: Path, timeout: float = 120) -> int:
     raise RuntimeError(f"{path.name} never became ready")
 
 
+# -- teacher tools -----------------------------------------------------------------------
+
+TOOL_READING = (
+    "Volcanoes are openings in the Earth's crust through which molten rock, ash and gases escape. Beneath "
+    "the surface, intense heat melts rock into magma, which is lighter than the surrounding rock and therefore "
+    "rises toward the surface. When pressure builds sufficiently, the magma erupts as lava. Some eruptions are "
+    "explosive, propelling ash several kilometres into the atmosphere, whereas others release comparatively "
+    "slow-moving rivers of lava. Volcanologists continuously monitor earthquakes, ground deformation and gas "
+    "emissions in order to anticipate eruptions and protect nearby communities."
+)
+TOOL_WORK = (
+    "My hero is my grandmother because she never gives up. When the factory in our town closed, she went back "
+    "to school at fifty and became a nurse. She studied every night at the kitchen table while my brother and I "
+    "did our homework. Now she works at the hospital and helps people every day. I think her story shows that it "
+    "is never too late to learn something new."
+)
+TOOL_RUBRIC = (
+    "Ideas: the writing has a clear central idea about the person\n"
+    "Evidence: specific details and examples support the central idea\n"
+    "Organization: events are in a logical order with a strong ending\n"
+    "Conventions: spelling, punctuation and grammar are correct"
+)
+TOOL_TOPIC = "the science fair project is due next Friday"
+MEETING_TEXT = ("This is an IEP meeting for Ava Thompson. We agreed to add a daily check-in with Ms. Rivera "
+                "starting Monday.")
+
+
+def wait_draft(c: httpx.Client, draft_id: int, timeout: float) -> dict:
+    deadline = time.time() + timeout
+    d: dict = {}
+    while time.time() < deadline:
+        d = c.get(f"/api/drafts/{draft_id}").json()["draft"]
+        if d["status"] in ("ready", "error"):
+            return d
+        time.sleep(2)
+    raise RuntimeError(f"draft {draft_id} never finished: {d.get('status')} / {d.get('stage')}")
+
+
+def run_tools(teacher: httpx.Client, admin: httpx.Client, spec: dict, args) -> tuple[list, list[str], list[int]]:
+    """(report rows, hard failures, draft ids created)."""
+    rows: list[tuple[str, str, float, str]] = []
+    hard: list[str] = []
+    created: list[int] = []
+    students = teacher.get("/api/roster").json()["students"]
+    if not students:
+        return rows, ["tools: the teacher has no students in the roster"], created
+    student = next((s for s in students if s["name"] == spec.get("tools_student", "Ava Thompson")), students[0])
+    forbidden = set(spec.get("other_teachers_students", []))
+    other = next((s for s in admin.get("/api/roster").json()["students"] if s["name"] in forbidden), None)
+
+    def run(label: str, tool: str, body: dict, check, *, audio: Path | None = None) -> None:
+        t0 = time.perf_counter()
+        try:
+            r = teacher.post(f"/api/tools/{tool}/drafts", json=body)
+            r.raise_for_status()
+            draft = r.json()["draft"]
+            created.append(draft["id"])
+            if audio is not None:
+                up = teacher.post(f"/api/meetings/{draft['id']}/audio", content=audio.read_bytes(),
+                                  headers={"Content-Type": "audio/wav"})
+                up.raise_for_status()
+            d = wait_draft(teacher, draft["id"], args.tools_timeout)
+        except (RuntimeError, httpx.HTTPError) as e:
+            hard.append(f"{label}: {e}")
+            rows.append((label, "ERROR", time.perf_counter() - t0, str(e)[:160]))
+            return
+        secs = time.perf_counter() - t0
+        if d["status"] != "ready":
+            hard.append(f"{label}: draft ended in error: {d['error']}")
+            rows.append((label, "ERROR", secs, d["error"][:160]))
+            return
+        ok, note = check(d)
+        rows.append((label, "✅" if ok else "❌", secs, note.replace("\n", " ")[:200]))
+        print(f"{'PASS' if ok else 'MISS'} {secs:5.1f}s  {label}\n      → {note[:200]!r}", flush=True)
+
+    def email_check(d: dict) -> tuple[bool, str]:
+        text = f"{d['output']['subject']}\n{d['output']['body']}".lower()
+        return "science fair" in text, f"{d['output']['subject']} — {d['output']['body']}"
+
+    def adapt_check(d: dict) -> tuple[bool, str]:
+        v = d["output"]["versions"][0]
+        words, orig = v["readability"]["words"], d["output"]["original"]["words"]
+        return words < orig, f"{words} words (original {orig}), grade ≈ {v['readability']['grade']}: {v['text']}"
+
+    def feedback_check(d: dict) -> tuple[bool, str]:
+        out, work, lines = d["output"], d["input"]["work"], d["input"]["rubric"]["lines"]
+        items = out["strengths"] + out["next_steps"]
+        for i in items:
+            if i["quote"] not in work:
+                hard.append(f"feedback quote not verbatim from the work: {i['quote']!r}")
+            if not (1 <= i["rubric_line"] <= len(lines)) or i["rubric"] != lines[i["rubric_line"] - 1]:
+                hard.append(f"feedback cites a rubric line that doesn't exist: {i['rubric_line']}")
+        ok = bool(out["strengths"]) and bool(out["next_steps"])
+        return ok, "; ".join(f"“{i['quote']}” (R{i['rubric_line']}) {i['comment']}" for i in items)
+
+    def meeting_check(d: dict) -> tuple[bool, str]:
+        transcript = " ".join(s["text"] for s in d["transcript"] or [])
+        if not transcript.strip():
+            hard.append("meeting transcript is empty")
+        notes = json.dumps(d["output"]).lower()
+        facts = [f for f in args.audio_expect.split(",") if f.strip()]
+        hits = [f for f in facts if any(alt.strip().lower() in notes for alt in f.split("|"))]
+        r = teacher.post(f"/api/drafts/{d['id']}/approve")
+        if r.status_code != 200 or r.json()["draft"]["has_audio"]:
+            hard.append(f"approving the meeting didn't delete the recording: {r.text[:200]}")
+        return len(hits) >= min(2, len(facts)), f"heard: {transcript[:120]!r} · notes have {hits} · {d['output'].get('summary', '')}"
+
+    sid = student["id"]
+    run("Tool: parent email mentions the topic", "email",
+        {"student_id": sid, "topic": TOOL_TOPIC, "tone": "warm"}, email_check)
+    run("Tool: adapt to Grade 3 is shorter", "adapt",
+        {"text": TOOL_READING, "title": "Volcanoes", "versions": [{"level": "grade_3"}]}, adapt_check)
+    run("Tool: feedback quotes the work", "feedback",
+        {"work": TOOL_WORK, "title": "My hero", "rubric_text": TOOL_RUBRIC}, feedback_check)
+    if args.audio:
+        run("Tool: meeting notes from a recording", "meeting",
+            {"meeting_type": "iep", "student_id": sid, "consent": True}, meeting_check, audio=Path(args.audio))
+    else:
+        run("Tool: meeting notes from a pasted transcript", "meeting",
+            {"meeting_type": "iep", "student_id": sid, "transcript_text": f"[00:00] {MEETING_TEXT}"}, meeting_check)
+    if other is not None:
+        r = teacher.post("/api/tools/email/drafts", json={"student_id": other["id"], "topic": TOOL_TOPIC})
+        if r.status_code != 404:
+            hard.append(f"tools: targeting another teacher's student returned {r.status_code}, not 404")
+    return rows, hard, created
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://127.0.0.1:8000")
@@ -121,6 +260,12 @@ def main() -> int:
     ap.add_argument("--index-timeout", type=float, default=900)
     ap.add_argument("--cleanup", action="store_true",
                     help="delete the conversations this run created (for evals against a shared server)")
+    ap.add_argument("--tools", action="store_true", help="also check the teacher tools")
+    ap.add_argument("--audio", default="", help="speech clip (wav) for the meeting-notes check")
+    ap.add_argument("--audio-expect", default="check-in|check in,monday,rivera",
+                    help="facts the notes must contain (comma-separated; | separates spellings); 2 must match")
+    ap.add_argument("--tools-min-score", type=float, default=0.75)
+    ap.add_argument("--tools-timeout", type=float, default=900, help="seconds per tool draft")
     args = ap.parse_args()
 
     spec = yaml.safe_load(Path(args.questions).read_text())
@@ -212,7 +357,16 @@ def main() -> int:
                 switched = f"Switched chat model live to `{args.switch_model}` → answered in {secs:.1f}s."
             admin.put("/api/admin/models/active", json={"role": "chat", "model": active["chat"]})
 
+    tool_rows: list = []
+    tool_drafts: list[int] = []
+    if args.tools:
+        print("teacher tools…", flush=True)
+        tool_rows, tool_hard, tool_drafts = run_tools(teacher, admin, spec, args)
+        hard += tool_hard
+
     if args.cleanup:
+        for draft_id in tool_drafts:
+            teacher.delete(f"/api/drafts/{draft_id}")
         for cid in created:
             teacher.delete(f"/api/conversations/{cid}")
         for doc_id in uploaded:
@@ -222,6 +376,16 @@ def main() -> int:
     passed = sum(r[1] == "✅" for r in scored)
     score = passed / len(scored) if scored else 0.0
     skipped = len(rows) - len(scored)
+    tools_passed = sum(r[1] == "✅" for r in tool_rows)
+    tools_score = tools_passed / len(tool_rows) if tool_rows else 1.0
+    tools_report = [
+        "",
+        f"### Teacher tools — **{tools_score:.0%}** ({tools_passed}/{len(tool_rows)}) · min {args.tools_min_score:.0%}",
+        "",
+        "| | Check | Time | Output |",
+        "|---|---|---|---|",
+        *[f"| {ok} | {q} | {s:.1f}s | {a.replace('|', '/')} |" for q, ok, s, a in tool_rows],
+    ] if args.tools else []
     report = [
         f"## Live model eval — chat `{active['chat']}`, embed `{active['embed']}`",
         "",
@@ -232,6 +396,7 @@ def main() -> int:
         "| | Question | Time | Answer |",
         "|---|---|---|---|",
         *[f"| {ok} | {q} | {s:.1f}s | {a.replace('|', '/')} |" for q, ok, s, a in rows],
+        *tools_report,
         "",
         switched,
         "",
@@ -242,7 +407,7 @@ def main() -> int:
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
             f.write(text + "\n")
     print(text)
-    return 1 if hard or score < args.min_score else 0
+    return 1 if hard or score < args.min_score or (args.tools and tools_score < args.tools_min_score) else 0
 
 
 if __name__ == "__main__":

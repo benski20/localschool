@@ -8,6 +8,7 @@ MODAL_TOKEN_SECRET and LS_RUNTIME_TOKEN). By hand:
     modal deploy deploy/modal/ollama_app.py                         # prints https://…modal.run
     modal run deploy/modal/ollama_app.py::pull --model qwen3:8b       # optional pre-pull
     modal run deploy/modal/ollama_app.py::pull --model nomic-embed-text
+    modal run deploy/modal/ollama_app.py::pull_whisper                # speech-to-text weights
 
 Then Local School → Admin → Runtime: type Ollama, the URL, and the token as Access token.
 
@@ -17,9 +18,15 @@ Knobs (set when deploying, e.g. `LS_GPU=A10G modal deploy …`):
                     on the account for any GPU; CPU works on the free Starter credits.
                     Pair CPU with a small model such as qwen3:1.7b.
     LS_IDLE_SECONDS seconds of no traffic before the GPU shuts down (default 300)
+    WHISPER_MODEL   speech-to-text model for meeting notes (default base.en; e.g. small.en
+                    is more accurate and ~3x slower). Always runs on CPU, int8.
 
 Ollama has no auth, so a small token proxy (deploy/token_proxy.py) sits in front of it.
-Model weights live on a Modal Volume: they download once and survive restarts.
+Speech-to-text: a faster-whisper sidecar (deploy/whisper_server.py) serves the
+OpenAI-compatible POST /v1/audio/transcriptions; the proxy routes /v1/audio/* to it
+behind the same token.
+Model weights (Ollama's and Whisper's) live on a Modal Volume: they download once and
+survive restarts.
 Only use synthetic/demo data with a cloud runtime; real student data belongs on the school box.
 """
 
@@ -40,21 +47,37 @@ IDLE_SECONDS = int(os.environ.get("LS_IDLE_SECONDS", "300"))
 OLLAMA_DIR = "/root/.ollama"
 PUBLIC_PORT = 11434   # token proxy (exposed)
 OLLAMA_PORT = 11435   # Ollama itself (container-local)
-PROXY = Path(__file__).resolve().parent.parent / "token_proxy.py"
+WHISPER_PORT = 11436  # speech-to-text sidecar (container-local)
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "").strip() or "base.en"
+WHISPER_DIR = f"{OLLAMA_DIR}/whisper"  # on the volume: weights download once
+DEPLOY = Path(__file__).resolve().parent.parent
+PROXY = DEPLOY / "token_proxy.py"
+SIDECAR = DEPLOY / "whisper_server.py"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("curl", "ca-certificates", "zstd")
     .run_commands("curl -fsSL https://ollama.com/install.sh | sh")
-    .pip_install("aiohttp>=3.9")
+    # faster-whisper decodes with PyAV (bundled FFmpeg: webm/ogg/m4a/mp3/wav); this pair is
+    # known to work together (av 16+ dropped an argument faster-whisper 1.2 still passes).
+    .pip_install("aiohttp>=3.9", "faster-whisper==1.2.1", "av==15.1.0")
     .env({
         "OLLAMA_HOST": f"127.0.0.1:{OLLAMA_PORT}",
         "OLLAMA_MODELS": f"{OLLAMA_DIR}/models",
         "OLLAMA_KEEP_ALIVE": "30m",       # keep weights in GPU memory between questions
-        "OLLAMA_NUM_PARALLEL": "4",       # concurrent requests per loaded model
+        # Teacher tools send prompts of up to ~7k tokens (a student essay plus its rubric),
+        # so each request gets an 8k context. On CPU, 2 parallel slots keep the KV cache the
+        # same size as Ollama's default 4 x 4k.
+        "OLLAMA_CONTEXT_LENGTH": "8192",
+        "OLLAMA_NUM_PARALLEL": "2" if GPU is None else "4",  # concurrent requests per model
         "OLLAMA_MAX_LOADED_MODELS": "2",  # chat + embedding model together
+        "WHISPER_MODEL": WHISPER_MODEL,
+        "WHISPER_DIR": WHISPER_DIR,
+        "WHISPER_THREADS": "4",           # leave the other cores to Ollama
+        "HF_HUB_DISABLE_TELEMETRY": "1",
     })
     .add_local_file(PROXY, "/opt/localschool/token_proxy.py")
+    .add_local_file(SIDECAR, "/opt/localschool/whisper_server.py")
 )
 models = modal.Volume.from_name("localschool-ollama-models", create_if_missing=True)
 secret = modal.Secret.from_name("localschool-runtime")
@@ -83,9 +106,12 @@ def _start_ollama() -> subprocess.Popen:
 @modal.web_server(port=PUBLIC_PORT, startup_timeout=300)
 def serve() -> None:
     _start_ollama()
+    # Loads the Whisper weights from the volume in the background; first use waits for it.
+    subprocess.Popen(["python", "/opt/localschool/whisper_server.py", "--listen", f"127.0.0.1:{WHISPER_PORT}"])
     subprocess.Popen([
         "python", "/opt/localschool/token_proxy.py",
         "--listen", f"0.0.0.0:{PUBLIC_PORT}", "--upstream", f"http://127.0.0.1:{OLLAMA_PORT}",
+        "--audio-upstream", f"http://127.0.0.1:{WHISPER_PORT}",
     ])
 
 
@@ -97,3 +123,11 @@ def pull(model: str = "qwen3:8b") -> None:
     subprocess.run(["ollama", "pull", model], check=True)
     models.commit()
     print(f"pulled {model}")
+
+
+@app.function(volumes={OLLAMA_DIR: models}, timeout=1800)
+def pull_whisper(model: str = WHISPER_MODEL) -> None:
+    """Download the speech-to-text weights into the shared volume ahead of time."""
+    subprocess.run(["python", "/opt/localschool/whisper_server.py", "--download", model], check=True)
+    models.commit()
+    print(f"pulled whisper {model}")

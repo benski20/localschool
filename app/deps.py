@@ -13,6 +13,7 @@ from .llm import Runtime
 from .services.auth import session_user
 from .services.embeddings import EmbeddingWorker
 from .services.models import PullManager
+from .services.tools import ToolWorker
 
 SESSION_COOKIE = "ls_session"
 
@@ -31,6 +32,10 @@ def worker(request: Request) -> EmbeddingWorker:
 
 def pulls(request: Request) -> PullManager:
     return request.app.state.pulls
+
+
+def tools(request: Request) -> ToolWorker:
+    return request.app.state.tools
 
 
 def db(request: Request) -> Iterator[sqlite3.Connection]:

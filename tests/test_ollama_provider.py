@@ -121,3 +121,86 @@ def test_parse_docx_headings_and_tables():
     d.save(buf)
     text = parse_file("policy.docx", buf.getvalue())[0].text
     assert "# Dress code" in text and "Hats are not allowed" in text and "Period 1 | 8:00" in text
+
+
+# -- structured output + speech-to-text --------------------------------------------------
+
+async def test_json_schema_is_sent_as_ollama_format_and_openai_response_format():
+    seen = []
+
+    def h(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen.append(body)
+        if request.url.path == "/api/chat":
+            return httpx.Response(200, text=json.dumps({"message": {"content": '{"a": 1}'}, "done": True}) + "\n")
+        if "response_format" in body:  # a server without structured outputs
+            return httpx.Response(400, json={"error": {"message": "response_format is not supported"}})
+        return httpx.Response(200, text='data: {"choices": [{"delta": {"content": "{}"}}]}\n\ndata: [DONE]\n\n')
+
+    schema = {"type": "object", "properties": {"a": {"type": "integer"}}}
+    p = OllamaProvider("http://x", transport=httpx.MockTransport(h))
+    assert "".join([t async for t in p.chat("qwen3:8b", [ChatMessage("user", "hi")], json_schema=schema)]) == '{"a": 1}'
+    assert seen[-1]["format"] == schema and seen[-1]["think"] is False
+    _ = [t async for t in p.chat("qwen3:8b", [ChatMessage("user", "hi")])]
+    assert "format" not in seen[-1]
+
+    o = OpenAICompatProvider("http://x", transport=httpx.MockTransport(h))
+    assert "".join([t async for t in o.chat("m", [ChatMessage("user", "hi")], json_schema=schema)]) == "{}"
+    assert seen[-2]["response_format"]["json_schema"]["schema"] == schema and "response_format" not in seen[-1]
+    _ = [t async for t in o.chat("m", [ChatMessage("user", "hi")], json_schema=schema)]
+    assert "response_format" not in seen[-1]  # remembered: no second 400
+
+
+VERBOSE = {"task": "transcribe", "language": "en", "duration": 7.5, "text": "Hello there. We agreed.",
+           "segments": [{"id": 0, "seek": 0, "start": 0.0, "end": 3.2, "text": " Hello there.", "tokens": [1],
+                         "temperature": 0.0, "avg_logprob": -0.2, "compression_ratio": 1.1, "no_speech_prob": 0.01},
+                        {"id": 1, "seek": 0, "start": 3.2, "end": 7.5, "text": " We agreed.  ", "tokens": [2],
+                         "temperature": 0.0, "avg_logprob": -0.2, "compression_ratio": 1.1, "no_speech_prob": 0.01}]}
+
+
+@pytest.mark.parametrize("cls", [OllamaProvider, OpenAICompatProvider])
+async def test_transcribe_posts_multipart_with_auth(tmp_path, cls):
+    audio = tmp_path / "meeting.webm"
+    audio.write_bytes(b"\x1a\x45\xdf\xa3" + b"x" * 1000)
+    seen = {}
+
+    def h(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/audio/transcriptions" and request.method == "POST"
+        seen["auth"], seen["key"] = request.headers["authorization"], request.headers["modal-key"]
+        seen["ctype"] = request.headers["content-type"]
+        seen["body"] = request.read()
+        # our sidecar's keep-alive whitespace comes first
+        return httpx.Response(200, text="  \n " + json.dumps(VERBOSE), headers={"content-type": "application/json"})
+
+    p = cls("https://rt.example", token="tok", headers={"Modal-Key": "k"}, transport=httpx.MockTransport(h))
+    segs = await p.transcribe(audio, language="en", prompt="IEP meeting with Ava Thompson.")
+    assert [(s.start, s.end, s.text) for s in segs] == [(0.0, 3.2, "Hello there."), (3.2, 7.5, "We agreed.")]
+    assert seen["auth"] == "Bearer tok" and seen["key"] == "k" and seen["ctype"].startswith("multipart/form-data")
+    body = seen["body"]
+    for name, value in (("model", b"whisper"), ("response_format", b"verbose_json"), ("language", b"en"),
+                        ("prompt", b"IEP meeting with Ava Thompson.")):
+        assert f'name="{name}"'.encode() + b"\r\n\r\n" + value in body
+    assert b'name="file"; filename="meeting.webm"' in body and b"Content-Type: audio/webm" in body
+    assert b"x" * 1000 in body
+
+
+async def test_transcribe_explains_missing_endpoint_and_errors(tmp_path):
+    from app.llm import TRANSCRIBE_UNSUPPORTED
+
+    audio = tmp_path / "a.wav"
+    audio.write_bytes(b"RIFF....WAVE")
+    for resp in (httpx.Response(404, text="404 page not found"), httpx.Response(405), httpx.Response(501)):
+        p = OllamaProvider("http://x", transport=httpx.MockTransport(lambda r, resp=resp: resp))
+        with pytest.raises(RuntimeError_) as e:
+            await p.transcribe(audio)
+        assert str(e.value) == TRANSCRIBE_UNSUPPORTED
+    late = httpx.Response(200, text=" " + json.dumps({"error": {"message": "Invalid data found when processing input"}}))
+    p = OllamaProvider("http://x", transport=httpx.MockTransport(lambda r: late))
+    with pytest.raises(RuntimeError_, match="Transcription failed: Invalid data"):
+        await p.transcribe(audio)
+    plain = httpx.Response(200, json={"text": " Just text. ", "duration": 2.0})
+    p = OllamaProvider("http://x", transport=httpx.MockTransport(lambda r: plain))
+    assert [(s.start, s.end, s.text) for s in await p.transcribe(audio)] == [(0.0, 2.0, "Just text.")]
+    p = OllamaProvider("http://x", transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+    with pytest.raises(RuntimeError_, match="credentials"):
+        await p.transcribe(audio)

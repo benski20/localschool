@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     def files_dir(self) -> Path:
         return self.data_dir / "files"
 
+    @property
+    def audio_dir(self) -> Path:
+        """Meeting recordings, kept only until the teacher approves the notes."""
+        return self.data_dir / "audio"
+
 
 @lru_cache
 def get_settings() -> Settings:

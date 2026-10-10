@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
 Role = Literal["system", "user", "assistant"]
@@ -47,6 +48,21 @@ class RuntimeHealth:
 
 
 @dataclass(frozen=True)
+class TranscriptSegment:
+    """One timed stretch of speech (seconds from the start of the recording)."""
+
+    start: float
+    end: float
+    text: str
+
+
+# Shown to the teacher when the runtime has no speech-to-text endpoint.
+TRANSCRIBE_UNSUPPORTED = "This runtime can't transcribe audio yet."
+# The model name sent to /v1/audio/transcriptions; the runtime maps it to its Whisper build.
+TRANSCRIBE_MODEL = "whisper"
+
+
+@dataclass(frozen=True)
 class Capabilities:
     pull: bool = False    # can download new models onto the runtime
     delete: bool = False  # can remove models from the runtime
@@ -65,9 +81,24 @@ class ModelProvider(Protocol):
     capabilities: Capabilities
 
     def chat(
-        self, model: str, messages: list[ChatMessage], *, temperature: float = 0.2
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        *,
+        temperature: float = 0.2,
+        json_schema: dict | None = None,
     ) -> AsyncIterator[str]:
-        """Stream the assistant's visible answer text (reasoning traces stripped)."""
+        """Stream the assistant's visible answer text (reasoning traces stripped).
+
+        `json_schema`: ask for a JSON reply of this shape (constrained decoding where the
+        runtime supports it). Callers still validate: it's a strong hint, not a guarantee."""
+        ...
+
+    async def transcribe(
+        self, audio_path: Path, *, language: str | None = None, prompt: str = ""
+    ) -> list[TranscriptSegment]:
+        """Speech-to-text for one recording. `prompt` primes spelling (names, terms).
+        Raises RuntimeError_(TRANSCRIBE_UNSUPPORTED) when the runtime has no endpoint."""
         ...
 
     async def embed(self, model: str, texts: list[str]) -> list[list[float]]: ...
