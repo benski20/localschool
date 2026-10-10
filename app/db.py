@@ -143,6 +143,25 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX messages_conversation ON messages(conversation_id);
     """,
+    # 2 — teacher-selectable chat models; private documents (chat attachments)
+    """
+    -- Chat models teachers may pick from ("Fast", "Thorough", ...). The teacher-facing
+    -- default lives in settings under 'chat_default'.
+    CREATE TABLE chat_choices (
+        model       TEXT PRIMARY KEY,
+        label       TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        position    INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- 'private' documents are visible (and citable) only to their owner.
+    ALTER TABLE documents ADD COLUMN visibility TEXT NOT NULL DEFAULT 'school'
+        CHECK (visibility IN ('school', 'private'));
+    CREATE INDEX documents_owner ON documents(owner_id);
+
+    -- Private documents attached to a conversation (JSON list of ids); follow-ups reuse them.
+    ALTER TABLE conversations ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';
+    """,
 ]
 
 

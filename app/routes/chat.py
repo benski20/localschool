@@ -17,6 +17,10 @@ router = APIRouter(prefix="/api", tags=["chat"])
 class AskIn(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     conversation_id: int | None = None
+    # A teacher-picked chat model (see GET /api/models); anything else falls back silently.
+    model: str | None = Field(default=None, max_length=200)
+    # The caller's own private documents to answer from; other ids are ignored.
+    attachments: list[int] = Field(default_factory=list, max_length=20)
 
 
 @router.post("/chat")
@@ -28,7 +32,8 @@ async def ask(
     """Server-sent events: conversation → sources → [queued|status]* → token* → done|error."""
 
     async def events():
-        async for evt in chat.answer(runtime, user, body.question, body.conversation_id):
+        async for evt in chat.answer(runtime, user, body.question, body.conversation_id,
+                                     model=body.model, attachments=body.attachments):
             yield f"data: {json.dumps(evt)}\n\n"
 
     return StreamingResponse(
@@ -54,7 +59,7 @@ def conversation(
     db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     conv = db.execute(
-        "SELECT id, title, updated_at FROM conversations WHERE id = ? AND user_id = ?",
+        "SELECT id, title, updated_at, attachments_json FROM conversations WHERE id = ? AND user_id = ?",
         (conversation_id, user["id"]),
     ).fetchone()
     if not conv:
@@ -64,8 +69,12 @@ def conversation(
         "WHERE conversation_id = ? ORDER BY id",
         (conversation_id,),
     ).fetchall()
+    ids = chat.valid_attachments(db, user["id"], json.loads(conv["attachments_json"] or "[]"))
+    titles = {r["id"]: r["title"] for r in db.execute(
+        f"SELECT id, title FROM documents WHERE id IN ({','.join('?' * len(ids))})", ids)} if ids else {}
     return {
-        "conversation": dict(conv),
+        "conversation": {k: conv[k] for k in ("id", "title", "updated_at")},
+        "attachments": [{"id": i, "title": titles[i]} for i in ids],
         "messages": [
             {**{k: m[k] for k in ("id", "role", "content", "model", "created_at")},
              "sources": json.loads(m["sources_json"])}

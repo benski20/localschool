@@ -22,7 +22,7 @@ from .llm.registry import ProviderFactory, default_factory
 from .routes import admin, auth, chat, install, library, roster
 from .services.auth import create_user
 from .services.embeddings import EmbeddingWorker
-from .services.models import PullManager
+from .services.models import PullManager, seed_choices
 
 log = logging.getLogger("localschool")
 VERSION = "0.1.0"
@@ -37,6 +37,7 @@ def bootstrap(settings: Settings) -> None:
             create_user(db, email=settings.admin_email, name="Administrator", role="admin",
                         password=settings.admin_password)
             log.warning("Created first admin %s — change its password.", settings.admin_email)
+        seed_choices(db)
 
 
 def create_app(settings: Settings | None = None, *, factory: ProviderFactory = default_factory) -> FastAPI:

@@ -97,6 +97,25 @@ class Runtime:
         # instead of pinging, so a scale-to-zero GPU is never woken (or billed) by polling.
         self.last_ok: float | None = None
         self.last_error: tuple[float, str] | None = None
+        # (config, fetched_at, names): installed-model list, cached so the teacher model
+        # picker doesn't ask (or wake) the runtime on every page load.
+        self._installed: tuple[RuntimeConfig, float, set[str]] | None = None
+
+    async def installed_models(self, max_age_s: float = 120.0) -> set[str]:
+        """Names of models on the runtime (cached). Raises RuntimeError_ if unreachable."""
+        cfg = self.config()
+        cached = self._installed
+        if cached and cached[0] == cfg and time.time() - cached[1] < max_age_s:
+            return cached[2]
+        provider = await self.provider()
+        names = {m.name for m in await provider.list_models()}
+        self._installed = (cfg, time.time(), names)
+        self.note_ok()
+        return names
+
+    def forget_installed(self) -> None:
+        """Call after anything that changes what's installed (pull, delete)."""
+        self._installed = None
 
     def note_ok(self) -> None:
         self.last_ok = time.time()

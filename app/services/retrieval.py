@@ -3,6 +3,9 @@
 Keyword search catches exact names, codes and policy numbers; vectors catch paraphrase.
 If vectors aren't available (runtime down, index still building) keyword search alone
 still answers.
+
+Every search is scoped to one user: school documents plus that user's own private
+documents (chat attachments). A teacher's private file is never retrieved for anyone else.
 """
 
 from __future__ import annotations
@@ -16,6 +19,10 @@ from ..db import vec_table
 
 RRF_K = 60
 CANDIDATES = 24
+VEC_MAX_K = 4096  # sqlite-vec's KNN limit
+
+# SQL predicate over `documents d`: what the user (one bound parameter) may see and cite.
+VISIBLE = "(d.visibility = 'school' OR d.owner_id = ?)"
 
 _STOP = set(
     "a an and are as at be by can do does for from has have how i if in is it its me my "
@@ -50,27 +57,72 @@ def fts_query(question: str) -> str | None:
     return " OR ".join(f'"{t}"' for t in terms[:24])
 
 
-def keyword_search(db: sqlite3.Connection, question: str, limit: int = CANDIDATES) -> list[int]:
+def visible_param(user_id: int | None) -> int:
+    """Bind value for VISIBLE. None = no user: school documents only."""
+    return -1 if user_id is None else int(user_id)
+
+
+def keyword_search(
+    db: sqlite3.Connection,
+    question: str,
+    *,
+    user_id: int | None,
+    doc_ids: list[int] | None = None,
+    limit: int = CANDIDATES,
+) -> list[int]:
+    """BM25 over the chunks `user_id` may see; `doc_ids` narrows it to those documents."""
     q = fts_query(question)
     if not q:
         return []
+    where, params = "", [q, visible_param(user_id)]
+    if doc_ids is not None:
+        if not doc_ids:
+            return []
+        where = f" AND c.document_id IN ({','.join('?' * len(doc_ids))})"
+        params += [int(i) for i in doc_ids]
     rows = db.execute(
-        "SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ? "
+        "SELECT chunks_fts.rowid FROM chunks_fts "
+        "JOIN chunks c ON c.id = chunks_fts.rowid JOIN documents d ON d.id = c.document_id "
+        f"WHERE chunks_fts MATCH ? AND {VISIBLE}{where} "
         "ORDER BY bm25(chunks_fts, 1.0, 2.0) LIMIT ?",
-        (q, limit),
+        (*params, limit),
     ).fetchall()
     return [r[0] for r in rows]
 
 
 def vector_search(
-    db: sqlite3.Connection, space_id: int, query_vec: list[float], limit: int = CANDIDATES
+    db: sqlite3.Connection,
+    space_id: int,
+    query_vec: list[float],
+    *,
+    user_id: int | None,
+    limit: int = CANDIDATES,
 ) -> list[int]:
+    # vec0 can't filter by a join during KNN, so over-fetch by the number of chunks this
+    # user can't see, then filter: the top `limit` visible chunks are always in the result.
+    uid = visible_param(user_id)
+    hidden = db.execute(
+        "SELECT COUNT(*) FROM chunks c JOIN documents d ON d.id = c.document_id "
+        "WHERE d.visibility = 'private' AND (d.owner_id IS NULL OR d.owner_id != ?)",
+        (uid,),
+    ).fetchone()[0]
     rows = db.execute(
         f"SELECT rowid FROM {vec_table(space_id)} WHERE embedding MATCH ? AND k = ? "
         "ORDER BY distance",
-        (json.dumps(query_vec), limit),
+        (json.dumps(query_vec), min(limit + hidden, VEC_MAX_K)),
     ).fetchall()
-    return [r[0] for r in rows]
+    ids = [r[0] for r in rows]
+    if not ids:
+        return []
+    allowed = {
+        r[0]
+        for r in db.execute(
+            "SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id "
+            f"WHERE c.id IN ({','.join('?' * len(ids))}) AND {VISIBLE}",
+            (*ids, uid),
+        )
+    }
+    return [i for i in ids if i in allowed][:limit]
 
 
 def rrf(*rankings: tuple[str, list[int]]) -> list[tuple[int, float, tuple[str, ...]]]:
@@ -88,27 +140,38 @@ def hybrid_search(
     db: sqlite3.Connection,
     question: str,
     *,
+    user_id: int | None,
     k: int = 6,
     space_id: int | None = None,
     query_vec: list[float] | None = None,
 ) -> list[Hit]:
-    rankings = [("keyword", keyword_search(db, question))]
+    rankings = [("keyword", keyword_search(db, question, user_id=user_id))]
     if space_id is not None and query_vec:
-        rankings.append(("vector", vector_search(db, space_id, query_vec)))
-    fused = rrf(*rankings)[:k]
-    if not fused:
+        rankings.append(("vector", vector_search(db, space_id, query_vec, user_id=user_id)))
+    return fetch_hits(db, rrf(*rankings)[:k], user_id=user_id)
+
+
+def fetch_hits(
+    db: sqlite3.Connection,
+    ranked: list[tuple[int, float, tuple[str, ...]]],
+    *,
+    user_id: int | None,
+) -> list[Hit]:
+    """Chunk rows for ranked ids, in order. Re-checks visibility (belt and braces)."""
+    ids = [cid for cid, _, _ in ranked]
+    if not ids:
         return []
-    ids = [cid for cid, _, _ in fused]
     rows = {
         r["id"]: r
         for r in db.execute(
             "SELECT c.id, c.document_id, c.page, c.heading, c.text, d.title FROM chunks c "
-            f"JOIN documents d ON d.id = c.document_id WHERE c.id IN ({','.join('?' * len(ids))})",
-            ids,
+            f"JOIN documents d ON d.id = c.document_id WHERE c.id IN ({','.join('?' * len(ids))}) "
+            f"AND {VISIBLE}",
+            (*ids, visible_param(user_id)),
         )
     }
     return [
         Hit(cid, r["document_id"], r["title"], r["page"], r["heading"], r["text"], round(score, 5), by)
-        for cid, score, by in fused
+        for cid, score, by in ranked
         if (r := rows.get(cid))
     ]

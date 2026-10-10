@@ -37,6 +37,7 @@ jobs:
       LS_GPU: ${{ inputs.gpu || 'none' }}
       CHAT: ${{ inputs.chat_model || 'qwen3:1.7b' }}
       EMBED: nomic-embed-text
+      THOROUGH: qwen3:4b
     steps:
       - name: Check secrets
         id: secrets
@@ -84,6 +85,8 @@ jobs:
         run: |
           modal run deploy/modal/ollama_app.py::pull --model "$CHAT"
           modal run deploy/modal/ollama_app.py::pull --model "$EMBED"
+          # Teachers' "Thorough" choice (config/models.yaml); the live eval asks it one question.
+          if [ "$CHAT" != "$THOROUGH" ]; then modal run deploy/modal/ollama_app.py::pull --model "$THOROUGH"; fi
 
       - name: Wake the runtime and check auth
         if: steps.secrets.outputs.ready == 'true'
