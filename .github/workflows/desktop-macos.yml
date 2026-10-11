@@ -353,19 +353,40 @@ jobs:
 
           printf '{"url":"http://127.0.0.1:8000","name":"The Shipley School"}' > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
           osascript -e "tell application \"Teacher's Desk\" to quit" || true; sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
+          LOG="$HOME/Library/Logs/Teachers Desk/updater.log"
+          OLD_V=$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)
           open "$APP_INSTALLED"
           # It notices, downloads and checks the update in the background…
           for i in $(seq 1 180); do test -f "$UPD/ready" && break; sleep 1; done
           test "$(cat "$UPD/ready")" = 9.9.9
-          # …and puts it in place when the teacher quits.
+
+          # If macOS refuses the swap (here: the app is locked), nothing breaks, and the next
+          # launch says how to allow it (dialog), once.
+          sudo chflags uchg "$APP_INSTALLED"
           osascript -e "tell application \"Teacher's Desk\" to quit"
           for i in $(seq 1 60); do pgrep -f "Desk.app/Contents/MacOS" >/dev/null || break; sleep 1; done
-          for i in $(seq 1 30); do test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = 9.9.9 && break; sleep 1; done
+          for i in $(seq 1 30); do test -f "$UPD/failed" && break; sleep 1; done
+          test -f "$UPD/failed"; grep "swap failed" "$LOG"
+          sudo chflags nouchg "$APP_INSTALLED"
+          test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = "$OLD_V"
+          open "$APP_INSTALLED"
+          for i in $(seq 1 60); do test ! -f "$UPD/failed" && break; sleep 1; done
+          test ! -f "$UPD/failed"; sleep 3
+          screencapture -x shots/12-update-blocked-dialog.png || true
+
+          # Check for updates from the account menu (teachersdesk://check-updates): it says
+          # it's updating, then installs and reopens as the new version.
+          sleep 60  # let the blocked-update dialog give up
+          open "teachersdesk://check-updates"; sleep 4
+          screencapture -x shots/13-updating-dialog.png || true
+          for i in $(seq 1 150); do test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = 9.9.9 && break; sleep 1; done
           test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = 9.9.9
           codesign --verify --deep --strict "$APP_INSTALLED"
           test ! -d "$UPD"
-          open "$APP_INSTALLED"; sleep 10; pgrep -f "Desk.app/Contents/MacOS" >/dev/null
-          screencapture -x shots/12-after-update.png || true
+          for i in $(seq 1 30); do pgrep -f "Desk.app/Contents/MacOS" >/dev/null && break; sleep 1; done
+          pgrep -f "Desk.app/Contents/MacOS" >/dev/null  # it reopened by itself
+          cat "$LOG"
+          screencapture -x shots/14-after-update.png || true
 
       - name: Publish screenshots (branch ci/screenshots)
         if: always()

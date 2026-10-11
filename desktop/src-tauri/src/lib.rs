@@ -35,7 +35,10 @@ use tauri::WindowEvent;
 
 const MAIN: &str = "main";
 /// Lets the web app adapt to the native shell (title-bar spacing, no service worker).
-const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) LocalSchoolDesktop/0.1.0";
+const USER_AGENT: &str = concat!(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) LocalSchoolDesktop/",
+    env!("CARGO_PKG_VERSION")
+);
 
 // ---------------------------------------------------------------- commands
 // Each command refuses callers other than the bundled connect screen (defense in depth
@@ -139,6 +142,9 @@ fn on_deep_link(app: &AppHandle, url: &Url) {
     if url.scheme() != "teachersdesk" {
         return;
     }
+    if url.host_str() == Some("check-updates") {
+        return check_updates(app);
+    }
     let Some(code) = url.query_pairs().find(|(k, _)| k == "code").map(|(_, v)| v.to_string()) else { return };
     if code.is_empty() || code.len() > 200 || !code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
         return;
@@ -167,6 +173,19 @@ fn on_deep_link(app: &AppHandle, url: &Url) {
         }
         _ => {}
     }
+}
+
+/// Check for updates (menu bar, or the account menu in the window), saying what happened.
+fn check_updates(app: &AppHandle) {
+    static CHECKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if CHECKING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return; // one at a time
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        updater::check_now(&app);
+        CHECKING.store(false, std::sync::atomic::Ordering::SeqCst);
+    });
 }
 
 /// The connect screen's "Keep my data on this Mac" (menu, or the account menu in the window).
@@ -302,18 +321,7 @@ fn on_menu(app: &AppHandle, id: &str) {
         }
         "show_main" => show_main(app),
         "keep_on_mac" => open_keep_on_mac(app),
-        "check_updates" => {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                if updater::staged(&app).is_none() {
-                    updater::check(&app);
-                }
-                if updater::staged(&app).is_some() {
-                    updater::install_on_exit(&app, true);
-                    app.exit(0);
-                }
-            });
-        }
+        "check_updates" => check_updates(app),
         "switch_server" => {
             app.state::<CurrentServer>().set(None);
             if let Some(w) = main_window(app) {
@@ -351,9 +359,13 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
             // The school's pages may ask for app screens through teachersdesk:// links
             // (the account menu's "Keep my data on this Mac…"); nothing else gets through.
             if url.scheme() == "teachersdesk" {
-                if url.host_str() == Some("keep-on-mac") {
-                    let app = nav_app.clone();
-                    tauri::async_runtime::spawn(async move { open_keep_on_mac(&app) });
+                let app = nav_app.clone();
+                match url.host_str() {
+                    Some("keep-on-mac") => {
+                        tauri::async_runtime::spawn(async move { open_keep_on_mac(&app) });
+                    }
+                    Some("check-updates") => check_updates(&app),
+                    _ => {}
                 }
                 return false;
             }
