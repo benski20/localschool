@@ -243,6 +243,12 @@ MIGRATIONS: list[str] = [
         expires_at TEXT NOT NULL
     );
     """,
+    # 7 — meetings: the other side of a video call (Mac app: the computer's sound), kept as
+    # its own recording next to the microphone's and deleted with it.
+    """
+    ALTER TABLE drafts ADD COLUMN call_audio_path TEXT;
+    ALTER TABLE drafts ADD COLUMN call_audio_bytes INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 

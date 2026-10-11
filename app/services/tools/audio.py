@@ -1,5 +1,8 @@
 """Meeting recordings on disk (DATA_DIR/audio). A recording lives only until the teacher
-approves the notes (or deletes the draft); the transcript and notes are what's kept."""
+approves the notes (or deletes the draft); the transcript and notes are what's kept.
+
+A meeting has up to two tracks: "mic" (the teacher's microphone, "{id}.webm") and "call"
+(the other side of a video call, recorded by the Mac app, "{id}.call.m4a")."""
 
 from __future__ import annotations
 
@@ -14,7 +17,8 @@ MAX_AUDIO_BYTES = 200 * 1024 * 1024
 ACCEPTED = "WebM, Ogg, M4A, MP3 or WAV"
 EXTENSIONS = (".webm", ".ogg", ".m4a", ".mp3", ".wav")
 SNIFF_BYTES = 12
-_NAME = re.compile(r"^\d+\.(webm|ogg|m4a|mp3|wav)$")
+TRACKS = ("mic", "call")
+_NAME = re.compile(r"^\d+(?:\.call)?\.(webm|ogg|m4a|mp3|wav)$")
 
 
 def sniff(head: bytes) -> str | None:
@@ -32,8 +36,8 @@ def sniff(head: bytes) -> str | None:
     return None
 
 
-def file_name(draft_id: int, ext: str) -> str:
-    return f"{int(draft_id)}{ext}"
+def file_name(draft_id: int, ext: str, track: str = "mic") -> str:
+    return f"{int(draft_id)}{'.call' if track == 'call' else ''}{ext}"
 
 
 def path_of(audio_dir: Path, name: str | None) -> Path | None:
@@ -52,7 +56,8 @@ def sweep(db: sqlite3.Connection, audio_dir: Path) -> int:
     """Delete recordings no draft refers to (e.g. a user was removed with their drafts)."""
     if not audio_dir.is_dir():
         return 0
-    keep = {r[0] for r in db.execute("SELECT audio_path FROM drafts WHERE audio_path IS NOT NULL")}
+    keep = {r[0] for r in db.execute("SELECT audio_path FROM drafts WHERE audio_path IS NOT NULL "
+                                     "UNION SELECT call_audio_path FROM drafts WHERE call_audio_path IS NOT NULL")}
     removed = 0
     for f in audio_dir.iterdir():
         if f.is_file() and _NAME.match(f.name) and f.name not in keep:

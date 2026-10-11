@@ -422,7 +422,7 @@ def test_meeting_recording_transcribed_notes_and_audio_deleted_on_approve(client
     out["action_items"].append({"owner": "Jordan Lee", "task": "Share notes with the family", "refs": [99]})
     r = client.put(f"/api/drafts/{d['id']}", json={"output": out}).json()["draft"]
     assert r["output"]["action_items"][-1] == {"owner": "Jordan Lee", "task": "Share notes with the family",
-                                                "due": None, "refs": []}  # bad ref dropped
+                                                "due": None, "refs": [], "mine": False}  # bad ref dropped
 
     approved = client.post(f"/api/drafts/{d['id']}/approve").json()["draft"]
     assert approved["approved_at"] and approved["has_audio"] is False and approved["audio_bytes"] == 0

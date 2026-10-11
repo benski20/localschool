@@ -11,7 +11,7 @@ GET  /api/tools
     → {"tools": [...], "meeting_types": [{"key", "label", "sections": [{"key", "title", "kind"}]}],
        "adapt_levels": [{"key", "label"}], "email_tones": ["warm", "neutral", "firm"],
        "audio": {"accept": [".webm", ".ogg", ".m4a", ".mp3", ".wav"], "max_bytes": 209715200,
-                 "chunk_bytes": 4194304},
+                 "chunk_bytes": 4194304, "tracks": ["mic", "call"]},
        "limits": {"feedback_pieces": 40, "work_chars": 16000, "reading_chars": 12000, "adapt_versions": 3}}
 
 POST /api/tools/{tool}/drafts           JSON, or multipart/form-data with the same fields
@@ -64,9 +64,21 @@ POST /api/meetings/{id}/audio         the recording, whole or in chunks (keep ea
     offset = bytes already received (0 starts over); final=true (default) ends the upload
     and queues transcription. Accepted: WebM/Ogg (browser MediaRecorder), M4A, MP3, WAV,
     up to 200 MB in total (detected from the bytes, not the name).
-    → {"draft": Draft, "received": int}
-    400 no consent / empty · 409 wrong offset {"error", "received": int} or meeting already
-    has its recording · 413 over 200 MB · 415 not an accepted audio format.
+    track = "mic" (default) | "call" (field or ?track=): the call track is the other side of a
+    video call (Mac app), kept as its own file and transcribed as "Others". It never queues
+    anything: upload it first (all chunks, final=true), then the mic track as above.
+    → {"draft": Draft, "received": int}   (received counts the track just sent)
+    400 no consent / empty / bad track · 409 wrong offset {"error", "received": int} or meeting
+    already has its recording · 413 over 200 MB · 415 not an accepted audio format.
+
+PUT  /api/meetings/{id}/notepad       {"text": str (≤ 20000)} → {"ok": true}
+    The teacher's own notes, typed while recording (stored as input.my_notes). Any status;
+    never re-runs anything (POST /api/drafts/{id}/retry rewrites the notes with them).
+
+POST /api/meetings/{id}/ask           {"question": str (≤ 500)} → {"answer": str, "refs": [int]}
+    Answered from the transcript (+ notepad) only; refs index "transcript". When the meeting
+    doesn't say: answer "I didn't hear that in the meeting." and refs []. Stateless.
+    409 no transcript yet · 502/503 the AI couldn't answer. Logged (never the question).
 
 Draft (GET /api/drafts/{id}):
     {"id", "tool", "title", "status": "awaiting_audio"|"queued"|"running"|"ready"|"error",
@@ -75,16 +87,22 @@ Draft (GET /api/drafts/{id}):
      "batch": str|null, "model": str, "created_at", "updated_at", "edited_at", "approved_at",
      "input": {...what was asked, incl. the student snapshot...}, "output": {...}|null,
      meeting only: "meeting_type", "source": "audio"|"paste", "has_audio": bool, "audio_bytes": int,
-                   "transcript": [{"i", "start": sec|null, "end": sec|null, "text"}]|null,
+                   "has_call_audio": bool,
+                   "transcript": [{"i", "start": sec|null, "end": sec|null, "text",
+                                   "speaker"?: "You"|"Others" (only with a call track)}]|null,
                    "sections": [{"key", "title", "kind": "text"|"items"|"actions"}],
      email only:   "mailto": "mailto:?subject=…&body=…"|null}
 DraftSummary: the same without input/output/transcript/sections/mailto, plus "preview": str.
 
 Outputs ("output"):
-  meeting  {"meeting_type", "summary": str, <section key>: [{"text", "refs": [segment index]}], ...,
-            "action_items": [{"owner", "task", "due": str|null, "refs": [int]}]}
+  meeting  {"meeting_type", "summary": str,
+            <section key>: [{"text", "refs": [segment index], "mine": bool}], ...,
+            "action_items": [{"owner", "task", "due": str|null, "refs": [int], "mine": bool}],
+            "my_notes": str (the notepad when these notes were written)}
            Section keys per type are in "sections" (and GET /api/tools). refs index "transcript";
-           use transcript[i].start for the timestamp chip.
+           use transcript[i].start for the timestamp chip. mine = the item comes from the
+           teacher's notepad (checked: at least half its words are in the notepad), else it was
+           added from the recording.
   feedback {"strengths": [Item, Item], "next_steps": [Item, Item], "focus": str, "dropped": int}
            Item = {"comment", "quote" (exact text from the work), "span": [start, end] (character
            offsets into input.work)|null, "rubric_line": int (1-based into input.rubric.lines),
@@ -114,11 +132,12 @@ from starlette.datastructures import UploadFile
 from .. import deps
 from ..config import Settings
 from ..db import connect
-from ..llm import Runtime
+from ..llm import Runtime, RuntimeError_
+from ..llm.base import RuntimeUnavailable
 from ..services import activity, ingest
 from ..services.models import resolve_tool_model
 from ..services.tools import TOOLS, NotFound, ToolWorker, adapt, audio, drafts, feedback, meeting
-from ..services.tools.common import describe_error
+from ..services.tools.common import JobContext, ToolError, describe_error
 
 TOOL_LABELS = {"meeting": "meeting notes", "feedback": "feedback", "adapt": "adapted reading", "email": "parent email"}
 
@@ -156,7 +175,8 @@ def tools_meta(_: sqlite3.Row = Depends(deps.current_user)):
         "meeting_types": [{"key": k, "label": t.label, "sections": meeting.layout(k)} for k, t in meeting.TYPES.items()],
         "adapt_levels": [{"key": k, "label": v} for k, v in adapt.LEVELS.items()],
         "email_tones": ["warm", "neutral", "firm"],
-        "audio": {"accept": list(audio.EXTENSIONS), "max_bytes": audio.MAX_AUDIO_BYTES, "chunk_bytes": CHUNK_HINT},
+        "audio": {"accept": list(audio.EXTENSIONS), "max_bytes": audio.MAX_AUDIO_BYTES, "chunk_bytes": CHUNK_HINT,
+                  "tracks": list(audio.TRACKS)},
         "limits": {"feedback_pieces": feedback.MAX_PIECES, "work_chars": feedback.MAX_WORK,
                    "reading_chars": adapt.MAX_CHARS, "adapt_versions": 3},
     }
@@ -301,11 +321,17 @@ async def create_draft(
     return {"draft": views[0], "drafts": views, "batch": batch, "errors": errors}
 
 
+def _remove_audio(settings: Settings, row: sqlite3.Row) -> None:
+    """Both tracks of a meeting's recording."""
+    audio.remove(settings.audio_dir, row["audio_path"])
+    audio.remove(settings.audio_dir, row["call_audio_path"])
+
+
 def _discard(settings: Settings, draft_id: int) -> None:
     with connect(settings.db_path) as db:
-        row = db.execute("SELECT audio_path FROM drafts WHERE id = ?", (draft_id,)).fetchone()
+        row = db.execute("SELECT audio_path, call_audio_path FROM drafts WHERE id = ?", (draft_id,)).fetchone()
         if row:
-            audio.remove(settings.audio_dir, row["audio_path"])
+            _remove_audio(settings, row)
         db.execute("DELETE FROM drafts WHERE id = ?", (draft_id,))
 
 
@@ -394,9 +420,10 @@ def approve_draft(
     row = _owned(db, draft_id, user)
     if row["status"] != "ready":
         raise HTTPException(409, "Only a finished draft can be approved.")
-    audio.remove(settings.audio_dir, row["audio_path"])  # the recording goes; transcript + notes stay
+    _remove_audio(settings, row)  # the recording goes; transcript + notes stay
     db.execute("UPDATE drafts SET approved_at = datetime('now'), audio_path = NULL, audio_bytes = 0, "
-               "updated_at = datetime('now') WHERE id = ?", (draft_id,))
+               "call_audio_path = NULL, call_audio_bytes = 0, updated_at = datetime('now') WHERE id = ?",
+               (draft_id,))
     db.commit()
     return {"draft": _view(db, draft_id)}
 
@@ -431,7 +458,7 @@ def delete_draft(
 ):
     row = _owned(db, draft_id, user)
     worker.cancel(draft_id)
-    audio.remove(settings.audio_dir, row["audio_path"])
+    _remove_audio(settings, row)
     db.execute("DELETE FROM drafts WHERE id = ?", (draft_id,))
     db.commit()
     return {"ok": True}
@@ -463,11 +490,13 @@ def _truthy(v, default: bool) -> bool:
 
 
 async def _receive(settings: Settings, draft_id: int, chunks: AsyncIterator[bytes], *, offset: int,
-                   final: bool) -> int:
-    """Append one upload to the draft's recording; on `final`, queue transcription."""
+                   final: bool, track: str = "mic") -> int:
+    """Append one upload to one track of the draft's recording. The microphone's `final`
+    queues transcription; the call track never does (the client sends it first)."""
+    path_col, bytes_col = ("call_audio_path", "call_audio_bytes") if track == "call" else ("audio_path", "audio_bytes")
     with connect(settings.db_path) as db:
-        row = db.execute("SELECT audio_path, audio_bytes FROM drafts WHERE id = ?", (draft_id,)).fetchone()
-    name, have = row["audio_path"], int(row["audio_bytes"] or 0)
+        row = db.execute(f"SELECT {path_col}, {bytes_col} FROM drafts WHERE id = ?", (draft_id,)).fetchone()
+    name, have = row[path_col], int(row[bytes_col] or 0)
     if offset != 0 and (offset != have or not name):
         raise _AudioProblem(409, f"Upload out of order: send from byte {have}.", received=have)
     it = chunks.__aiter__()
@@ -483,7 +512,7 @@ async def _receive(settings: Settings, draft_id: int, chunks: AsyncIterator[byte
         if ext is None:
             raise _AudioProblem(415, f"That file isn't a recording we can read. Use {audio.ACCEPTED}.")
         audio.remove(settings.audio_dir, name)
-        name = audio.file_name(draft_id, ext)
+        name = audio.file_name(draft_id, ext, track)
     settings.audio_dir.mkdir(parents=True, exist_ok=True)
     path = settings.audio_dir / name
     total = offset
@@ -498,18 +527,18 @@ async def _receive(settings: Settings, draft_id: int, chunks: AsyncIterator[byte
         await run_in_threadpool(fh.close)
         path.unlink(missing_ok=True)
         with connect(settings.db_path) as db:
-            db.execute("UPDATE drafts SET audio_path = NULL, audio_bytes = 0 WHERE id = ?", (draft_id,))
+            db.execute(f"UPDATE drafts SET {path_col} = NULL, {bytes_col} = 0 WHERE id = ?", (draft_id,))
         raise
     finally:
         if not fh.closed:
             await run_in_threadpool(fh.close)
     with connect(settings.db_path) as db:
-        if final:
+        if final and track == "mic":
             db.execute("UPDATE drafts SET audio_path = ?, audio_bytes = ?, status = 'queued', stage = '', "
                        "error = '', progress = 0, updated_at = datetime('now') WHERE id = ?",
                        (name, total, draft_id))
         else:
-            db.execute("UPDATE drafts SET audio_path = ?, audio_bytes = ?, updated_at = datetime('now') "
+            db.execute(f"UPDATE drafts SET {path_col} = ?, {bytes_col} = ?, updated_at = datetime('now') "
                        "WHERE id = ?", (name, total, draft_id))
     return total
 
@@ -529,6 +558,7 @@ async def upload_audio(
     offset: int = 0,
     final: str | None = None,
     consent: str | None = None,
+    track: str | None = None,
     user: sqlite3.Row = Depends(deps.current_user),
     settings: Settings = Depends(deps.settings),
     worker: ToolWorker = Depends(deps.tools),
@@ -549,26 +579,88 @@ async def upload_audio(
         offset = int(_field(form, "offset") or offset)
         final = _field(form, "final") or final
         consent = _field(form, "consent") or consent
+        track = _field(form, "track") or track
         chunks = _file_chunks(f)
     else:
         chunks = request.stream()
     try:
+        track = (track or "mic").strip().lower()
+        if track not in audio.TRACKS:
+            raise HTTPException(400, f"track must be one of: {', '.join(audio.TRACKS)}.")
         inp = json.loads(row["input_json"])
         if _truthy(consent, False) and not inp.get("consent"):
             inp["consent"] = True
-            with connect(settings.db_path) as db:
-                db.execute("UPDATE drafts SET input_json = ? WHERE id = ?", (json.dumps(inp), draft_id))
+            with connect(settings.db_path) as db:  # json_set: never overwrites a notepad saved meanwhile
+                db.execute("UPDATE drafts SET input_json = json_set(input_json, '$.consent', json('true')) "
+                           "WHERE id = ?", (draft_id,))
         if not inp.get("consent"):
             raise HTTPException(400, CONSENT)
         try:
             received = await _receive(settings, draft_id, chunks, offset=max(offset, 0),
-                                      final=_truthy(final, True))
+                                      final=_truthy(final, True), track=track)
         except _AudioProblem as e:
             return e.response()
     finally:
         if form is not None:
             await form.close()
-    if _truthy(final, True):
+    if _truthy(final, True) and track == "mic":
         worker.kick()
     with connect(settings.db_path) as db:
         return {"draft": _view(db, draft_id), "received": received}
+
+
+# -- meeting notepad and questions ----------------------------------------------------
+
+def _owned_meeting(db: sqlite3.Connection, draft_id: int, user: sqlite3.Row) -> sqlite3.Row:
+    row = _owned(db, draft_id, user)
+    if row["tool"] != "meeting":
+        raise HTTPException(404, DRAFT_NOT_FOUND)
+    return row
+
+
+class Notepad(BaseModel):
+    text: str = Field(max_length=meeting.MAX_NOTEPAD)
+
+
+@router.put("/meetings/{draft_id}/notepad")
+def save_notepad(
+    draft_id: int,
+    body: Notepad,
+    user: sqlite3.Row = Depends(deps.current_user),
+    db: sqlite3.Connection = Depends(deps.db, scope="function"),
+):
+    """The teacher's own notes, autosaved while recording. Never re-runs anything: notes
+    that are already written pick it up on retry ("Update notes with my changes")."""
+    _owned_meeting(db, draft_id, user)
+    db.execute("UPDATE drafts SET input_json = json_set(input_json, '$.my_notes', ?), "
+               "updated_at = datetime('now') WHERE id = ?", (body.text, draft_id))
+    db.commit()  # before returning: the worker (event loop) must never wait on this request's lock
+    return {"ok": True}
+
+
+@router.post("/meetings/{draft_id}/ask")
+async def ask_meeting(
+    draft_id: int,
+    body: meeting.Question,
+    user: sqlite3.Row = Depends(deps.current_user),
+    runtime: Runtime = Depends(deps.runtime),
+    settings: Settings = Depends(deps.settings),
+):
+    with connect(settings.db_path) as db:  # closed before the model call
+        row = _owned_meeting(db, draft_id, user)
+    if not row["transcript_json"]:
+        raise HTTPException(409, "The transcript isn't ready yet.")
+    draft = drafts.job(row, settings.audio_dir)
+    ctx = JobContext(runtime=runtime, draft_id=draft_id, model=row["model"] or runtime.active_model("chat"),
+                     report=lambda stage, p: None)
+    try:
+        result = await meeting.ask(ctx, draft, body.question)
+    except ToolError as e:
+        raise HTTPException(502, str(e)) from e
+    except RuntimeError_ as e:
+        raise HTTPException(503 if isinstance(e, RuntimeUnavailable) else 502, str(e)) from e
+    student = draft["input"].get("student")
+    with connect(settings.db_path) as db:  # who and whose meeting, never the question
+        activity.log(db, user, "meeting_asked", subject=student["name"] if student else "",
+                     detail=meeting.TYPES[draft["input"]["meeting_type"]].label)
+    return result

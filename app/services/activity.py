@@ -16,6 +16,7 @@ ACTIONS = {
     "students_viewed": "viewed the class list",
     "students_used": "asked about",
     "draft_for_student": "made a draft for",
+    "meeting_asked": "asked about a meeting",
     "roster_imported": "imported the roster",
     "document_added": "added",
     "document_deleted": "deleted",
