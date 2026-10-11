@@ -12,6 +12,7 @@ import { CopyButton, EditableText, WordButton, OutputEditor, useDraftOutput } fr
 import { RefChips, TranscriptView, clock, type TranscriptFocus } from "../../components/tools/TranscriptView";
 import { DraftList } from "../../components/tools/DraftList";
 import { formatBytes } from "../../lib/api";
+import { useHealth } from "../../components/shell/health";
 import {
   isWorking,
   loadMeta,
@@ -152,7 +153,16 @@ export function MeetingNotes() {
     />
   );
 
+  const local = useHealth()?.local;
   const links = (
+    <>
+    {local && (
+      <p className="mb-4 max-w-prose text-sm text-muted">
+        Recordings and notes stay on this Mac. To transcribe and write the notes, the audio and transcript pass through
+        your school's AI for a moment and aren't kept there.{" "}
+        <Link to="/privacy" className="btn-link font-normal">Privacy</Link>
+      </p>
+    )}
     <div className="flex flex-wrap gap-x-6 gap-y-2">
       <button type="button" className="btn-link font-normal" onClick={() => picker.current?.click()}>
         Upload a recording
@@ -161,6 +171,7 @@ export function MeetingNotes() {
         Paste a transcript
       </button>
     </div>
+    </>
   );
 
   const types = meta?.meeting_types.map((t) => ({ value: t.key, label: t.label })) ?? [];

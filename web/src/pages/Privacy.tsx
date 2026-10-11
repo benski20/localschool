@@ -96,9 +96,19 @@ export function Privacy() {
 
           <Part title="Meeting recordings">
             <p>
-              A meeting is recorded only after the teacher confirms everyone present has agreed. The audio is deleted as soon as
-              the teacher approves the notes.
+              A meeting is recorded only after the teacher confirms everyone present has agreed. In the Mac app, the recording
+              can include the other side of a video call. The audio is deleted as soon as the teacher approves the notes.
             </p>
+            {t?.ai === "school" && (
+              <p>
+                The recording, transcript, notes and the teacher's own notes are kept only on this Mac. To turn the recording
+                into a transcript and notes, the audio and transcript are sent to {school}'s server, which passes them to its AI
+                and sends the result straight back. The school's server doesn't keep them: a recording is deleted as soon as it
+                has been transcribed, or within a day if the upload is interrupted. If {school}'s AI runs on a cloud computer
+                rather than on equipment at the school, the audio passes through that computer too. For real student meetings,
+                schools should run their AI on their own equipment.
+              </p>
+            )}
           </Part>
 
           <Part title="What is kept, and for how long">
