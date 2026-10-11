@@ -142,7 +142,8 @@ export function UserMenu() {
             // In the Mac app this opens its "Keep my data on this Mac" screen; in a
             // browser it explains how (/get), since it needs the Mac app.
             <a data-item role="menuitem" className={item} href={isDesktop ? "teachersdesk://keep-on-mac" : "/get#keep"}>
-              <Laptop className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Keep my data on this Mac…
+              <Laptop className="h-4 w-4 shrink-0" strokeWidth={1.6} aria-hidden />
+              <span className="min-w-0 truncate">Keep data on this Mac</span>
             </a>
           )}
           <a data-item role="menuitem" className={item} href="/privacy">

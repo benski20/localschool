@@ -63,7 +63,7 @@ export function GetApp() {
           </p>
           <ol className="mt-4 space-y-2 text-base text-muted">
             <li>1. Install the Mac app (above) and turn on FileVault in System Settings.</li>
-            <li>2. In the app, open your name at the bottom left and choose <span className="text-ink">Keep my data on this Mac…</span></li>
+            <li>2. In the app, open your name at the bottom left and choose <span className="text-ink">Keep data on this Mac</span></li>
             <li>3. Sign in with your school account and click Set up.</li>
           </ol>
         </section>

@@ -19,6 +19,7 @@ import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
 import { GetApp } from "./pages/GetApp";
 import { Privacy } from "./pages/Privacy";
+import { UpdateNotice } from "./components/UpdateNotice";
 import { toolRoutes } from "./pages/tools";
 import "./components/shell/shell.css";
 
@@ -33,6 +34,7 @@ export function App() {
           <div className="min-h-0 flex-1">
             <Gate />
           </div>
+          <UpdateNotice />
         </div>
       </AuthProvider>
     </ToastProvider>
