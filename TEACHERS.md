@@ -56,14 +56,14 @@ If your school wants your documents, students and chats to stay on your own Mac:
 
 1. Turn on **FileVault** (System Settings → Privacy & Security → FileVault). It keeps your students' information safe if the Mac is ever lost.
 2. In the Mac app choose **Teacher's Desk → Switch School Server…**, then **Keep my data on this Mac instead**.
-3. Enter your name, school email and a new password. Then enter the **AI server** address and **access key** your IT administrator gives you. Click **Set up**.
+3. Sign in with your usual school email and password, and click **Set up**.
 
-The first setup takes a few minutes. Afterwards the app opens your own Teacher's Desk; the sidebar says *Your data is kept on this Mac*. Add your documents under **Documents** and your class list under **Settings → People**.
+The first setup takes a few minutes. Afterwards the app opens your own Teacher's Desk, and the sidebar says *Your data is kept on this Mac*. Sign in with the same email and password. Add your documents under **Documents** and your class list under **Settings → People**.
 
 Things to know:
-- Answers still come from your school's AI server. It sees only the passages each question needs and keeps nothing.
-- Everything else lives only on this Mac: there's no shared school library and no backup. If you replace your Mac, add your documents again.
-- To go back to the school server, use **Switch School Server…** again. Your data stays on the Mac until you remove it.
+- Answers still come from your school's AI. It sees only the passages each question needs and keeps nothing.
+- Everything else lives only on this Mac. There's no shared school library and no backup, so if you replace your Mac, add your documents again.
+- To go back to the school's Teacher's Desk, use **Switch School Server…** again.
 
 ## Privacy
 

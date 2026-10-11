@@ -5,11 +5,12 @@
 # picks "Keep my data on this Mac"; IT can run it too. It installs the server into the
 # app's folder, listening on 127.0.0.1 only (nothing else on the network can reach it),
 # and keeps it running with launchd. The teacher's documents, students, chats, drafts and
-# recordings stay in that folder. Only the AI models run elsewhere: each question sends
-# the few passages it needs to the model server you name here (use the school's box).
+# recordings stay in that folder. Only the AI runs elsewhere: the app signs the teacher in
+# to the school's server, which hands back a key for this Mac, and each question sends the
+# few passages it needs to the school's AI through that server's /api/relay.
 #
 # Inputs (environment): TEACHER_NAME, TEACHER_EMAIL, TEACHER_PASSWORD (8+), SCHOOL_NAME,
-# RUNTIME_KIND (ollama|openai|fake), RUNTIME_URL, RUNTIME_TOKEN, CHAT_MODEL, EMBED_MODEL,
+# RUNTIME_KIND (relay|ollama|openai|fake), RUNTIME_URL, RUNTIME_TOKEN, CHAT_MODEL, EMBED_MODEL,
 # LOCAL_HOME, PORT, LS_ALLOW_NO_FILEVAULT=1 (tests only).
 # Modes: LS_UPDATE=1 (new app version: refresh the code, keep everything else),
 #        LS_REMOVE=1 (stop it and delete this Mac's copy of the data — cannot be undone).
@@ -35,6 +36,17 @@ step() { echo "STEP $1/$TOTAL $2"; }
 fail() { echo "ERROR $*"; exit 1; }
 stop_agent() {
   launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || launchctl unload "$PLIST" >/dev/null 2>&1 || true
+  # bootout returns before launchd has let go; starting again too soon fails with error 5.
+  for _ in $(seq 1 30); do launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 || break; sleep 0.5; done
+  for _ in $(seq 1 30); do curl -sf --max-time 1 "$URL/api/health" >/dev/null 2>&1 || break; sleep 0.5; done
+}
+start_agent() {
+  for _ in 1 2 3 4 5; do
+    launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null && return 0
+    launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1 && { launchctl kickstart -k "$DOMAIN/$LABEL"; return 0; }
+    sleep 1
+  done
+  launchctl load -w "$PLIST"
 }
 
 [ "$(uname -s)" = Darwin ] || fail "This sets up Teacher's Desk on a Mac."
@@ -64,7 +76,7 @@ fi
 
 if [ "$UPDATE" != 1 ]; then
   : "${TEACHER_EMAIL:?}" "${TEACHER_PASSWORD:?}"
-  [ "${#TEACHER_PASSWORD}" -ge 8 ] || fail "Choose a password of at least 8 characters."
+  [ -n "$TEACHER_PASSWORD" ] || fail "Enter your password."
   case "$TEACHER_EMAIL" in *@*.*) ;; *) fail "Enter your school email address." ;; esac
 fi
 
@@ -100,7 +112,7 @@ cp "$SRC/pyproject.toml" "$SRV/pyproject.toml"
 # -- 4. settings: this Mac only ---------------------------------------------------------
 step 4 "Saving your settings"
 if [ "$UPDATE" != 1 ]; then
-  RUNTIME_KIND="${RUNTIME_KIND:-ollama}"
+  RUNTIME_KIND="${RUNTIME_KIND:-relay}"
   if [ "$RUNTIME_KIND" = fake ]; then CHAT_MODEL=fake-chat; EMBED_MODEL=fake-embed; fi
   (
     umask 077
@@ -148,7 +160,7 @@ EOF
 
 # -- 5. start it and keep it running ----------------------------------------------------
 step 5 "Starting"
-launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null || launchctl load -w "$PLIST"
+start_agent || fail "Teacher's Desk couldn't start. Restart your Mac and try again."
 for _ in $(seq 1 90); do
   curl -sf "$URL/api/health" 2>/dev/null | grep -q '"local":true' && break
   sleep 1

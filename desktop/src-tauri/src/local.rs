@@ -1,5 +1,9 @@
 //! "Keep my data on this Mac": the teacher's own Teacher's Desk server, on 127.0.0.1 only.
 //!
+//! The teacher only signs in with their school account. The school's server
+//! (POST /api/auth/device) answers with their name, the school, its models and a key for
+//! this Mac; the local server then uses the school's AI through /api/relay with that key.
+//!
 //! The app bundles the server (Contents/Resources/server, staged by desktop/stage-server.sh)
 //! and its setup script (scripts/setup-local-mac.sh), which installs it into the app's data
 //! folder and keeps it running with launchd. Documents, students, chats, drafts and
@@ -24,12 +28,61 @@ const LABEL: &str = "org.localschool.desk";
 
 #[derive(Debug, Deserialize)]
 pub struct SetupForm {
-    pub name: String,
     pub email: String,
     pub password: String,
-    pub school: String,
-    pub runtime_url: String,
-    pub runtime_token: String,
+}
+
+/// What the school's server hands this Mac (app/routes/relay.py `create_device`).
+#[derive(Debug, Deserialize)]
+struct Device {
+    key: String,
+    relay_url: String,
+    school: String,
+    name: String,
+    email: String,
+    chat_model: String,
+    embed_model: String,
+}
+
+#[derive(Deserialize)]
+struct ApiError {
+    #[serde(default)]
+    error: String,
+}
+
+fn mac_name() -> String {
+    Command::new("/usr/sbin/scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "Mac".into())
+}
+
+/// Sign in to the school's server and get this Mac's key.
+fn sign_in(app: &AppHandle, form: &SetupForm) -> Result<Device, String> {
+    let school = crate::server::school(app)
+        .ok_or("Connect to your school's Teacher's Desk once first, then try again.")?;
+    let name = if school.name == "your school" { "your school".to_string() } else { school.name.clone() };
+    let url = format!("{}/api/auth/device", school.url.trim_end_matches('/'));
+    let resp = ureq::AgentBuilder::new()
+        .timeout_connect(Duration::from_secs(10))
+        .timeout(Duration::from_secs(60))
+        .build()
+        .post(&url)
+        .send_json(serde_json::json!({ "email": form.email, "password": form.password, "label": mac_name() }));
+    match resp {
+        Ok(r) => r.into_json::<Device>().map_err(|_| format!("{name} answered unexpectedly. Try again later.")),
+        Err(ureq::Error::Status(401, _)) => Err(format!("That email and password didn't work for {name}.")),
+        Err(ureq::Error::Status(_, r)) => Err(r
+            .into_json::<ApiError>()
+            .ok()
+            .map(|e| e.error)
+            .filter(|e| !e.is_empty())
+            .unwrap_or_else(|| format!("{name} couldn't set up this Mac right now. Try again later."))),
+        Err(_) => Err(format!("Can't reach {name}. Check your internet connection and try again.")),
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -151,20 +204,25 @@ pub fn start(app: &AppHandle, form: SetupForm) -> Result<(), String> {
         if p.running {
             return Err("Already setting up.".into());
         }
-        *p = Progress { running: true, total: 5, text: "Starting".into(), ..Default::default() };
+        *p = Progress { running: true, total: 5, text: "Signing in".into(), ..Default::default() };
     }
     let app = app.clone();
     std::thread::spawn(move || {
-        let envs = vec![
-            ("TEACHER_NAME", form.name),
-            ("TEACHER_EMAIL", form.email),
-            ("TEACHER_PASSWORD", form.password),
-            ("SCHOOL_NAME", form.school),
-            ("RUNTIME_URL", form.runtime_url),
-            ("RUNTIME_TOKEN", form.runtime_token),
-        ];
         let state = app.state::<Setup>();
-        let result = run_script(&app, envs, Some(state.inner()));
+        let result = sign_in(&app, &form).and_then(|d| {
+            let envs = vec![
+                ("TEACHER_NAME", d.name),
+                ("TEACHER_EMAIL", d.email),
+                ("TEACHER_PASSWORD", form.password), // the same password as at school
+                ("SCHOOL_NAME", d.school),
+                ("RUNTIME_KIND", "relay".into()),
+                ("RUNTIME_URL", d.relay_url),
+                ("RUNTIME_TOKEN", d.key),
+                ("CHAT_MODEL", d.chat_model),
+                ("EMBED_MODEL", d.embed_model),
+            ];
+            run_script(&app, envs, Some(state.inner()))
+        });
         let mut p = state.0.lock().unwrap();
         p.running = false;
         match result {

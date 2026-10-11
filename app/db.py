@@ -194,6 +194,19 @@ MIGRATIONS: list[str] = [
     CREATE INDEX drafts_queue ON drafts(status, id);
     CREATE INDEX drafts_batch ON drafts(batch_id);
     """,
+    # 4 — personal desks: a teacher's own server on their Mac borrows this server's models
+    # through /api/relay with a per-Mac key (only its hash is stored).
+    """
+    CREATE TABLE device_keys (
+        id           INTEGER PRIMARY KEY,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        key_hash     TEXT NOT NULL UNIQUE,
+        label        TEXT NOT NULL DEFAULT '',
+        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        last_used_at TEXT
+    );
+    CREATE INDEX device_keys_user ON device_keys(user_id);
+    """,
 ]
 
 

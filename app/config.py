@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     data_dir: Path = ROOT / "data"
 
     # Model runtime (defaults; admins can override from the Admin page)
-    runtime_kind: str = Field("ollama", description="ollama | openai | fake")
+    runtime_kind: str = Field("ollama", description="ollama | openai | relay | fake")
     runtime_url: str = "http://127.0.0.1:11434"
     runtime_token: str = ""
     runtime_headers: str = Field("", description='Extra headers as JSON, e.g. {"X-Api-Key": "..."}')

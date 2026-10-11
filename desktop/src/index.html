@@ -134,7 +134,7 @@
         <!-- Keep my data on this Mac: set up this Mac's own server -->
         <section id="view-local" class="view" hidden aria-labelledby="local-title">
           <h1 id="local-title" class="title">Keep your data on this Mac</h1>
-          <p class="sub">Your documents, students and chats stay on this Mac. Answers still come from your school's AI server, which sees only the passages each question needs.</p>
+          <p class="sub">Sign in with your school account. Your documents, students and chats will stay on this Mac.</p>
 
           <div class="panel notice" id="filevault" hidden>
             <p class="empty-title">Turn on FileVault first</p>
@@ -146,14 +146,10 @@
           </div>
 
           <form id="local-form" class="panel form" autocomplete="off" novalidate>
-            <label class="form-row"><span class="label">Your name</span><input class="input" id="l-name" required /></label>
             <label class="form-row"><span class="label">School email</span><input class="input" id="l-email" type="email" required spellcheck="false" autocapitalize="off" /></label>
-            <label class="form-row"><span class="label">New password</span><input class="input" id="l-password" type="password" required minlength="8" placeholder="8 or more characters" /></label>
-            <label class="form-row"><span class="label">School</span><input class="input" id="l-school" /></label>
-            <div class="panel-sep"></div>
-            <label class="form-row"><span class="label">AI server</span><input class="input" id="l-runtime" required spellcheck="false" autocapitalize="off" placeholder="From your IT administrator" /></label>
-            <label class="form-row"><span class="label">Access key</span><input class="input" id="l-token" type="password" spellcheck="false" placeholder="If your IT administrator gave you one" /></label>
+            <label class="form-row"><span class="label">Password</span><input class="input" id="l-password" type="password" required /></label>
             <p id="local-error" class="error" role="alert" hidden></p>
+            <p class="hint" id="local-hint">The same email and password you use for <span id="local-school">your school's Teacher's Desk</span>.</p>
           </form>
 
           <div class="actions">

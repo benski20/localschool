@@ -352,11 +352,10 @@ async function openLocal() {
     return;
   }
   show("local");
-  const school = $("l-school");
-  if (!school.value && lastSaved && lastSaved.name !== "your school" && !lastSaved.url.startsWith(LOCAL_URL)) {
-    school.value = lastSaved.name;
+  if (lastSaved && lastSaved.name !== "your school" && !lastSaved.url.startsWith(LOCAL_URL)) {
+    $("local-school").textContent = lastSaved.name;
   }
-  $("l-name").focus({ preventScroll: true });
+  $("l-email").focus({ preventScroll: true });
 }
 
 function setLocalError(message) {
@@ -366,22 +365,10 @@ function setLocalError(message) {
 }
 
 function localForm() {
-  const v = (id) => $(id).value.trim();
-  let runtime = v("l-runtime");
-  if (runtime && !/^https?:\/\//i.test(runtime)) runtime = `http://${runtime}`;
-  const form = {
-    name: v("l-name"),
-    email: v("l-email"),
-    password: $("l-password").value,
-    school: v("l-school"),
-    runtime_url: runtime.replace(/\/+$/, ""),
-    runtime_token: v("l-token"),
-  };
+  const form = { email: $("l-email").value.trim(), password: $("l-password").value };
   const problem =
-    (!form.name && ["l-name", "Enter your name."]) ||
     (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && ["l-email", "Enter your school email address."]) ||
-    (form.password.length < 8 && ["l-password", "Choose a password of at least 8 characters."]) ||
-    ((!runtime || validate(runtime)) && ["l-runtime", "Enter your school's AI server address."]);
+    (!form.password && ["l-password", "Enter your password."]);
   return { form, problem };
 }
 

@@ -348,7 +348,7 @@ button { font: inherit; color: inherit; }
 .form-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 16px; }
 .form-row .label { margin: 0; }
 .form .input { font-family: var(--sans); font-size: 14px; }
-.form .error { padding-top: 0; }
+.form .error, .form .hint { padding-top: 0; }
 .notice { margin-top: 24px; border-color: rgb(var(--warning) / 0.5); }
 .notice .actions { margin-top: 14px; }
 .notice:not([hidden]) + .form { opacity: 0.5; pointer-events: none; }

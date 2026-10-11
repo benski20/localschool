@@ -606,7 +606,7 @@ def test_migration_adds_drafts(settings):
 
     bootstrap(settings)
     with connect(settings.db_path) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert db.execute("PRAGMA user_version").fetchone()[0] >= 3
         cols = {r[1] for r in db.execute("PRAGMA table_info(drafts)")}
     assert {"user_id", "tool", "input_json", "output_json", "status", "progress", "student_id", "audio_path",
             "transcript_json", "approved_at"} <= cols

@@ -165,8 +165,13 @@ jobs:
           SETUP="$APP_INSTALLED/Contents/Resources/server/scripts/setup-local-mac.sh"
           test -f "$SETUP"
           test "$(cat "$APP_INSTALLED/Contents/Resources/server/VERSION")" = "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)"
-          export TEACHER_NAME="Jordan Lee" TEACHER_EMAIL="jordan@shipley.test" TEACHER_PASSWORD="local-pass-123" \
-                 SCHOOL_NAME="The Shipley School" RUNTIME_KIND=fake
+          # What the app does: sign in to the school's server (the demo school on :8000) for
+          # this Mac's key, then set up with the school's AI through its relay.
+          D=$(curl -sf -H 'content-type: application/json' \
+              -d '{"email":"jordan.lee@maplegrove.demo","password":"demo-pass-123","label":"CI Mac"}' \
+              http://127.0.0.1:8000/api/auth/device)
+          eval "$(echo "$D" | python3 -c 'import json,shlex,sys; d=json.load(sys.stdin); print(" ".join(f"export {k}={shlex.quote(d[v])}" for k, v in [("TEACHER_NAME","name"),("TEACHER_EMAIL","email"),("SCHOOL_NAME","school"),("RUNTIME_URL","relay_url"),("RUNTIME_TOKEN","key"),("CHAT_MODEL","chat_model"),("EMBED_MODEL","embed_model")]))')"
+          export TEACHER_PASSWORD="demo-pass-123" RUNTIME_KIND=relay
           LOCAL="$HOME/Library/Application Support/org.localschool.desktop/local"
 
           # Without disk encryption it refuses (teachers are told to turn on FileVault).
@@ -187,11 +192,16 @@ jobs:
 
           # The teacher signs in, adds a document, asks about it.
           J=$RUNNER_TEMP/jar
-          curl -sf -c $J -H 'content-type: application/json' -d '{"email":"jordan@shipley.test","password":"local-pass-123"}' http://127.0.0.1:8765/api/auth/login
+          curl -sf -c $J -H 'content-type: application/json' -d '{"email":"jordan.lee@maplegrove.demo","password":"demo-pass-123"}' http://127.0.0.1:8765/api/auth/login
           curl -sf -b $J http://127.0.0.1:8765/api/auth/me | grep -q '"Jordan Lee"'
           printf '# Field trip\n\nPermission slips are due Friday.\n' > "$RUNNER_TEMP/trip.md"
           curl -sf -b $J -F "files=@$RUNNER_TEMP/trip.md" http://127.0.0.1:8765/api/documents
           ls "$LOCAL/data"; test -f "$LOCAL/data/localschool.db"
+          # Answered by the school's AI through the relay, from this Mac's own document.
+          for i in $(seq 1 30); do curl -sf -b $J http://127.0.0.1:8765/api/documents | grep -q '"ready"' && break; sleep 1; done
+          A=$(curl -sfN -b $J -H 'content-type: application/json' -d '{"question":"When are permission slips due?"}' http://127.0.0.1:8765/api/chat)
+          echo "$A" | tail -5; echo "$A" | grep -q Friday
+          grep -c "/api/relay/" ~/Library/Logs/LocalSchool/server.log
 
           # The app opens it (connect screen → this Mac).
           mkdir -p "$HOME/Library/Application Support/org.localschool.desktop"
@@ -199,8 +209,8 @@ jobs:
           osascript -e "tell application \"Teacher's Desk\" to quit" || true
           sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
           open "$APP_INSTALLED"; sleep 12; screencapture -x shots/7-local-signin.png || true
-          osascript -e "tell application \"System Events\" to keystroke \"jordan@shipley.test\"" -e "tell application \"System Events\" to keystroke tab" \
-                    -e "tell application \"System Events\" to keystroke \"local-pass-123\"" -e "tell application \"System Events\" to keystroke return" || true
+          osascript -e "tell application \"System Events\" to keystroke \"jordan.lee@maplegrove.demo\"" -e "tell application \"System Events\" to keystroke tab" \
+                    -e "tell application \"System Events\" to keystroke \"demo-pass-123\"" -e "tell application \"System Events\" to keystroke return" || true
           sleep 6; screencapture -x shots/8-local-signed-in.png || true
 
           # Server stopped (crash, logout): the app's next connect restarts it via launchd.
@@ -213,6 +223,13 @@ jobs:
           LS_UPDATE=1 LS_ALLOW_NO_FILEVAULT=1 bash "$SETUP" | tail -2
           curl -sf -b $J http://127.0.0.1:8765/api/documents | grep -q "trip"
           test "$(cat "$LOCAL/server/VERSION")" != 0.0.0
+
+          # The school's admin can cut this Mac off from its AI.
+          AJ=$RUNNER_TEMP/admin
+          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@maplegrove.demo","password":"admin-pass-123"}' http://127.0.0.1:8000/api/auth/login >/dev/null
+          DEV=$(curl -sf -b $AJ http://127.0.0.1:8000/api/admin/devices | python3 -c 'import json,sys; print(json.load(sys.stdin)["devices"][0]["id"])')
+          curl -sf -b $AJ -X DELETE http://127.0.0.1:8000/api/admin/devices/$DEV
+          curl -sfN -b $J -H 'content-type: application/json' -d '{"question":"When are slips due?"}' http://127.0.0.1:8765/api/chat | grep -q "removed this Mac"
 
           # Removing it deletes this Mac's copy.
           LS_REMOVE=1 bash "$SETUP"

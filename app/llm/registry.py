@@ -21,6 +21,7 @@ from .base import ModelProvider
 from .fake import FakeProvider
 from .ollama import OllamaProvider
 from .openai_compat import OpenAICompatProvider
+from .relay import RelayProvider
 
 ROLES = ("chat", "embed")
 _RUNTIME_KEYS = ("runtime_kind", "runtime_url", "runtime_token", "runtime_headers")
@@ -78,6 +79,8 @@ ProviderFactory = Callable[[RuntimeConfig, Settings], ModelProvider]
 def default_factory(cfg: RuntimeConfig, settings: Settings) -> ModelProvider:
     if cfg.kind == "fake":
         return FakeProvider()
+    if cfg.kind == "relay":  # a personal desk using its school's models (app/llm/relay.py)
+        return RelayProvider(cfg.url, token=cfg.token, timeout_s=settings.runtime_timeout_s)
     cls = OllamaProvider if cfg.kind == "ollama" else OpenAICompatProvider
     return cls(cfg.url, token=cfg.token, headers=cfg.header_dict(), timeout_s=settings.runtime_timeout_s)
 
@@ -162,8 +165,8 @@ class Runtime:
         )
 
     def save_config(self, cfg: RuntimeConfig) -> None:
-        if cfg.kind not in ("ollama", "openai", "fake"):
-            raise ValueError("kind must be ollama, openai or fake")
+        if cfg.kind not in ("ollama", "openai", "fake", "relay"):
+            raise ValueError("kind must be ollama, openai, relay or fake")
         if cfg.kind != "fake" and urlparse(cfg.url).scheme not in ("http", "https"):
             raise ValueError("URL must start with http:// or https://")
         cfg.header_dict()  # validates JSON
