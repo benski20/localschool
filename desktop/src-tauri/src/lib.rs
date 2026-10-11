@@ -365,6 +365,12 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
                         tauri::async_runtime::spawn(async move { open_keep_on_mac(&app) });
                     }
                     Some("check-updates") => check_updates(&app),
+                    Some("mic-settings") => {
+                        let _ = app.opener().open_url(
+                            "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+                            None::<&str>,
+                        );
+                    }
                     _ => {}
                 }
                 return false;

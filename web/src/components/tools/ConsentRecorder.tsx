@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Mic, Square } from "lucide-react";
 import { clock } from "./TranscriptView";
-import { isDesktop } from "../../lib/shell";
+import { desktopVersion, isDesktop, isNewer } from "../../lib/shell";
 import { callAudio } from "../../lib/native";
 import { NotepadField, NotepadHint, useNotepad } from "./Notepad";
 import { ErrorLine } from "./ToolPage";
@@ -250,12 +250,33 @@ export function ConsentRecorder({
         </button>
       )}
       {phase === "denied" && (
-        <p role="alert" className="mt-4 animate-fadein text-sm text-muted">
-          The microphone is blocked. Allow it in your browser's site settings, then{" "}
-          <button type="button" className="btn-link" onClick={() => setPhase("consent")}>
-            try again
-          </button>
-          .
+        <p role="alert" className="mt-4 max-w-prose animate-fadein text-sm text-muted">
+          {isDesktop ? (
+            <>
+              The microphone is blocked. Open System Settings → Privacy &amp; Security → Microphone, turn on Teacher's
+              Desk, then quit and reopen the app.{" "}
+              {/* Apps from 0.5.2 open that settings page for this link. */}
+              {isNewer(desktopVersion || "0", "0.5.1") && (
+                <>
+                  <a className="btn-link" href="teachersdesk://mic-settings">
+                    Open Microphone settings
+                  </a>
+                  {" · "}
+                </>
+              )}
+              <button type="button" className="btn-link" onClick={() => setPhase("consent")}>
+                Try again
+              </button>
+            </>
+          ) : (
+            <>
+              The microphone is blocked. Allow it in your browser's site settings, then{" "}
+              <button type="button" className="btn-link" onClick={() => setPhase("consent")}>
+                try again
+              </button>
+              .
+            </>
+          )}
         </p>
       )}
       {footer && <div className="mt-5">{footer}</div>}
