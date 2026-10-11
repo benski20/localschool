@@ -260,3 +260,66 @@ def test_migration_7_on_an_existing_v6_database(settings):
         row = db.execute("SELECT * FROM drafts WHERE title = 'Old meeting'").fetchone()
     assert {"call_audio_path", "call_audio_bytes"} <= cols
     assert row["audio_path"] == "1.webm" and row["call_audio_path"] is None and row["call_audio_bytes"] == 0
+
+
+def test_meeting_on_a_desk_kept_on_the_teachers_mac(client, settings, tmp_path, monkeypatch):
+    """"Keep my data on this Mac": the Mac's own desk (local mode) records, transcribes both
+    tracks, writes notes and answers questions, with the AI borrowed through the school's relay."""
+    import httpx
+    from fastapi.testclient import TestClient
+
+    from app.config import Settings
+    from app.llm import relay as relay_mod
+    from app.llm.relay import RelayProvider
+    from app.main import create_app
+
+    monkeypatch.setattr(relay_mod, "PART", 4096)  # recordings go to the school in pieces
+
+    key = client.post("/api/auth/device", json={"email": JORDAN, "password": "demo-pass-123",
+                                                "label": "Jordan's Mac"}).json()["key"]
+    school = httpx.ASGITransport(app=client.app)
+    desk_settings = Settings(
+        data_dir=tmp_path / "desk", runtime_kind="relay", runtime_url="http://school/api/relay",
+        chat_model="fake-chat", embed_model="fake-embed", admin_email="jordan@shipley.test",
+        admin_password="desk-pass-123", admin_name="Jordan Lee", local_mode=True,
+        web_dist=tmp_path / "no-web", max_concurrent_generations=2,
+    )
+    relay = lambda cfg, s: RelayProvider("http://school/api/relay", token=key, transport=school)  # noqa: E731
+    with TestClient(create_app(desk_settings, factory=relay)) as desk:
+        desk.app.state.worker.kick()
+        login(desk, "jordan@shipley.test", "desk-pass-123")
+        d = create(desk, "meeting", {"meeting_type": "iep", "consent": True})["draft"]
+        assert desk.put(f"/api/meetings/{d['id']}/notepad", json={"text": NOTES}).json() == {"ok": True}
+        assert _upload(desk, d["id"], track="call").status_code == 200
+        assert _upload(desk, d["id"]).status_code == 200
+        done = wait_draft(desk, d["id"], timeout=20)
+        assert done["status"] == "ready", done
+        speakers = {s.get("speaker") for s in done["transcript"]}
+        assert speakers == {"You", "Others"}
+        assert done["output"]["my_notes"] == NOTES
+        ask = desk.post(f"/api/meetings/{d['id']}/ask", json={"question": "What about homework?"})
+        assert ask.status_code == 200, ask.text
+        n = len(done["transcript"])
+        assert all(0 <= i < n for i in ask.json()["refs"])
+        # the recordings and notes stay on the Mac: the school server stored no audio or draft
+        assert not settings.audio_dir.exists() or not list(settings.audio_dir.iterdir())
+        with connect(settings.db_path) as db:
+            assert not db.execute("SELECT 1 FROM drafts WHERE tool = 'meeting'").fetchone()
+
+
+def test_relay_takes_a_long_recording_in_pieces(client, settings):
+    key = client.post("/api/auth/device", json={"email": JORDAN, "password": "demo-pass-123"}).json()["key"]
+    h = {"Authorization": f"Bearer {key}"}
+    data, up = wav_bytes(1.0), "abcdefghijklmnop1234"
+    part = lambda off, body: client.post("/api/relay/transcribe/part", params={"upload": up, "offset": off},  # noqa: E731
+                                         content=body, headers=h)
+    assert part(0, data[:5000]).json() == {"received": 5000}
+    assert part(0, data[:5000]).status_code == 409  # a repeated piece is refused, not doubled
+    assert part(5000, data[5000:]).json() == {"received": len(data)}
+    assert client.post("/api/relay/transcribe/part", params={"upload": "../x", "offset": 0}, content=b"x",
+                       headers=h).status_code in (400, 422)
+    assert client.post("/api/relay/transcribe/part", params={"upload": up, "offset": 0}, content=b"x").status_code == 401
+    r = client.post("/api/relay/transcribe", data={"upload": up}, headers=h)
+    assert r.status_code == 200 and r.json()["segments"], r.text
+    assert not list((settings.data_dir / "relay-parts").iterdir())  # nothing kept
+    assert client.post("/api/relay/transcribe", data={"upload": up}, headers=h).status_code == 404

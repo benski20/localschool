@@ -239,6 +239,20 @@ jobs:
           echo "$A" | tail -5; echo "$A" | grep -q Friday
           grep -c "/api/relay/" ~/Library/Logs/LocalSchool/server.log
 
+          # A meeting kept on this Mac: notepad, call track (6 MB, so it reaches the school's
+          # AI in pieces) + mic, notes with "You"/"Others", then a question about it.
+          python3 -c 'import wave,sys
+          for n,s in (("call",190),("mic",2)):
+              w=wave.open(sys.argv[1]+"/"+n+".wav","wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(b"\0\0"*16000*s); w.close()' "$RUNNER_TEMP"
+          M=$(curl -sf -b $J -H 'content-type: application/json' -d '{"meeting_type":"iep","consent":true}' http://127.0.0.1:8765/api/tools/meeting/drafts | python3 -c 'import json,sys; print(json.load(sys.stdin)["draft"]["id"])')
+          curl -sf -b $J -X PUT -H 'content-type: application/json' -d '{"text":"Call the family about homework"}' http://127.0.0.1:8765/api/meetings/$M/notepad
+          curl -sf -b $J -H 'content-type: audio/wav' --data-binary @"$RUNNER_TEMP/call.wav" "http://127.0.0.1:8765/api/meetings/$M/audio?track=call" >/dev/null
+          curl -sf -b $J -H 'content-type: audio/wav' --data-binary @"$RUNNER_TEMP/mic.wav" "http://127.0.0.1:8765/api/meetings/$M/audio" >/dev/null
+          for i in $(seq 1 60); do curl -sf -b $J http://127.0.0.1:8765/api/drafts/$M | grep -q '"status":"ready"' && break; sleep 1; done
+          curl -sf -b $J http://127.0.0.1:8765/api/drafts/$M | tee shots/local-meeting.json | python3 -c 'import json,sys; d=json.load(sys.stdin)["draft"]; assert d["status"]=="ready", d["status"]; assert {s.get("speaker") for s in d["transcript"]}=={"You","Others"}; assert d["output"]["my_notes"]'
+          curl -sf -b $J -H 'content-type: application/json' -d '{"question":"What about homework?"}' http://127.0.0.1:8765/api/meetings/$M/ask | tee -a shots/local-meeting.json
+          grep -c "/api/relay/transcribe/part" ~/Library/Logs/LocalSchool/server.log
+
           # The app opens it (connect screen → this Mac).
           mkdir -p "$HOME/Library/Application Support/org.localschool.desktop"
           printf '{"url":"http://127.0.0.1:8765","name":"The Shipley School"}' > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
