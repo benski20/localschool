@@ -46,8 +46,8 @@ async def test_swapping_embed_model_builds_new_space_without_mixing(seeded, fake
 
 
 def test_roster_scoping_per_teacher(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
-    sam = user(settings, "sam.patel@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
+    sam = user(settings, "sam.patel@shipley.demo")
     admin = user(settings, "admin@test.local")
     with connect(settings.db_path) as db:
         j = chat.build_sources(db, jordan, "Who is in my class?", space_id=None, query_vec=None)
@@ -61,14 +61,14 @@ def test_roster_scoping_per_teacher(seeded, settings):
 
 
 def test_named_student_narrows_roster_sources(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     with connect(settings.db_path) as db:
         src = chat.build_sources(db, jordan, "When is Mateo's plan review?", space_id=None, query_vec=None)
     assert [x.title for x in src if x.kind == "student"] == ["Mateo Hernandez"]
 
 
 def test_policy_question_skips_roster(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     with connect(settings.db_path) as db:
         src = chat.build_sources(db, jordan, "What is the cell phone policy?", space_id=None, query_vec=None)
     assert src and all(x.kind == "document" for x in src)
@@ -79,7 +79,7 @@ async def _collect(gen):
 
 
 async def test_answer_streams_validates_and_persists(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     events = await _collect(chat.answer(seeded, jordan, "What is the late work policy?", today=date(2026, 10, 9)))
     kinds = [e["type"] for e in events]
     assert kinds[0] == "conversation" and kinds[1] == "sources" and kinds[-1] == "done"
@@ -93,7 +93,7 @@ async def test_answer_streams_validates_and_persists(seeded, settings):
 async def test_queue_when_generation_slots_full(seeded, settings, fake):
     fake.delay_s = 0.01
     seeded.generation_slots = asyncio.Semaphore(1)
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     a, b = await asyncio.gather(
         _collect(chat.answer(seeded, jordan, "late work policy")),
         _collect(chat.answer(seeded, jordan, "cell phone policy")),
@@ -113,7 +113,7 @@ async def test_runtime_down_yields_error_and_keyword_fallback(settings):
     rt = Runtime(settings, factory=default_factory)
     rt.save_config(RuntimeConfig(kind="ollama", url="http://127.0.0.1:9"))  # nothing listens
     rt.settings.runtime_timeout_s = 2
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     events = await _collect(chat.answer(rt, jordan, "late work policy"))
     assert events[1]["type"] == "sources" and events[1]["sources"]  # keyword retrieval still worked
     assert events[-1]["type"] == "error" and "reach" in events[-1]["message"].lower()
@@ -152,7 +152,7 @@ async def test_pull_manager_runs_in_background(runtime, fake):
 
 
 def _student_sources(settings, question):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     with connect(settings.db_path) as db:
         return [x.title for x in chat.build_sources(db, jordan, question, space_id=None, query_vec=None)
                 if x.kind == "student"]
@@ -190,8 +190,8 @@ def _private_doc(settings, owner, text=TRIP, title="Field trip") -> int:
 
 
 async def test_private_documents_never_retrieved_for_others(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
-    sam = user(settings, "sam.patel@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
+    sam = user(settings, "sam.patel@shipley.demo")
     doc = _private_doc(settings, jordan)
     await embeddings.sync_embeddings(seeded)
     q = "When are the field trip permission forms due?"
@@ -214,7 +214,7 @@ async def test_private_documents_never_retrieved_for_others(seeded, settings):
 
 
 async def test_attachment_cited_with_zero_embeddings(seeded, settings):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     doc = _private_doc(settings, jordan)
     with connect(settings.db_path) as db:
         assert embeddings.index_status(db, "fake-embed").embedded_chunks == 0
@@ -232,7 +232,7 @@ async def test_attachment_cited_with_zero_embeddings(seeded, settings):
 
 
 async def test_chat_model_choice_and_fallback(seeded, settings, fake):
-    jordan = user(settings, "jordan.lee@maplegrove.demo")
+    jordan = user(settings, "jordan.lee@shipley.demo")
     fake.models.add("fake-thorough")
     with connect(settings.db_path) as db:
         set_choices(db, [{"model": "fake-chat", "label": "Fast"}, {"model": "fake-thorough", "label": "Thorough"}],

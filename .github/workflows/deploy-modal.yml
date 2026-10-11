@@ -30,7 +30,7 @@ on:
         default: https://teachers-desk-xi.vercel.app
       school_name:
         description: School name shown in the hosted app
-        default: Maple Grove Middle School
+        default: The Shipley School
       demo:
         description: "Load the fictional demo school and show 'Try the demo' on the login page"
         type: boolean
@@ -152,7 +152,7 @@ jobs:
         env:
           RUNTIME: ${{ steps.deploy.outputs.url }}
           ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
-          SCHOOL: ${{ inputs.school_name || 'Maple Grove Middle School' }}
+          SCHOOL: ${{ inputs.school_name || 'The Shipley School' }}
           DEMO: ${{ inputs.demo == false && '0' || '1' }}
         run: |
           (cd web && npm ci --no-audit --no-fund && npm run build)

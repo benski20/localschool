@@ -37,7 +37,7 @@ screen:
 
 ```
 /Library/Application Support/Teachers Desk/server.json
-{"url": "http://maplegrove.local:8000", "name": "Maple Grove Middle School"}
+{"url": "http://shipley.local:8000", "name": "The Shipley School"}
 ```
 
 A teacher's own choice (*Switch School Server…*) overrides it.

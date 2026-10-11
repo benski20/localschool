@@ -30,7 +30,7 @@ from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
 VERSION = "0.4.0"
-DEMO_TEACHER = ("jordan.lee@maplegrove.demo", "demo-pass-123")  # scripts/seed_demo.py
+DEMO_TEACHER = ("jordan.lee@shipley.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
 def bootstrap(settings: Settings) -> None:

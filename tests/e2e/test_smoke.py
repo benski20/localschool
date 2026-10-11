@@ -38,7 +38,7 @@ def server(tmp_path_factory):
     data = tmp_path_factory.mktemp("data")
     port = _free_port()
     env = {**os.environ, "DATA_DIR": str(data), "RUNTIME_KIND": "fake", "CHAT_MODEL": "fake-chat",
-           "EMBED_MODEL": "fake-embed", "ADMIN_EMAIL": "admin@maplegrove.demo", "ADMIN_PASSWORD": "admin-pass-123"}
+           "EMBED_MODEL": "fake-embed", "ADMIN_EMAIL": "admin@shipley.demo", "ADMIN_PASSWORD": "admin-pass-123"}
     subprocess.run([sys.executable, "-m", "scripts.seed_demo"], cwd=ROOT, env=env, check=True, capture_output=True)
     proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(port)],
                             cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -85,7 +85,7 @@ def _axe(page) -> list[dict]:
 def test_teacher_flow_and_model_swap(server, browser, tmp_path):
     ctx = browser.new_context(viewport={"width": 1280, "height": 860})
     page = ctx.new_page()
-    _login(page, server, "jordan.lee@maplegrove.demo", "demo-pass-123")
+    _login(page, server, "jordan.lee@shipley.demo", "demo-pass-123")
 
     # upload a document
     page.goto(server + "/library")
@@ -107,7 +107,7 @@ def test_teacher_flow_and_model_swap(server, browser, tmp_path):
     # admin pulls a model and makes it the chat model
     ctx = browser.new_context(viewport={"width": 1280, "height": 860})
     page = ctx.new_page()
-    _login(page, server, "admin@maplegrove.demo", "admin-pass-123")
+    _login(page, server, "admin@shipley.demo", "admin-pass-123")
     page.goto(server + "/admin")
     page.click("role=tab[name='Models']")
     page.locator("div.rounded-lg:has(span:text-is('qwen3:8b'))").locator("button:has-text('Pull')").click()
@@ -131,7 +131,7 @@ def test_accessibility(server, browser, scheme):
     page.goto(server + "/chat")
     page.wait_for_selector("#email")
     problems = {"login": _axe(page)}
-    _login(page, server, "admin@maplegrove.demo", "admin-pass-123")
+    _login(page, server, "admin@shipley.demo", "admin-pass-123")
     for path in ("/chat", "/library", "/roster", "/admin"):
         page.goto(server + path)
         page.wait_for_load_state("networkidle")

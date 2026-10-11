@@ -1,31 +1,31 @@
 student_name,student_id,grade,section,period,teacher_email,reading_level,el_level,home_language,plan_type,accommodations,iep_review_date,case_manager
-Ava Thompson,S1001,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 6,,English,IEP,Extended time (1.5x); Read-aloud for tests; Preferential seating,2026-11-04,J. Rivera
-Liam Okafor,S1002,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 7,,English,,,,
-Sofia Ramirez,S1003,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 5,Level 3 (Developing),Spanish,,Bilingual glossary; Sentence frames,,
-Noah Kim,S1004,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 8,,Korean,,,,
-Mia Johnson,S1005,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 7,,English,504,Extended time (1.5x); Breaks as needed,2027-02-10,M. Chen
-Ethan Nguyen,S1006,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 7,,Vietnamese,,,,
-Isabella Rossi,S1007,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 9,,English,,,,
-Lucas Martin,S1008,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 6,,English,IEP,Chunked assignments; Graphic organizers; Flexible deadlines,2026-12-01,J. Rivera
-Amara Diallo,S1009,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 6,Level 2 (Emerging),French,,Bilingual glossary; Extended time (1.5x),,
-Oliver Brown,S1010,7,ELA 7,1,jordan.lee@maplegrove.demo,Grade 7,,English,,,,
-Charlotte Davis,S1011,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 7,,English,,,,
-Mateo Hernandez,S1012,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 5,Level 3 (Developing),Spanish,IEP,Extended time (1.5x); Separate setting for tests; Read-aloud for tests,2026-10-27,J. Rivera
-Harper Wilson,S1013,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 8,,English,,,,
-Elijah Moore,S1014,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 6,,English,504,Extended time (1.5x),2027-01-15,M. Chen
-Zara Ahmed,S1015,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 7,,Urdu,,,,
-James Taylor,S1016,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 7,,English,,,,
-Aaliyah Jackson,S1017,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 6,,English,IEP,Graphic organizers; Speech-to-text for writing; Extended time (2x),2026-11-18,J. Rivera
-Benjamin Lee,S1018,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 9,,English,,,,
-Camila Torres,S1019,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 4,Level 1 (Entering),Spanish,,Bilingual glossary; Picture supports; Sentence frames,,
-Henry Clark,S1020,7,ELA 7,3,jordan.lee@maplegrove.demo,Grade 7,,English,,,,
-Grace Lewis,S1021,7,Math 7,2,sam.patel@maplegrove.demo,Grade 7,,English,,,,
-Daniel Walker,S1022,7,Math 7,2,sam.patel@maplegrove.demo,Grade 6,,English,IEP,Calculator for computation; Extended time (1.5x),2026-11-09,J. Rivera
-Layla Hassan,S1023,7,Math 7,2,sam.patel@maplegrove.demo,Grade 7,Level 4 (Expanding),Arabic,,Bilingual glossary,,
-Jack Young,S1024,7,Math 7,2,sam.patel@maplegrove.demo,Grade 8,,English,,,,
-Chloe King,S1025,7,Math 7,2,sam.patel@maplegrove.demo,Grade 7,,English,504,Breaks as needed; Preferential seating,2027-03-02,M. Chen
-Samuel Wright,S1026,7,Math 7,4,sam.patel@maplegrove.demo,Grade 6,,English,,,,
-Nora Scott,S1027,7,Math 7,4,sam.patel@maplegrove.demo,Grade 7,,English,IEP,Extended time (1.5x); Separate setting for tests,2026-12-14,J. Rivera
-Leo Green,S1028,7,Math 7,4,sam.patel@maplegrove.demo,Grade 7,,English,,,,
-Hana Sato,S1029,7,Math 7,4,sam.patel@maplegrove.demo,Grade 8,,Japanese,,,,
-David Adams,S1030,7,Math 7,4,sam.patel@maplegrove.demo,Grade 5,,English,IEP,Chunked assignments; Calculator for computation,2026-10-30,J. Rivera
+Ava Thompson,S1001,7,ELA 7,1,jordan.lee@shipley.demo,Grade 6,,English,IEP,Extended time (1.5x); Read-aloud for tests; Preferential seating,2026-11-04,J. Rivera
+Liam Okafor,S1002,7,ELA 7,1,jordan.lee@shipley.demo,Grade 7,,English,,,,
+Sofia Ramirez,S1003,7,ELA 7,1,jordan.lee@shipley.demo,Grade 5,Level 3 (Developing),Spanish,,Bilingual glossary; Sentence frames,,
+Noah Kim,S1004,7,ELA 7,1,jordan.lee@shipley.demo,Grade 8,,Korean,,,,
+Mia Johnson,S1005,7,ELA 7,1,jordan.lee@shipley.demo,Grade 7,,English,504,Extended time (1.5x); Breaks as needed,2027-02-10,M. Chen
+Ethan Nguyen,S1006,7,ELA 7,1,jordan.lee@shipley.demo,Grade 7,,Vietnamese,,,,
+Isabella Rossi,S1007,7,ELA 7,1,jordan.lee@shipley.demo,Grade 9,,English,,,,
+Lucas Martin,S1008,7,ELA 7,1,jordan.lee@shipley.demo,Grade 6,,English,IEP,Chunked assignments; Graphic organizers; Flexible deadlines,2026-12-01,J. Rivera
+Amara Diallo,S1009,7,ELA 7,1,jordan.lee@shipley.demo,Grade 6,Level 2 (Emerging),French,,Bilingual glossary; Extended time (1.5x),,
+Oliver Brown,S1010,7,ELA 7,1,jordan.lee@shipley.demo,Grade 7,,English,,,,
+Charlotte Davis,S1011,7,ELA 7,3,jordan.lee@shipley.demo,Grade 7,,English,,,,
+Mateo Hernandez,S1012,7,ELA 7,3,jordan.lee@shipley.demo,Grade 5,Level 3 (Developing),Spanish,IEP,Extended time (1.5x); Separate setting for tests; Read-aloud for tests,2026-10-27,J. Rivera
+Harper Wilson,S1013,7,ELA 7,3,jordan.lee@shipley.demo,Grade 8,,English,,,,
+Elijah Moore,S1014,7,ELA 7,3,jordan.lee@shipley.demo,Grade 6,,English,504,Extended time (1.5x),2027-01-15,M. Chen
+Zara Ahmed,S1015,7,ELA 7,3,jordan.lee@shipley.demo,Grade 7,,Urdu,,,,
+James Taylor,S1016,7,ELA 7,3,jordan.lee@shipley.demo,Grade 7,,English,,,,
+Aaliyah Jackson,S1017,7,ELA 7,3,jordan.lee@shipley.demo,Grade 6,,English,IEP,Graphic organizers; Speech-to-text for writing; Extended time (2x),2026-11-18,J. Rivera
+Benjamin Lee,S1018,7,ELA 7,3,jordan.lee@shipley.demo,Grade 9,,English,,,,
+Camila Torres,S1019,7,ELA 7,3,jordan.lee@shipley.demo,Grade 4,Level 1 (Entering),Spanish,,Bilingual glossary; Picture supports; Sentence frames,,
+Henry Clark,S1020,7,ELA 7,3,jordan.lee@shipley.demo,Grade 7,,English,,,,
+Grace Lewis,S1021,7,Math 7,2,sam.patel@shipley.demo,Grade 7,,English,,,,
+Daniel Walker,S1022,7,Math 7,2,sam.patel@shipley.demo,Grade 6,,English,IEP,Calculator for computation; Extended time (1.5x),2026-11-09,J. Rivera
+Layla Hassan,S1023,7,Math 7,2,sam.patel@shipley.demo,Grade 7,Level 4 (Expanding),Arabic,,Bilingual glossary,,
+Jack Young,S1024,7,Math 7,2,sam.patel@shipley.demo,Grade 8,,English,,,,
+Chloe King,S1025,7,Math 7,2,sam.patel@shipley.demo,Grade 7,,English,504,Breaks as needed; Preferential seating,2027-03-02,M. Chen
+Samuel Wright,S1026,7,Math 7,4,sam.patel@shipley.demo,Grade 6,,English,,,,
+Nora Scott,S1027,7,Math 7,4,sam.patel@shipley.demo,Grade 7,,English,IEP,Extended time (1.5x); Separate setting for tests,2026-12-14,J. Rivera
+Leo Green,S1028,7,Math 7,4,sam.patel@shipley.demo,Grade 7,,English,,,,
+Hana Sato,S1029,7,Math 7,4,sam.patel@shipley.demo,Grade 8,,Japanese,,,,
+David Adams,S1030,7,Math 7,4,sam.patel@shipley.demo,Grade 5,,English,IEP,Chunked assignments; Calculator for computation,2026-10-30,J. Rivera
