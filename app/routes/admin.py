@@ -4,12 +4,13 @@ import sqlite3
 from dataclasses import asdict, replace
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from .. import deps
 from ..config import Settings
 from ..llm import Runtime, RuntimeConfig, RuntimeError_
-from ..services import auth, embeddings
+from ..services import activity, auth, embeddings
 from ..services import models as models_service
 from ..services.embeddings import EmbeddingWorker
 from ..services.models import PullManager, load_presets
@@ -251,6 +252,20 @@ class UserIn(BaseModel):
     password: str
 
 
+@router.get("/admin/activity")
+def get_activity(q: str = "", before: int | None = None, _: sqlite3.Row = Depends(deps.admin_user),
+                 db: sqlite3.Connection = Depends(deps.db, scope="function")):
+    rows = activity.search(db, q, before, limit=100)
+    return {"activity": rows, "more": len(rows) == 100}
+
+
+@router.get("/admin/activity.csv", response_class=PlainTextResponse)
+def activity_csv(q: str = "", _: sqlite3.Row = Depends(deps.admin_user),
+                 db: sqlite3.Connection = Depends(deps.db, scope="function")):
+    return PlainTextResponse(activity.to_csv(activity.search(db, q, limit=100_000)), media_type="text/csv",
+                             headers={"Content-Disposition": 'attachment; filename="teachers-desk-activity.csv"'})
+
+
 @router.get("/admin/users")
 def users(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     rows = db.execute(
@@ -262,11 +277,12 @@ def users(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = De
 
 
 @router.post("/admin/users")
-def create_user(body: UserIn, _: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
+def create_user(body: UserIn, me: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     try:
         uid = auth.create_user(db, email=body.email, name=body.name, role=body.role, password=body.password)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    activity.log(db, me, "person_added", subject=body.name or body.email, detail=body.role)
     return {"id": uid}
 
 
@@ -274,6 +290,8 @@ def create_user(body: UserIn, _: sqlite3.Row = Depends(deps.admin_user), db: sql
 def delete_user(user_id: int, me: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     if user_id == me["id"]:
         raise HTTPException(400, "You can't remove your own account.")
-    if not db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount:
+    gone = db.execute("SELECT name, email FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not gone or not db.execute("DELETE FROM users WHERE id = ?", (user_id,)).rowcount:
         raise HTTPException(404, "User not found.")
+    activity.log(db, me, "person_removed", subject=gone["name"] or gone["email"])
     return {"ok": True}

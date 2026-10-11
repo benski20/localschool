@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from .. import deps
 from ..config import Settings
 from ..llm import Runtime
-from ..services import embeddings, ingest
+from ..services import activity, embeddings, ingest
 from ..services.embeddings import EmbeddingWorker
 from ..services.retrieval import VISIBLE, visible_param
 
@@ -84,6 +84,8 @@ async def upload(
                 visibility=visibility,
             )
             created.append(doc_id)
+            if visibility == "school":  # a teacher's private attachments aren't school records
+                activity.log(db, user, "document_added", subject=name)
         except ingest.IngestError as e:
             errors.append({"filename": name, "error": str(e)})
     db.commit()
@@ -114,6 +116,8 @@ def paste(
         )
     except ingest.IngestError as e:
         raise HTTPException(400, str(e)) from e
+    if body.visibility == "school":
+        activity.log(db, user, "document_added", subject=body.title)
     db.commit()
     worker.kick()
     return {"id": doc_id}
@@ -129,13 +133,16 @@ def delete(
     """The uploader or an admin. Admins can remove any document, including private ones
     (e.g. a departed teacher's); other teachers can't even see a private one exists."""
     is_admin = user["role"] == "admin"
-    row = (db.execute("SELECT owner_id FROM documents WHERE id = ?", (doc_id,)).fetchone() if is_admin
+    row = (db.execute("SELECT owner_id, title, visibility FROM documents WHERE id = ?", (doc_id,)).fetchone() if is_admin
            else visible_document(db, doc_id, user))
     if not row:
         raise HTTPException(404, NOT_FOUND)
     if not is_admin and row["owner_id"] != user["id"]:
         raise HTTPException(403, "Only the uploader or an admin can delete this document.")
+    meta = db.execute("SELECT title, visibility FROM documents WHERE id = ?", (doc_id,)).fetchone()
     ingest.delete_document(db, doc_id, settings.files_dir)
+    if meta and (meta["visibility"] == "school" or row["owner_id"] != user["id"]):
+        activity.log(db, user, "document_deleted", subject=meta["title"])
     return {"ok": True}
 
 

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 
 from .. import deps
-from ..services import roster
+from ..services import activity, roster
 
 router = APIRouter(prefix="/api/roster", tags=["roster"])
 MAX_CSV = 5 * 1024 * 1024
@@ -18,6 +18,8 @@ MAX_CSV = 5 * 1024 * 1024
 def get_roster(user: sqlite3.Row = Depends(deps.current_user), db: sqlite3.Connection = Depends(deps.db, scope="function")):
     sections = roster.sections_for(db, user)
     students = roster.students_for(db, user)
+    if students and not activity.recently(db, user["id"], "students_viewed", 60):
+        activity.log(db, user, "students_viewed", detail=f"{len(students)} students")
     return {
         "sections": [
             {k: s[k] for k in ("id", "name", "period", "teacher_email", "teacher_name", "student_count")}
@@ -56,13 +58,16 @@ async def preview(file: UploadFile = File(...), _: sqlite3.Row = Depends(deps.ad
 @router.post("/import")
 async def import_(
     file: UploadFile = File(...),
-    _: sqlite3.Row = Depends(deps.admin_user),
+    me: sqlite3.Row = Depends(deps.admin_user),
     db: sqlite3.Connection = Depends(deps.db, scope="function"),
 ):
     parsed = await _parse(file)
     if parsed.errors:
         raise HTTPException(400, " ".join(parsed.errors))
-    return {**roster.import_roster(db, parsed), "warnings": parsed.warnings}
+    result = roster.import_roster(db, parsed)
+    activity.log(db, me, "roster_imported", detail=", ".join(f"{k}: {v}" for k, v in result.items()
+                                                             if isinstance(v, int))[:300])
+    return {**result, "warnings": parsed.warnings}
 
 
 @router.get("/template.csv", response_class=PlainTextResponse)

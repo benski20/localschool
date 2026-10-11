@@ -207,6 +207,42 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX device_keys_user ON device_keys(user_id);
     """,
+    # 5 — activity log for admins: who signed in, whose student information was used, what
+    # changed. Names are copied in so the record outlives deleted accounts. Never holds
+    # question text or document contents.
+    """
+    CREATE TABLE activity (
+        id         INTEGER PRIMARY KEY,
+        user_id    INTEGER,
+        who        TEXT NOT NULL DEFAULT '',
+        action     TEXT NOT NULL,
+        subject    TEXT NOT NULL DEFAULT '',
+        detail     TEXT NOT NULL DEFAULT '',
+        ip         TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX activity_time ON activity(created_at);
+    """,
+    # 6 — Sign in with Google / Microsoft: a sign-in in progress (state → PKCE verifier,
+    # nonce), and one-time codes that hand a finished sign-in to the Mac app (deep link).
+    # Both live minutes; codes are stored hashed.
+    """
+    CREATE TABLE sso_pending (
+        state        TEXT PRIMARY KEY,
+        provider     TEXT NOT NULL,
+        nonce        TEXT NOT NULL,
+        verifier     TEXT NOT NULL,
+        mode         TEXT NOT NULL,
+        browser_hash TEXT NOT NULL DEFAULT '',
+        expires_at   TEXT NOT NULL
+    );
+    CREATE TABLE login_codes (
+        code_hash  TEXT PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        purpose    TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    );
+    """,
 ]
 
 

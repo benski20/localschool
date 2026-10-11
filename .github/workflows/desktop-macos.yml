@@ -27,6 +27,7 @@ on:
       - "web/**"
       - "scripts/install-*.sh"
       - "scripts/setup-local-mac.sh"
+      - "scripts/fake_idp.py"
       - "app/**"
       - "app/routes/install.py"
       - ".github/workflows/desktop-macos.yml"
@@ -235,6 +236,58 @@ jobs:
           LS_REMOVE=1 bash "$SETUP"
           test ! -d "$LOCAL"
           if curl -sf --max-time 3 http://127.0.0.1:8765/api/health; then exit 1; fi
+          cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
+
+      - name: Sign in with Google (fake provider) in the Mac app, and "keep my data" with it
+        run: |
+          APP_INSTALLED="/Applications/Teacher's Desk.app"
+          S=http://127.0.0.1:8000
+          # The demo school uses a stand-in Google on :9999.
+          python3 scripts/fake_idp.py 9999 jordan.lee@maplegrove.demo > "$RUNNER_TEMP/idp.log" 2>&1 &
+          echo 'SSO_ENDPOINTS_OVERRIDE={"google":{"auth":"http://127.0.0.1:9999/auth","token":"http://127.0.0.1:9999/token","issuer":"http://127.0.0.1:9999"}}' >> .env
+          launchctl kickstart -k "gui/$(id -u)/org.localschool.server"
+          for i in $(seq 1 60); do curl -sf $S/api/health >/dev/null && break; sleep 1; done
+          AJ=$RUNNER_TEMP/admin2
+          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@maplegrove.demo","password":"admin-pass-123"}' $S/api/auth/login >/dev/null
+          curl -sf -b $AJ -X PUT -H 'content-type: application/json' \
+            -d '{"google_client_id":"ci-client","google_client_secret":"ci-secret-123","domains":"maplegrove.demo"}' $S/api/admin/sso | grep -q '"enabled":\["google"\]'
+          curl -sf $S/api/health | grep -q '"sso":\["google"\]'
+
+          # 1) The Mac app's sign-in: the browser part (curl here), then the teachersdesk:// link.
+          printf '{"url":"%s","name":"Maple Grove Middle School"}' "$S" > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+          osascript -e "tell application \"Teacher's Desk\" to quit" || true; sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
+          open "$APP_INSTALLED"; sleep 10
+          screencapture -x shots/9-login-with-google.png || true
+          START=$(curl -sf "$S/api/auth/sso/google/start?mode=app&json=1" | python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])')
+          PAGE=$(curl -sfL "$START")
+          CODE=$(echo "$PAGE" | grep -oE 'teachersdesk://signin\?code=[A-Za-z0-9_-]+' | head -1 | cut -d= -f2)
+          test -n "$CODE"
+          open "teachersdesk://signin?code=$CODE"; sleep 6
+          screencapture -x shots/10-signed-in-with-google.png || true
+          # The app used the one-time code: it no longer works.
+          test "$(curl -s -o /dev/null -w '%{redirect_url}' "$S/api/auth/sso/redeem?code=$CODE")" = "$S/"
+          curl -sf -b $AJ "$S/api/admin/activity?q=Google" | grep -q '"sso_sign_in"'
+
+          # 2) "Keep my data on this Mac" with Google: the link sets up this Mac's desk, the
+          #    app keeps its password in the Keychain and opens it already signed in.
+          launchctl setenv LS_ALLOW_NO_FILEVAULT 1   # CI runners have no FileVault
+          osascript -e "tell application \"Teacher's Desk\" to quit" || true; sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
+          open "$APP_INSTALLED"; sleep 8
+          START=$(curl -sf "$S/api/auth/sso/google/start?mode=desk&json=1" | python3 -c 'import json,sys; print(json.load(sys.stdin)["url"])')
+          CODE=$(curl -sfL "$START" | grep -oE 'teachersdesk://desk\?code=[A-Za-z0-9_-]+' | head -1 | cut -d= -f2)
+          test -n "$CODE"
+          open "teachersdesk://desk?code=$CODE"
+          for i in $(seq 1 240); do curl -sf http://127.0.0.1:8765/api/health | grep -q '"local":true' && break; sleep 1; done
+          curl -sf http://127.0.0.1:8765/api/health | grep -q '"local":true'
+          sleep 8; screencapture -x shots/11-desk-from-google.png || true
+          security find-generic-password -s "Teacher's Desk (this Mac)" -a jordan.lee@maplegrove.demo >/dev/null
+          LOCAL="$HOME/Library/Application Support/org.localschool.desktop/local"
+          test "$(cat "$LOCAL/account")" = jordan.lee@maplegrove.demo
+          grep -q '^RUNTIME_KIND=relay' "$LOCAL/server.env"
+          launchctl unsetenv LS_ALLOW_NO_FILEVAULT
+          # Clean up: removal also deletes the Keychain entry.
+          LS_REMOVE=1 bash "$APP_INSTALLED/Contents/Resources/server/scripts/setup-local-mac.sh"
+          if security find-generic-password -s "Teacher's Desk (this Mac)" >/dev/null 2>&1; then exit 1; fi
           cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
 
       - name: Publish screenshots (branch ci/screenshots)

@@ -55,6 +55,8 @@ if [ "${LS_REMOVE:-}" = 1 ]; then
   stop_agent
   rm -f "$PLIST"
   rm -rf "$LOCAL_HOME"
+  # The app's Keychain entry for signing in to this desk
+  for _ in 1 2 3 4 5; do security delete-generic-password -s "Teacher's Desk (this Mac)" >/dev/null 2>&1 || break; done
   echo "REMOVED"
   exit 0
 fi

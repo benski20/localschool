@@ -7,6 +7,7 @@ Light by design: no models run here. All inference goes to the configured runtim
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,15 +19,17 @@ from .config import Settings, get_settings
 from .db import connect, init_db
 from .discovery import Advertiser
 from .llm import Runtime
-from .llm.registry import ProviderFactory, default_factory
-from .routes import admin, auth, chat, install, library, relay, roster, tools
+from .llm.registry import ProviderFactory, default_factory, is_local_url
+from .routes import admin, auth, chat, export, install, library, relay, roster, sso, tools
+from .services import activity
+from .services import sso as sso_service
 from .services.auth import create_user
 from .services.embeddings import EmbeddingWorker
 from .services.models import PullManager, seed_choices
 from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.3.2"
+VERSION = "0.4.0"
 DEMO_TEACHER = ("jordan.lee@maplegrove.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
@@ -40,6 +43,18 @@ def bootstrap(settings: Settings) -> None:
                         password=settings.admin_password)
             log.warning("Created first admin %s — change its password.", settings.admin_email)
         seed_choices(db)
+        activity.purge(db, settings.activity_days)
+
+
+async def _purge_daily(settings: Settings) -> None:
+    """Old activity entries go after `activity_days`; checked once a day."""
+    while True:
+        await asyncio.sleep(86400)
+        try:
+            with connect(settings.db_path) as db:
+                activity.purge(db, settings.activity_days)
+        except Exception:  # noqa: BLE001 - never take the server down for housekeeping
+            log.exception("activity purge failed")
 
 
 def create_app(settings: Settings | None = None, *, factory: ProviderFactory = default_factory) -> FastAPI:
@@ -55,6 +70,7 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         app.state.tools = ToolWorker(app.state.runtime, settings)
         app.state.worker.start()
         app.state.tools.start()
+        purger = asyncio.create_task(_purge_daily(settings))
         advertiser = None
         if settings.advertise_mdns:
             advertiser = Advertiser(settings.school_name, settings.public_port, VERSION)
@@ -62,6 +78,7 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         yield
         if advertiser:
             await advertiser.stop()
+        purger.cancel()
         await app.state.pulls.stop()
         await app.state.tools.stop()
         await app.state.worker.stop()
@@ -70,13 +87,17 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
     app = FastAPI(title="Local School", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
     for r in (auth.router, chat.router, library.router, roster.router, admin.router, install.router,
-              tools.router, relay.router):
+              tools.router, relay.router, export.router, sso.router):
         app.include_router(r)
 
     @app.get("/api/health")
     def health():
         # Public: the Mac app uses this to confirm it found a Local School server.
         out = {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
+        with connect(settings.db_path) as db:
+            enabled = sso_service.load(db, settings).enabled()
+        if enabled and not settings.local_mode:
+            out["sso"] = enabled  # the sign-in page shows "Continue with Google / Microsoft"
         if settings.local_mode:
             out["local"] = True  # the Mac app and sidebar say "Kept on this Mac"
         if settings.demo_logins:
@@ -86,6 +107,25 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
             # The /get page links here for the .dmg (browser download; see TEACHERS.md).
             out["mac_release_page"] = settings.mac_app_url.split("/download/")[0]
         return out
+
+    @app.get("/api/trust")
+    def trust():
+        # Public: the facts behind the /privacy page, true for this install.
+        cfg = app.state.runtime.config()
+        if cfg.kind == "relay":
+            ai = "school"      # a personal desk: the school's server runs the AI
+        elif cfg.kind == "fake" or is_local_url(cfg.url):
+            ai = "on_site"
+        else:
+            ai = "cloud"
+        return {
+            "school": settings.school_name,
+            "deployment": "personal" if settings.local_mode else "demo" if settings.demo_logins else "school",
+            "ai": ai,
+            "activity_days": settings.activity_days,
+            "session_days": settings.session_days,
+            "version": VERSION,
+        }
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException):

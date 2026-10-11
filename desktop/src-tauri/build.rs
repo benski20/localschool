@@ -17,6 +17,7 @@ fn main() {
             "setup_local",
             "local_progress",
             "open_filevault_settings",
+            "setup_local_sso",
         ]),
     ))
     .expect("failed to run tauri-build");

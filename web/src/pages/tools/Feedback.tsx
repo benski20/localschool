@@ -8,7 +8,7 @@ import { Progress } from "../../components/ui";
 import { ToolPage, Narrow, Labelled, ErrorLine, Reveal } from "../../components/tools/ToolPage";
 import { StudentPicker } from "../../components/tools/StudentPicker";
 import { JobProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
-import { CopyButton, EditableText, OutputEditor, SaveHint, useDraftOutput } from "../../components/tools/OutputEditor";
+import { CopyButton, EditableText, OutputEditor, SaveHint, WordButton, useDraftOutput } from "../../components/tools/OutputEditor";
 import { DraftList } from "../../components/tools/DraftList";
 import {
   isWorking,
@@ -328,7 +328,14 @@ function BatchView({ batch, initial }: { batch: string; initial: DraftSummary[] 
 
   const done = progress?.done ?? false;
   return (
-    <OutputEditor label="Feedback" actions={done && progress!.ready > 0 ? <CopyButton text={copyAll} label="Copy all" /> : undefined}>
+    <OutputEditor label="Feedback" actions={
+        done && progress!.ready > 0 ? (
+          <span className="flex items-center gap-2">
+            <CopyButton text={copyAll} label="Copy all" />
+            <WordButton title="Feedback" text={copyAll} />
+          </span>
+        ) : undefined
+      }>
       {!done && (
         <JobProgress
           className="pt-0"
@@ -397,6 +404,7 @@ function PieceCard({
             <>
               <SaveHint state={saved} />
               {output && <CopyButton text={() => feedbackText(name, output)} />}
+              {output && <WordButton title={`Feedback for ${name}`} text={() => feedbackText(name, output)} />}
             </>
           ) : (
             <span className={clsx("text-xs", summary?.status === "error" ? "text-danger" : "text-faint")} aria-live="polite">

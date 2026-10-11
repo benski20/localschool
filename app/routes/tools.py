@@ -115,10 +115,12 @@ from .. import deps
 from ..config import Settings
 from ..db import connect
 from ..llm import Runtime
-from ..services import ingest
+from ..services import activity, ingest
 from ..services.models import resolve_tool_model
 from ..services.tools import TOOLS, NotFound, ToolWorker, adapt, audio, drafts, feedback, meeting
 from ..services.tools.common import describe_error
+
+TOOL_LABELS = {"meeting": "meeting notes", "feedback": "feedback", "adapt": "adapted reading", "email": "parent email"}
 
 router = APIRouter(prefix="/api", tags=["tools"])
 DRAFT_NOT_FOUND = "Draft not found."
@@ -275,6 +277,10 @@ async def create_draft(
             waiting = tool == "meeting" and prepared[0].transcript is None
             ids = [drafts.create(db, user["id"], tool, p, model=model, batch_id=batch,
                                  status="awaiting_audio" if waiting else "queued") for p in prepared]
+            for name in {r["name"] for r in db.execute(
+                    f"SELECT s.name FROM drafts d JOIN students s ON s.id = d.student_id "
+                    f"WHERE d.id IN ({','.join('?' * len(ids))})", ids)}:
+                activity.log(db, user, "draft_for_student", subject=name, detail=TOOL_LABELS.get(tool, tool))
         if upload is not None:
             if not req.consent:
                 _discard(settings, ids[0])

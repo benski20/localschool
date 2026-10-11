@@ -6,7 +6,7 @@ import { ToolPage, Narrow, Choice, Labelled, ErrorLine } from "../../components/
 import { StudentPicker } from "../../components/tools/StudentPicker";
 import { ConsentRecorder } from "../../components/tools/ConsentRecorder";
 import { DraftProgress, JobProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
-import { CopyButton, EditableText, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
+import { CopyButton, EditableText, WordButton, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
 import { RefChips, TranscriptView, clock, type TranscriptFocus } from "../../components/tools/TranscriptView";
 import { DraftList } from "../../components/tools/DraftList";
 import { formatBytes } from "../../lib/api";
@@ -339,7 +339,12 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
 
   return (
     <div className="grid animate-fade-in gap-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
-      <OutputEditor label={draft.title || "Notes"} saved={saved} actions={<CopyButton text={() => notesText(output, sections)} />} className="min-w-0">
+      <OutputEditor label={draft.title || "Notes"} saved={saved} actions={
+        <span className="flex items-center gap-2">
+          <CopyButton text={() => notesText(output, sections)} />
+          <WordButton title={draft.title || "Meeting notes"} text={() => notesText(output, sections)} />
+        </span>
+      } className="min-w-0">
         <div className="space-y-10">
           {shown.map((s) => (
             <div key={s.key}>

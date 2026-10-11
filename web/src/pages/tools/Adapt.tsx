@@ -6,7 +6,7 @@ import { SkeletonText } from "../../components/ui";
 import { ToolPage, Narrow, Labelled, ErrorLine, Reveal } from "../../components/tools/ToolPage";
 import { useRoster } from "../../components/tools/StudentPicker";
 import { DraftProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
-import { CopyButton, EditableText, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
+import { CopyButton, EditableText, WordButton, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
 import { DraftList } from "../../components/tools/DraftList";
 import {
   LANGUAGES,
@@ -237,7 +237,10 @@ function Result({ draft }: { draft: Draft<"adapt"> }) {
           <section key={i} className="min-w-0 animate-slide-up" aria-label={v.label}>
             <div className="mb-1 flex items-center justify-between gap-3 border-b border-line pb-3">
               <h3 className="min-w-0 truncate text-base font-medium">{v.label}</h3>
-              <CopyButton text={() => versionText(v)} />
+              <span className="flex shrink-0 items-center gap-2">
+                <CopyButton text={() => versionText(v)} />
+                <WordButton title={() => v.title || v.label} text={() => versionText(v)} />
+              </span>
             </div>
             <p className="mb-5 mt-2 text-xs text-faint">{about(v.readability)}</p>
             {v.title && (

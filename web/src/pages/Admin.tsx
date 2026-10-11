@@ -8,7 +8,7 @@ import type { ModelInfo, Preset, PullState, RuntimeConfigPublic, RuntimeHealth }
 import { useToast } from "../components/Toaster";
 import { Skeleton, Spinner } from "../components/ui";
 import { useHealth } from "../components/shell/health";
-import { Bar, Callout, Chip, ConfirmDialog, Disclosure, Modal, ModalFooter, Page, PageTitle, Section, linkClass } from "../components/workspace/primitives";
+import { Bar, Callout, Chip, ConfirmDialog, Disclosure, Modal, ModalFooter, Page, PageTitle, SearchField, Section, linkClass } from "../components/workspace/primitives";
 
 /** Settings (admins): People, AI, Connection on one page. */
 export function Admin() {
@@ -20,6 +20,7 @@ export function Admin() {
       <div className="mt-12 space-y-20">
         <People />
         <AiModels />
+        {!local && <ActivityLog />}
         {!local && <Connection />}
       </div>
       {!local && (
@@ -47,6 +48,7 @@ interface UserRow {
 const EMPTY_PERSON = { name: "", email: "", role: "teacher", password: "" };
 
 function People() {
+  const local = !!useHealth()?.local;
   const toast = useToast();
   const { user: me } = useAuth();
   const [users, setUsers] = useState<UserRow[] | null>(null);
@@ -193,9 +195,113 @@ function People() {
       />
 
       <PersonalMacs />
+      {!local && <SignInSettings />}
 
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </Section>
+  );
+}
+
+/* ---------------------------------------------------------------- Sign in with Google / Microsoft */
+
+interface SSOConfig {
+  google_client_id: string;
+  google_has_secret: boolean;
+  google_secret_hint: string;
+  microsoft_client_id: string;
+  microsoft_has_secret: boolean;
+  microsoft_secret_hint: string;
+  microsoft_tenant: string;
+  domains: string[];
+  auto_join: boolean;
+  enabled: string[];
+  redirect_uris: Record<string, string>;
+}
+
+/** For IT: the school's own Google / Microsoft app, so teachers sign in with their school
+ *  account. Step-by-step, with the exact address to paste. */
+function SignInSettings() {
+  const toast = useToast();
+  const [cfg, setCfg] = useState<SSOConfig | null>(null);
+  const [form, setForm] = useState({ google_client_id: "", google_client_secret: "", microsoft_client_id: "", microsoft_client_secret: "", microsoft_tenant: "", domains: "", auto_join: false });
+  const [saving, setSaving] = useState(false);
+  const fill = (c: SSOConfig) => {
+    setCfg(c);
+    setForm({ google_client_id: c.google_client_id, google_client_secret: "", microsoft_client_id: c.microsoft_client_id, microsoft_client_secret: "", microsoft_tenant: c.microsoft_tenant, domains: c.domains.join(", "), auto_join: c.auto_join });
+  };
+  useEffect(() => {
+    api.get<SSOConfig>("/api/admin/sso").then(fill).catch(() => setCfg(null));
+  }, []);
+  if (!cfg) return null;
+
+  async function save() {
+    setSaving(true);
+    try {
+      const c = await api.put<SSOConfig>("/api/admin/sso", form);
+      fill(c);
+      toast({ kind: "success", message: c.enabled.length ? `Sign in with ${c.enabled.map((p) => (p === "google" ? "Google" : "Microsoft")).join(" and ")} is on.` : "Saved." });
+    } catch (e) {
+      toast({ kind: "error", message: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  }
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const on = cfg.enabled;
+
+  return (
+    <div className="mt-10">
+      <Disclosure label={on.length ? `Sign-in · ${on.map((p) => (p === "google" ? "Google" : "Microsoft")).join(" and ")} on` : "Sign in with Google or Microsoft"}>
+        <form
+          className="grid max-w-2xl gap-6"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <label className="grid gap-1.5">
+            <span className="field-label">School email domain</span>
+            <input className="input" placeholder="shipleyschool.org" value={form.domains} onChange={set("domains")} />
+            <span className="text-xs text-faint">Only accounts at this domain can sign in. Separate several with commas.</span>
+          </label>
+
+          <fieldset className="grid gap-3">
+            <legend className="mb-2 text-sm text-ink">Google Workspace</legend>
+            <p className="text-sm text-muted">
+              In Google Cloud Console → APIs &amp; Services → Credentials, create an OAuth client (Web application) and add this
+              redirect address:
+            </p>
+            <code className="block overflow-x-auto whitespace-nowrap border border-line bg-panel px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.google}</code>
+            <input className="input" aria-label="Google client ID" placeholder="Client ID" value={form.google_client_id} onChange={set("google_client_id")} />
+            <input className="input" aria-label="Google client secret" type="password" autoComplete="off" placeholder={cfg.google_has_secret ? `Client secret (saved ${cfg.google_secret_hint})` : "Client secret"} value={form.google_client_secret} onChange={set("google_client_secret")} />
+          </fieldset>
+
+          <fieldset className="grid gap-3">
+            <legend className="mb-2 text-sm text-ink">Microsoft 365</legend>
+            <p className="text-sm text-muted">In Microsoft Entra → App registrations, register an app (Web) with this redirect address, then add a client secret:</p>
+            <code className="block overflow-x-auto whitespace-nowrap border border-line bg-panel px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.microsoft}</code>
+            <input className="input" aria-label="Microsoft application (client) ID" placeholder="Application (client) ID" value={form.microsoft_client_id} onChange={set("microsoft_client_id")} />
+            <input className="input" aria-label="Microsoft client secret" type="password" autoComplete="off" placeholder={cfg.microsoft_has_secret ? `Client secret (saved ${cfg.microsoft_secret_hint})` : "Client secret value"} value={form.microsoft_client_secret} onChange={set("microsoft_client_secret")} />
+            <input className="input" aria-label="Microsoft directory (tenant) ID" placeholder="Directory (tenant) ID (optional)" value={form.microsoft_tenant === "organizations" ? "" : form.microsoft_tenant} onChange={(e) => setForm({ ...form, microsoft_tenant: e.target.value || "organizations" })} />
+          </fieldset>
+
+          <label className="flex items-start gap-3 text-sm text-ink">
+            <input type="checkbox" className="mt-1" checked={form.auto_join} onChange={set("auto_join")} />
+            <span>
+              Anyone at the domain can join as a teacher
+              <span className="block text-faint">Off: only people you've added can sign in.</span>
+            </span>
+          </label>
+
+          <div>
+            <button className="btn-primary" disabled={saving}>
+              {saving && <Spinner />} Save
+            </button>
+          </div>
+        </form>
+      </Disclosure>
+    </div>
   );
 }
 
@@ -270,11 +376,94 @@ function PersonalMacs() {
   );
 }
 
+/* ================================================================ Activity */
+
+interface ActivityRow {
+  id: number;
+  who: string;
+  action: string;
+  what: string;
+  subject: string;
+  detail: string;
+  created_at: string;
+}
+
+/** Who signed in, whose student information was used, what changed. Never question text. */
+function ActivityLog() {
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<ActivityRow[] | null>(null);
+  const [more, setMore] = useState(false);
+  const load = useCallback(
+    (before?: number) => {
+      const params = new URLSearchParams({ q });
+      if (before) params.set("before", String(before));
+      api
+        .get<{ activity: ActivityRow[]; more: boolean }>(`/api/admin/activity?${params}`)
+        .then((r) => {
+          setRows((prev) => (before && prev ? [...prev, ...r.activity] : r.activity));
+          setMore(r.more);
+        })
+        .catch(() => setRows([]));
+    },
+    [q],
+  );
+  useEffect(() => {
+    const t = window.setTimeout(() => load(), q ? 250 : 0);
+    return () => window.clearTimeout(t);
+  }, [load, q]);
+
+  return (
+    <Section
+      title="Activity"
+      aside={
+        <a className="btn-secondary" href={`/api/admin/activity.csv?${new URLSearchParams({ q })}`}>
+          <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden /> Download CSV
+        </a>
+      }
+    >
+      <SearchField value={q} onChange={setQ} placeholder="Search a person or student" className="mb-4 max-w-sm" />
+      {!rows ? (
+        <div className="space-y-3 py-2" aria-busy>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-8 w-full" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="py-3 text-sm text-faint">{q ? "Nothing matches." : "Nothing yet."}</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-line border-y border-line">
+            {rows.map((a) => (
+              <li key={a.id} className="flex items-baseline gap-4 py-2.5 text-sm">
+                <span className="min-w-0 flex-1 truncate text-ink">
+                  {a.who || a.subject || "Someone"} <span className="text-muted">{a.what}</span>
+                  {a.who && a.subject ? ` ${a.subject}` : ""}
+                  {a.detail && <span className="text-faint"> · {a.detail}</span>}
+                </span>
+                <span className="shrink-0 text-faint" title={`${a.created_at} UTC`}>
+                  {ago(a.created_at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {more && (
+            <button className="btn-ghost mt-3" onClick={() => load(rows[rows.length - 1].id)}>
+              Show older
+            </button>
+          )}
+        </>
+      )}
+      <p className="mt-3 text-xs text-faint">Kept for a year. Questions and documents themselves are never recorded here.</p>
+    </Section>
+  );
+}
+
 /** "2 hours ago" from a UTC SQLite timestamp. */
 function ago(sqliteUtc: string): string {
   const t = new Date(sqliteUtc.replace(" ", "T") + "Z").getTime();
   const s = Math.max(0, (Date.now() - t) / 1000);
   const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  if (s < 60) return "just now";
   if (s < 3600) return rtf.format(-Math.round(s / 60), "minute");
   if (s < 86400) return rtf.format(-Math.round(s / 3600), "hour");
   return rtf.format(-Math.round(s / 86400), "day");

@@ -60,6 +60,20 @@ class Settings(BaseSettings):
     # (Modal), where the db file alone must always be a consistent snapshot.
     sqlite_journal: str = "wal"
 
+    # Sign in with Google / Microsoft (admins can also set these in Settings › People)
+    sso_google_client_id: str = ""
+    sso_google_client_secret: str = ""
+    sso_microsoft_client_id: str = ""
+    sso_microsoft_client_secret: str = ""
+    sso_microsoft_tenant: str = "organizations"
+    sso_domains: str = ""            # comma-separated, e.g. "shipleyschool.org"
+    sso_auto_join: bool = False      # anyone at those domains may join as a teacher
+    # Tests/CI only: JSON {provider: {"auth": url, "token": url, "issuer": str}}
+    sso_endpoints_override: str = ""
+
+    # Activity log (Settings › Activity) is kept this many days
+    activity_days: int = 365
+
     # Serving
     web_dist: Path = ROOT / "web" / "dist"
     cookie_secure: bool = False

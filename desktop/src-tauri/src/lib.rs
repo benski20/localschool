@@ -77,7 +77,15 @@ fn local_status(webview: Webview, app: AppHandle) -> Result<local::Status, Strin
 #[tauri::command]
 fn setup_local(webview: Webview, app: AppHandle, form: local::SetupForm) -> Result<(), String> {
     require_local(&webview)?;
-    local::start(&app, form)
+    local::start(&app, local::Credentials::Password(form))
+}
+
+/// "Keep my data on this Mac" with Google / Microsoft: sign in in the teacher's browser.
+#[tauri::command]
+fn setup_local_sso(webview: Webview, app: AppHandle, provider: String) -> Result<(), String> {
+    require_local(&webview)?;
+    let url = local::sso_start_url(&app, &provider)?;
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -108,8 +116,52 @@ fn connect_server(webview: Webview, app: AppHandle, url: String, name: String) -
     let parsed = Url::parse(&url).map_err(|e| e.to_string())?;
     server::save(&app, &SavedServer { url: url.clone(), name })?;
     app.state::<CurrentServer>().set(Some(server::origin(&parsed)));
-    let target = server::origin(&parsed).join("chat").map_err(|e| e.to_string())?;
+    // This Mac's own desk: open it already signed in (its password is in the Keychain).
+    let signed_in = local::is_local(&url).then(|| local::signed_in_url(&app)).flatten();
+    let target = match signed_in {
+        Some(u) => Url::parse(&u).map_err(|e| e.to_string())?,
+        None => server::origin(&parsed).join("chat").map_err(|e| e.to_string())?,
+    };
     webview.navigate(target).map_err(|e| e.to_string())
+}
+
+// ---------------------------------------------------------------- teachersdesk:// links
+// The school's sign-in page (Google / Microsoft, in the teacher's browser) hands back a
+// one-time code: teachersdesk://signin?code=… signs this window in to the school;
+// teachersdesk://desk?code=… sets up "Keep my data on this Mac".
+
+fn on_deep_link(app: &AppHandle, url: &Url) {
+    if url.scheme() != "teachersdesk" {
+        return;
+    }
+    let Some(code) = url.query_pairs().find(|(k, _)| k == "code").map(|(_, v)| v.to_string()) else { return };
+    if code.is_empty() || code.len() > 200 || !code.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return;
+    }
+    show_main(app);
+    match url.host_str() {
+        Some("signin") => {
+            let origin = app.state::<CurrentServer>().get();
+            if let (Some(origin), Some(w)) = (origin.filter(|o| !local::is_local(o.as_str())), main_window(app)) {
+                if let Ok(target) = origin.join(&format!("api/auth/sso/redeem?code={code}")) {
+                    let _ = w.navigate(target);
+                }
+            }
+        }
+        Some("desk") => {
+            if local::start(app, local::Credentials::Code(code)).is_ok() {
+                // Show the progress, unless the connect screen is already waiting for it.
+                let on_connect_screen = main_window(app).and_then(|w| w.url().ok()).is_some_and(|u| is_local_page(&u));
+                if !on_connect_screen {
+                    app.state::<CurrentServer>().set(None);
+                    if let Some(w) = main_window(app) {
+                        let _ = w.navigate(connect_screen_url("?setup=1"));
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 // ---------------------------------------------------------------- navigation helpers
@@ -327,6 +379,7 @@ pub fn run() {
     let ask_shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(
@@ -352,10 +405,20 @@ pub fn run() {
             local_status,
             setup_local,
             local_progress,
-            open_filevault_settings
+            open_filevault_settings,
+            setup_local_sso
         ])
         .setup(move |app| {
             create_main_window(app.handle())?;
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        on_deep_link(&handle, &url);
+                    }
+                });
+            }
             if let Err(e) = app.global_shortcut().register(ask_shortcut) {
                 eprintln!("global shortcut unavailable: {e}");
             }

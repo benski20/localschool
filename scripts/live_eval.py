@@ -284,6 +284,14 @@ def main() -> int:
         print(f"  · {d['title']} — {d['status']}, {d.get('chunk_count', '?')} passages", flush=True)
 
     teacher = login(args.base, spec["teacher"], args.teacher_password)
+    # School-readiness basics: the public privacy facts and a Word download.
+    trust = httpx.get(f"{args.base}/api/trust", timeout=60)
+    if trust.status_code == 200:
+        print(f"privacy page facts: {trust.json()}", flush=True)
+        r = teacher.post("/api/export/docx", data={"title": "Live eval", "text": "# Check\n- Word export works"})
+        if r.status_code != 200 or not r.content.startswith(b"PK"):
+            raise SystemExit(f"Word export failed: {r.status_code} {r.text[:200]}")
+        print(f"word export ok · {len(r.content)} bytes", flush=True)
     forbidden = set(spec.get("other_teachers_students", []))
     offered = offered_models(teacher)
     print(f"teacher model picker: {offered or '(no /api/models on this server)'}", flush=True)
