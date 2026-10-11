@@ -39,6 +39,12 @@ SRC="$(find "$TMP/unzipped" -maxdepth 2 -name '*.app' -print -quit)"
 # Replace any running/older copy.
 osascript -e 'tell application "Local School" to quit' >/dev/null 2>&1 || true
 osascript -e "tell application \"Teacher's Desk\" to quit" >/dev/null 2>&1 || true
+# Wait for it to really close; otherwise "open" below just brings the old copy back.
+for _ in $(seq 1 30); do
+  pgrep -f "(Teacher's Desk|Local School)\.app/Contents/MacOS/" >/dev/null 2>&1 || break
+  sleep 0.5
+done
+pkill -f "(Teacher's Desk|Local School)\.app/Contents/MacOS/" 2>/dev/null || true
 sleep 1
 rm -rf "$DEST/$APP_NAME" "$DEST/$OLD_APP"
 ditto "$SRC" "$DEST/$APP_NAME"
