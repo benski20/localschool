@@ -64,6 +64,7 @@ def job(row: sqlite3.Row, audio_dir: Path) -> dict:
         "input": json.loads(row["input_json"]),
         "transcript": json.loads(row["transcript_json"]) if row["transcript_json"] else None,
         "audio_file": path_of(audio_dir, row["audio_path"]),
+        "call_audio_file": path_of(audio_dir, row["call_audio_path"]),
     }
 
 
@@ -104,7 +105,8 @@ def serialize(row: sqlite3.Row, *, full: bool = True, queue: dict[int, int] | No
     }
     if row["tool"] == "meeting":
         d |= {"meeting_type": inp["meeting_type"], "source": inp.get("source", "audio"),
-              "has_audio": bool(row["audio_path"]), "audio_bytes": row["audio_bytes"]}
+              "has_audio": bool(row["audio_path"]), "audio_bytes": row["audio_bytes"],
+              "has_call_audio": bool(row["call_audio_path"])}
     if not full:
         d["preview"] = _preview(row["tool"], out)
         return d

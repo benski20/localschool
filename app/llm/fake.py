@@ -29,7 +29,10 @@ from .base import (
 _WORD = re.compile(r"[a-z0-9]+")
 _SOURCE = re.compile(r"^\[(\d+)\][^\n]*\n(.+?)(?=^\[\d+\]|\Z)", re.M | re.S)
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
-_SEGMENT = re.compile(r"^\[(\d+)\]\s*(?:\([^)]*\)\s*)?(.+)$", re.M)
+_SEGMENT = re.compile(r"^\[(\d+)\]\s*(?:\([^)]*\)\s*)?(?:(?:You|Others):\s*)?(.+)$", re.M)
+NOT_HEARD = "I didn't hear that in the meeting."
+_STOP = frozenset("the a an and or to of in on for with at by is are was were be has have had will what who "
+                  "when where why how did does do she he they we you i it that this about from".split())
 
 # What the fake "hears" in any recording: a short IEP meeting.
 DEFAULT_TRANSCRIPT = [
@@ -39,6 +42,11 @@ DEFAULT_TRANSCRIPT = [
     TranscriptSegment(17.5, 24.0, "We agreed to add a daily check-in with Ms. Rivera starting Monday."),
     TranscriptSegment(24.0, 30.0, "Extended time on tests will continue, and reading support stays at three times a week."),
     TranscriptSegment(30.0, 36.5, "Ms. Rivera will send the family a progress update by Friday, October 23."),
+]
+# ...and in a call track (the Mac app's computer sound): the family on the video call.
+DEFAULT_CALL_TRANSCRIPT = [
+    TranscriptSegment(12.0, 16.0, "Homework takes her over an hour most nights."),
+    TranscriptSegment(25.0, 29.0, "That sounds good to us, thank you."),
 ]
 
 
@@ -54,6 +62,7 @@ class FakeProvider:
         self.schemas: list[dict | None] = []    # json_schema of each chat call
         self.prompts: list[list[ChatMessage]] = []
         self.transcript: list[TranscriptSegment] = list(DEFAULT_TRANSCRIPT)
+        self.call_transcript: list[TranscriptSegment] = list(DEFAULT_CALL_TRANSCRIPT)  # "{id}.call.*" files
         self.can_transcribe = True
         self.transcribe_delay_s = 0.0
         self.active = 0       # chats in flight right now
@@ -115,6 +124,8 @@ class FakeProvider:
             raise RuntimeError_("Transcription failed: no audio file")
         if self.transcribe_delay_s:
             await asyncio.sleep(self.transcribe_delay_s)
+        if ".call." in Path(audio_path).name:
+            return list(self.call_transcript)
         return list(self.transcript)
 
     async def embed(self, model: str, texts: list[str]) -> list[list[float]]:
@@ -149,9 +160,12 @@ class FakeProvider:
 # -- offline tool replies ---------------------------------------------------------------
 
 def _tag(messages: list[ChatMessage], name: str) -> str:
-    text = "\n".join(m.content for m in messages)
-    m = re.search(rf"<{name}\b[^>]*>\n?(.*?)\n?</{name}>", text, re.S)
-    return m.group(1).strip() if m else ""
+    """A tagged block from the user's messages (the system prompt may mention the tag)."""
+    for msgs in ([m for m in messages if m.role == "user"], messages):
+        text = "\n".join(m.content for m in msgs)
+        if m := re.search(rf"<{name}\b[^>]*>\n?(.*?)\n?</{name}>", text, re.S):
+            return m.group(1).strip()
+    return ""
 
 
 def _sentences(text: str) -> list[str]:
@@ -168,7 +182,12 @@ def tool_reply(schema: dict, messages: list[ChatMessage]) -> str:
         segs = [(int(i), t.strip()) for i, t in _SEGMENT.findall(_tag(messages, "transcript"))]
         if not segs:
             return json.dumps({k: ("" if k == "summary" else []) for k in props})
+        # The teacher's notepad leads; like a sloppy model, everything claims to be "mine"
+        # when there are notes (the server checks which really are).
+        notes = [ln.strip(" -•*\t") for ln in _tag(messages, "my_notes").splitlines() if ln.strip(" -•*\t")]
+        mine = bool(notes)
         out: dict = {}
+        first_items = True
         for n, (key, spec) in enumerate(props.items()):
             if key == "summary":
                 out[key] = f"Meeting notes: {segs[0][1]}"
@@ -177,10 +196,21 @@ def tool_reply(schema: dict, messages: list[ChatMessage]) -> str:
             i, text = segs[(n + 1) % len(segs)]
             if "owner" in item_props:
                 i, text = next(((j, t) for j, t in segs if " will " in t or "agreed" in t), segs[-1])
-                out[key] = [{"owner": "Teacher", "task": text, "due": None, "refs": [i]}]
+                out[key] = [{"owner": "Teacher", "task": text, "due": None, "refs": [i], "mine": mine}]
             else:
-                out[key] = [{"text": text, "refs": [i]}]
+                out[key] = [{"text": text, "refs": [i], "mine": mine}]
+                if first_items and notes:
+                    out[key].insert(0, {"text": notes[0], "refs": [i], "mine": True})
+                first_items = False
         return json.dumps(out)
+    if title == "MeetingAnswer":
+        asked = {w for w in _WORD.findall(_tag(messages, "question").lower()) if w not in _STOP}
+        segs = [(int(i), t.strip()) for i, t in _SEGMENT.findall(_tag(messages, "transcript"))]
+        scored = [(len(asked & set(_WORD.findall(t.lower()))), -i, i, t) for i, t in segs]
+        best = max(scored, default=None)
+        if best is None or best[0] == 0:
+            return json.dumps({"answer": NOT_HEARD, "refs": []})
+        return json.dumps({"answer": best[3], "refs": [best[2]]})
     if title == "MeetingSummary":
         parts = [p.strip("- ").strip() for p in _tag(messages, "partial_summaries").splitlines() if p.strip()]
         return json.dumps({"summary": " ".join(parts)[:600]})

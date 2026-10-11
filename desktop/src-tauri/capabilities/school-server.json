@@ -1,10 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "school-server",
-  "description": "Pages served by the school's Teacher's Desk server may only drag the window (title bar). No other native access.",
+  "description": "Pages served by the school's Teacher's Desk server may drag the window (title bar) and record the computer's sound for meeting notes (call audio; call_audio.rs also checks the page is the connected school's). No other native access.",
   "windows": ["main"],
   "remote": {
     "urls": ["http://*", "https://*", "http://*:*", "https://*:*", "http://*/*", "https://*/*", "http://*:*/*", "https://*:*/*"]
   },
-  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+  "permissions": [
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "allow-call-audio-available",
+    "allow-call-audio-start",
+    "allow-call-audio-stop"
+  ]
 }

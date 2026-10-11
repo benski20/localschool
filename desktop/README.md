@@ -12,7 +12,7 @@ browser tab can't do:
 | **Mac menus and shortcuts** | ⌘N new question, ⌘1–4 Ask/Library/Roster/Admin, ⌘K command palette, ⌘R reload, full Edit menu (copy/paste), *Switch School Server…*, *Open in Browser*. |
 | **Mac window behavior** | Unified title bar, remembered size and position, closing the window keeps the app in the Dock (⌘Q quits). |
 | **Downloads** | Original documents and templates save to ~/Downloads and are revealed in Finder. |
-| **Contained** | Only the connect screen and the school server load in the window; other links open in the default browser. Server pages get no native access beyond dragging the window. |
+| **Contained** | Only the connect screen and the school server load in the window; other links open in the default browser. Server pages get no native access beyond dragging the window and [call audio](#call-audio), and only from the connected server. |
 
 ## Install: no Apple Developer ID needed
 
@@ -102,6 +102,20 @@ Logs: `~/Library/Logs/Teachers Desk/`. The **Desktop (macOS)** workflow tests th
 - a restart, and an update that keeps the data;
 - the admin removing the Mac, and removal.
 
+## Call audio
+
+When a teacher records a meeting in the app, it can also record **the computer's sound**: the other side of a Zoom, Meet or Teams call. The transcript then labels lines **You** (microphone) and **Others** (call audio). In a browser the recording is microphone only.
+
+- **How:** a small Swift helper, `helpers/CallAudio.swift`, built into the app as `Contents/MacOS/td-call-audio` (`bundle.externalBin`). It uses ScreenCaptureKit, so it needs **macOS 13 or later**. It records everything the Mac plays except Teacher's Desk itself, as mono AAC (about 29 MB an hour), into a temporary `.m4a` file. The file is deleted once the app has handed it to the page.
+- **Permission:** the first time, macOS asks the teacher. If it was refused, the recording continues with the microphone only, and the page says *Allow Teacher's Desk under System Settings → Privacy & Security → Screen & System Audio Recording, then try again.* (The app is ad-hoc signed, so macOS may ask again after an update.)
+- **Who can start it:** only the connected school's pages in the main window. The commands are in the `school-server` capability, and `call_audio.rs` checks the page's origin again.
+- **For the web app** (`window.__TAURI_INTERNALS__.invoke`):
+  - `call_audio_available` returns `true` or `false`.
+  - `call_audio_start` resolves, or rejects with a message for the teacher. Starting again throws away a recording that's already running.
+  - `call_audio_stop` resolves to an `ArrayBuffer` holding the `.m4a`. It rejects if nothing is recording or no sound was recorded.
+- **Build:** `helpers/build-call-audio.sh` (swiftc, arm64 + x86_64, lipo) writes `src-tauri/bin/td-call-audio-{universal,aarch64,x86_64}-apple-darwin`. CI runs it first. On a Mac, `build.rs` also runs it when the binary is missing. Elsewhere `build.rs` writes a placeholder, so `cargo test` works on Linux.
+- **Try it by hand:** `bin/td-call-audio-universal-apple-darwin /tmp/call.m4a`, play some sound, then press ⌃D. It prints `READY`, then `SAVED`, or `ERROR <message>`.
+
 ## Develop
 
 Requires Rust and Node, on a Mac.
@@ -119,8 +133,10 @@ desktop/
   src-tauri/src/lib.rs window, menus, ⌥Space, navigation policy, downloads, commands
   src-tauri/src/server.rs   address parsing, health check, saved + MDM-managed server
   src-tauri/src/discovery.rs Bonjour browsing
-  src-tauri/capabilities/   connect screen: 4 app commands; server pages: window drag only
-  src-tauri/Info.plist      local-network permission text, LAN http allowance
+  src-tauri/src/call_audio.rs  call audio commands (runs helpers/CallAudio.swift)
+  src-tauri/capabilities/   connect screen: app commands; server pages: window drag + call audio
+  src-tauri/Info.plist      local-network, microphone and audio-capture permission text, LAN http allowance
+  helpers/                  CallAudio.swift (ScreenCaptureKit helper) and its build script
 ```
 
 The web app detects the shell via its user agent (`LocalSchoolDesktop/…`). It then adds

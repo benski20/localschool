@@ -5,7 +5,10 @@
     GET  /api/relay/models       │  Authorization: Bearer <key>
     POST /api/relay/chat         │  Model calls only, through this server's runtime and
     POST /api/relay/embed        │  its generation slots. The runtime's own address and
-    POST /api/relay/transcribe   ┘  token never leave this server; nothing is stored here.
+    POST /api/relay/transcribe   ┘  token never leave this server; nothing is kept here.
+    POST /api/relay/transcribe/part  a long recording in pieces (proxies in front of this
+                                     server, like Vercel's, refuse big request bodies); the
+                                     pieces are deleted once transcribed, or after a day.
     GET/DELETE /api/admin/devices   admins see and remove Macs
 
 The Mac app's "Keep my data on this Mac" calls /api/auth/device with the teacher's school
@@ -14,12 +17,15 @@ sign-in, then sets up its local server with RUNTIME_KIND=relay pointing here.
 
 from __future__ import annotations
 
+import re
+import shutil
 import sqlite3
 import tempfile
+import time
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -33,6 +39,8 @@ from .install import _base
 
 router = APIRouter(tags=["relay"])
 MAX_AUDIO = 200 * 1024 * 1024  # one meeting recording, as uploaded on the Mac
+MAX_PART = 8 * 1024 * 1024
+UPLOAD_ID = re.compile(r"[A-Za-z0-9_-]{16,64}")
 
 
 class DeviceIn(BaseModel):
@@ -155,23 +163,72 @@ async def relay_chat(body: ChatIn, _: sqlite3.Row = Depends(device_user), runtim
     return StreamingResponse(rest(), media_type="text/plain; charset=utf-8")
 
 
+def _parts_dir(settings: Settings) -> Path:
+    d = settings.data_dir / "relay-parts"
+    d.mkdir(parents=True, exist_ok=True)
+    cutoff = time.time() - 86400  # abandoned uploads (a Mac that went offline mid-way)
+    for old in d.iterdir():
+        if old.stat().st_mtime < cutoff:
+            old.unlink(missing_ok=True)
+    return d
+
+
+def _part_path(settings: Settings, user: sqlite3.Row, upload: str) -> Path:
+    if not UPLOAD_ID.fullmatch(upload):
+        raise HTTPException(400, "Bad upload id.")
+    return _parts_dir(settings) / f"{user['id']}-{upload}"
+
+
+@router.post("/api/relay/transcribe/part")
+async def relay_transcribe_part(
+    request: Request,
+    upload: str = Query(...),
+    offset: int = Query(0, ge=0),
+    user: sqlite3.Row = Depends(device_user),
+    settings: Settings = Depends(deps.settings),
+):
+    path = _part_path(settings, user, upload)
+    have = path.stat().st_size if path.exists() else 0
+    if offset != have:
+        raise HTTPException(409, {"error": "Wrong offset.", "received": have})
+    body = await request.body()
+    if len(body) > MAX_PART:
+        raise HTTPException(413, "That piece is too big.")
+    if have + len(body) > MAX_AUDIO:
+        path.unlink(missing_ok=True)
+        raise HTTPException(413, "That recording is too long.")
+    with path.open("ab") as out:
+        out.write(body)
+    return {"received": have + len(body)}
+
+
 @router.post("/api/relay/transcribe")
 async def relay_transcribe(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    upload: str = Form(""),
     language: str = Form(""),
     prompt: str = Form(""),
-    _: sqlite3.Row = Depends(device_user),
+    user: sqlite3.Row = Depends(device_user),
+    settings: Settings = Depends(deps.settings),
     runtime: Runtime = Depends(deps.runtime),
 ):
     with tempfile.TemporaryDirectory() as tmp:  # deleted as soon as it's transcribed
-        path = Path(tmp) / "audio"
-        size = 0
-        with path.open("wb") as out:
-            while chunk := await file.read(1024 * 1024):
-                size += len(chunk)
-                if size > MAX_AUDIO:
-                    raise HTTPException(413, "That recording is too long.")
-                out.write(chunk)
+        if upload:
+            path = _part_path(settings, user, upload)
+            if not path.exists():
+                raise HTTPException(404, "That recording didn't arrive. Try again.")
+            path = Path(shutil.move(path, Path(tmp) / "audio"))  # may be another disk
+        elif file is not None:
+            path = Path(tmp) / "audio"
+            size = 0
+            with path.open("wb") as out:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_AUDIO:
+                        raise HTTPException(413, "That recording is too long.")
+                    out.write(chunk)
+        else:
+            raise HTTPException(422, "No recording.")
         try:
             segments = await (await runtime.provider()).transcribe(path, language=language or None, prompt=prompt)
         except RuntimeError_ as e:

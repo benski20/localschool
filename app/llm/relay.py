@@ -6,6 +6,7 @@ there's no pull or delete here."""
 from __future__ import annotations
 
 import json
+import secrets
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -24,6 +25,9 @@ from .base import (
 )
 
 SCHOOL_MANAGES = "Your school manages the AI models."
+# Recordings bigger than this go up in pieces: a proxy in front of the school's server
+# (Vercel's, on the hosted pilot) refuses request bodies over about 4.5 MB.
+PART = 3 * 1024 * 1024
 
 
 def _error(resp: httpx.Response) -> RuntimeError_:
@@ -78,9 +82,19 @@ class RelayProvider:
 
     async def transcribe(self, audio_path: Path, *, language: str | None = None,
                          prompt: str = "") -> list[TranscriptSegment]:
-        with Path(audio_path).open("rb") as f:
-            resp = await self._call("POST", "/transcribe", files={"file": ("audio", f)},
-                                    data={"language": language or "", "prompt": prompt}, timeout=None)
+        form = {"language": language or "", "prompt": prompt}
+        path = Path(audio_path)
+        if path.stat().st_size <= PART:
+            with path.open("rb") as f:
+                resp = await self._call("POST", "/transcribe", files={"file": ("audio", f)}, data=form, timeout=None)
+        else:
+            upload, offset = secrets.token_urlsafe(18), 0
+            with path.open("rb") as f:
+                while piece := f.read(PART):
+                    await self._call("POST", "/transcribe/part", params={"upload": upload, "offset": offset},
+                                     content=piece, headers={"content-type": "application/octet-stream"})
+                    offset += len(piece)
+            resp = await self._call("POST", "/transcribe", data={**form, "upload": upload}, timeout=None)
         return [TranscriptSegment(**s) for s in resp.json()["segments"]]
 
     async def embed(self, model: str, texts: list[str]) -> list[list[float]]:
