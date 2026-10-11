@@ -6,7 +6,7 @@ Teacher's Desk answers questions about **your school's documents** and **your ow
 
 Open this link in Safari or Chrome:
 
-**https://highlightcenter1234--localschool-app-web.modal.run**
+**https://teachers-desk-xi.vercel.app**
 
 - **Just looking?** Press **Try the demo**. You'll be a demo teacher at a fictional school (Maple Grove Middle School).
 - **Have an account?** Sign in with the email and password your administrator gave you. To change your password, use the key icon at the bottom left.
@@ -37,13 +37,13 @@ Open **Tools** in the sidebar. Each tool makes a **draft** for you to check and 
 
 ## 4. Keep it in your Dock (optional)
 
-All the options are on one page: **https://highlightcenter1234--localschool-app-web.modal.run/get**
+All the options are on one page: **https://teachers-desk-xi.vercel.app/get**
 
 - **Easiest:** in Safari choose **File → Add to Dock**. Teacher's Desk then opens like an app.
 - **The Mac app:** it adds **⌥ Space** (Option + Space), which opens Teacher's Desk from anywhere. Open **Terminal**, paste this line and press Return:
 
   ```
-  curl -fsSL https://highlightcenter1234--localschool-app-web.modal.run/install/mac.sh | bash
+  curl -fsSL https://teachers-desk-xi.vercel.app/install/mac.sh | bash
   ```
 
   It installs Teacher's Desk in Applications and opens it, already connected.

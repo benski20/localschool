@@ -146,6 +146,9 @@ def test_mac_install_falls_back_to_release_url_behind_https_proxy(client, settin
     script = client.get("/install/mac.sh", headers={"x-forwarded-proto": "https",
                                                     "x-forwarded-host": "desk.example.org"}).text
     assert 'LOCALSCHOOL_SERVER:-https://desk.example.org}' in script
+    settings.public_url = "https://desk.example.net/"
+    assert 'LOCALSCHOOL_SERVER:-https://desk.example.net}' in client.get("/install/mac.sh").text
+    settings.public_url = ""
     bad = client.get("/install/mac.sh", headers={"x-forwarded-host": "evil.org/\"; rm -rf ~"}).text
     assert "evil" not in bad
     r = client.get("/install/LocalSchool-macOS.zip", follow_redirects=False)

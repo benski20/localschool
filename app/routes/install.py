@@ -34,7 +34,9 @@ def _shell_safe(value: str) -> str:
     return re.sub(r'[\\"`$\n\r]', "", value)
 
 
-def _base(request: Request) -> str:
+def _base(request: Request, settings: Settings | None = None) -> str:
+    if settings is not None and settings.public_url:
+        return settings.public_url.rstrip("/")  # the address teachers use (e.g. a Vercel front door)
     base = str(request.base_url).rstrip("/")
     # Behind a TLS-terminating proxy (Modal, a reverse proxy) keep the public scheme.
     if request.headers.get("x-forwarded-proto") == "https" and base.startswith("http://"):
@@ -48,7 +50,7 @@ def _base(request: Request) -> str:
 
 def _zip_url(request: Request, settings: Settings) -> str | None:
     if zip_path(settings).exists():
-        return f"{_base(request)}/install/{ZIP_NAME}"
+        return f"{_base(request, settings)}/install/{ZIP_NAME}"
     return settings.mac_app_url or None
 
 
@@ -59,7 +61,7 @@ def install_script(request: Request, settings: Settings = Depends(deps.settings)
         raise HTTPException(404, "The Mac app hasn't been uploaded to this server yet. Ask your administrator.")
     text = (
         SCRIPT.read_text()
-        .replace("__SERVER__", _shell_safe(_base(request)))
+        .replace("__SERVER__", _shell_safe(_base(request, settings)))
         .replace("__ZIP_URL__", _shell_safe(zip_url))
         .replace("__SCHOOL__", _shell_safe(settings.school_name))
     )
@@ -86,6 +88,6 @@ def install_info(
     return {
         "mac_app_present": _zip_url(request, settings) is not None,
         "mac_app_size": path.stat().st_size if path.exists() else 0,
-        "command": f"curl -fsSL {_base(request)}/install/mac.sh | bash",
+        "command": f"curl -fsSL {_base(request, settings)}/install/mac.sh | bash",
         "zip_location": str(path),
     }

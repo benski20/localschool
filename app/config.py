@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     public_port: int = 8000
     # Where teacher Macs download the app when DATA_DIR/downloads has no zip
     mac_app_url: str = ""
+    # The address teachers use, when it differs from the one this server sees (a front door)
+    public_url: str = ""
 
     # Hosted demo: show the demo-teacher sign-in on the login page (synthetic data only)
     demo_logins: bool = False
