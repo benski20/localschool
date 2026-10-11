@@ -13,6 +13,10 @@ fn main() {
             "check_server",
             "discover_servers",
             "connect_server",
+            "local_status",
+            "setup_local",
+            "local_progress",
+            "open_filevault_settings",
         ]),
     ))
     .expect("failed to run tauri-build");

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     data_dir: Path = ROOT / "data"
 
     # Model runtime (defaults; admins can override from the Admin page)
-    runtime_kind: str = Field("ollama", description="ollama | openai | fake")
+    runtime_kind: str = Field("ollama", description="ollama | openai | relay | fake")
     runtime_url: str = "http://127.0.0.1:11434"
     runtime_token: str = ""
     runtime_headers: str = Field("", description='Extra headers as JSON, e.g. {"X-Api-Key": "..."}')
@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Bootstrap admin (created on first start if no users exist)
     admin_email: str = "admin@school.local"
     admin_password: str = "change-me"
+    admin_name: str = "Administrator"
+
+    # Personal desk: one teacher's own server on their Mac (scripts/setup-local-mac.sh).
+    # Their documents, roster, chats and recordings stay on that Mac; only the models are remote.
+    local_mode: bool = False
 
     # Identity + discovery (the Mac app finds servers on the LAN via mDNS/Bonjour)
     school_name: str = "Local School"

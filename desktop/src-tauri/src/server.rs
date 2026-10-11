@@ -68,6 +68,17 @@ pub fn load(app: &AppHandle) -> Option<SavedServer> {
         .or_else(built_in)
 }
 
+/// The school's own server, for "Keep my data on this Mac" (which signs in there): the
+/// saved choice unless that's this Mac's server, then IT's default, then the built-in one.
+pub fn school(app: &AppHandle) -> Option<SavedServer> {
+    let not_this_mac = |s: &SavedServer| !crate::local::is_local(&s.url);
+    config_path(app)
+        .and_then(|p| read(&p))
+        .filter(not_this_mac)
+        .or_else(|| read(std::path::Path::new(MANAGED_CONFIG)).filter(not_this_mac))
+        .or_else(built_in)
+}
+
 fn built_in() -> Option<SavedServer> {
     let url = env!("LS_DEFAULT_SERVER").trim();
     (!url.is_empty()).then(|| SavedServer { url: url.to_string(), name: "your school".into() })

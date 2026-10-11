@@ -7,24 +7,29 @@ import { useStatus } from "../lib/status";
 import type { ModelInfo, Preset, PullState, RuntimeConfigPublic, RuntimeHealth } from "../lib/types";
 import { useToast } from "../components/Toaster";
 import { Skeleton, Spinner } from "../components/ui";
+import { useHealth } from "../components/shell/health";
 import { Bar, Callout, Chip, ConfirmDialog, Disclosure, Modal, ModalFooter, Page, PageTitle, Section, linkClass } from "../components/workspace/primitives";
 
 /** Settings (admins): People, AI, Connection on one page. */
 export function Admin() {
+  // On a teacher's own Mac (personal desk) the school runs the AI: no connection settings.
+  const local = !!useHealth()?.local;
   return (
     <Page>
       <PageTitle title="Settings" />
       <div className="mt-12 space-y-20">
         <People />
         <AiModels />
-        <Connection />
+        {!local && <Connection />}
       </div>
-      <p className="mt-20 text-sm text-faint">
-        Teachers can install the Mac app from{" "}
-        <a href="/get" className={linkClass}>
-          {window.location.host}/get
-        </a>
-      </p>
+      {!local && (
+        <p className="mt-20 text-sm text-faint">
+          Teachers can install the Mac app from{" "}
+          <a href="/get" className={linkClass}>
+            {window.location.host}/get
+          </a>
+        </p>
+      )}
     </Page>
   );
 }
@@ -187,9 +192,92 @@ function People() {
         onConfirm={() => confirm && remove(confirm)}
       />
 
+      <PersonalMacs />
+
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </Section>
   );
+}
+
+/* ---------------------------------------------------------------- Macs keeping their own data */
+
+interface DeviceRow {
+  id: number;
+  label: string;
+  name: string;
+  email: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+/** Teachers who chose "Keep my data on this Mac": their Mac uses this school's AI. Shown
+ *  only when there are some; Remove cuts that Mac off from the AI. */
+function PersonalMacs() {
+  const toast = useToast();
+  const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [confirm, setConfirm] = useState<DeviceRow | null>(null);
+  const load = useCallback(() => {
+    api
+      .get<{ devices: DeviceRow[] }>("/api/admin/devices")
+      .then((r) => setDevices(r.devices))
+      .catch(() => setDevices([]));
+  }, []);
+  useEffect(load, [load]);
+  if (!devices.length) return null;
+
+  async function remove(d: DeviceRow) {
+    try {
+      await api.del(`/api/admin/devices/${d.id}`);
+      load();
+    } catch (e) {
+      toast({ kind: "error", message: (e as Error).message });
+    }
+    setConfirm(null);
+  }
+
+  return (
+    <div className="mt-10">
+      <h3 className="text-sm text-muted">Macs keeping their own data</h3>
+      <ul className="mt-3 divide-y divide-line border-y border-line">
+        {devices.map((d) => (
+          <li key={d.id} className="group flex items-center gap-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base text-ink">{d.name || d.email}</div>
+              <div className="truncate text-sm text-faint">{d.label || "Mac"}</div>
+            </div>
+            <span className="shrink-0 text-sm text-muted">{d.last_used_at ? `Used ${ago(d.last_used_at)}` : "Not used yet"}</span>
+            <span className="flex w-8 shrink-0 justify-end">
+              <button
+                className="btn-ghost btn-icon h-8 w-8 text-faint transition-opacity hover:text-danger focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                onClick={() => setConfirm(d)}
+                aria-label={`Remove ${d.label || "Mac"} of ${d.name || d.email}`}
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <ConfirmDialog
+        open={!!confirm}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={`Remove ${confirm?.label || "this Mac"}?`}
+        body="It can no longer use the school's AI. The teacher's data stays on their Mac."
+        confirmLabel="Remove"
+        onConfirm={() => confirm && remove(confirm)}
+      />
+    </div>
+  );
+}
+
+/** "2 hours ago" from a UTC SQLite timestamp. */
+function ago(sqliteUtc: string): string {
+  const t = new Date(sqliteUtc.replace(" ", "T") + "Z").getTime();
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  if (s < 3600) return rtf.format(-Math.round(s / 60), "minute");
+  if (s < 86400) return rtf.format(-Math.round(s / 3600), "hour");
+  return rtf.format(-Math.round(s / 86400), "day");
 }
 
 /* ---------------------------------------------------------------- Roster import */

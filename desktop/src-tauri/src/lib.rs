@@ -5,10 +5,14 @@
 //! Bonjour discovery, a remembered server, native menus and shortcuts, a global
 //! "Ask" hotkey, downloads to ~/Downloads, and Mac window behavior.
 //!
-//! Security model: the bundled connect screen (tauri://localhost) may call the four
-//! app commands below; pages from the school server may only drag the window.
+//! "Keep my data on this Mac" (local.rs) runs the server on this Mac instead, for one
+//! teacher, with the models still remote.
+//!
+//! Security model: the bundled connect screen (tauri://localhost) may call the app
+//! commands below; pages from the school server may only drag the window.
 
 mod discovery;
+mod local;
 mod server;
 
 use std::time::Duration;
@@ -52,11 +56,42 @@ fn current_server(webview: Webview, app: AppHandle) -> Result<Option<SavedServer
 }
 
 #[tauri::command]
-async fn check_server(webview: Webview, address: String) -> Result<ServerInfo, String> {
+async fn check_server(webview: Webview, app: AppHandle, address: String) -> Result<ServerInfo, String> {
     require_local(&webview)?;
-    tauri::async_runtime::spawn_blocking(move || server::check(&address))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        if local::is_local(&address) {
+            local::prepare(&app)?;
+        }
+        server::check(&address)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn local_status(webview: Webview, app: AppHandle) -> Result<local::Status, String> {
+    require_local(&webview)?;
+    Ok(local::status(&app))
+}
+
+#[tauri::command]
+fn setup_local(webview: Webview, app: AppHandle, form: local::SetupForm) -> Result<(), String> {
+    require_local(&webview)?;
+    local::start(&app, form)
+}
+
+#[tauri::command]
+fn local_progress(webview: Webview, app: AppHandle) -> Result<local::Progress, String> {
+    require_local(&webview)?;
+    Ok(local::progress(&app))
+}
+
+#[tauri::command]
+fn open_filevault_settings(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_local(&webview)?;
+    app.opener()
+        .open_url("x-apple.systempreferences:com.apple.preference.security?FileVault", None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -306,9 +341,19 @@ pub fn run() {
                 .build(),
         )
         .manage(CurrentServer::default())
+        .manage(local::Setup::default())
         .menu(build_menu)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
-        .invoke_handler(tauri::generate_handler![current_server, check_server, discover_servers, connect_server])
+        .invoke_handler(tauri::generate_handler![
+            current_server,
+            check_server,
+            discover_servers,
+            connect_server,
+            local_status,
+            setup_local,
+            local_progress,
+            open_filevault_settings
+        ])
         .setup(move |app| {
             create_main_window(app.handle())?;
             if let Err(e) = app.global_shortcut().register(ask_shortcut) {

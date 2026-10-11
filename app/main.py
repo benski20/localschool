@@ -19,14 +19,14 @@ from .db import connect, init_db
 from .discovery import Advertiser
 from .llm import Runtime
 from .llm.registry import ProviderFactory, default_factory
-from .routes import admin, auth, chat, install, library, roster, tools
+from .routes import admin, auth, chat, install, library, relay, roster, tools
 from .services.auth import create_user
 from .services.embeddings import EmbeddingWorker
 from .services.models import PullManager, seed_choices
 from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 DEMO_TEACHER = ("jordan.lee@maplegrove.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
@@ -36,7 +36,7 @@ def bootstrap(settings: Settings) -> None:
     settings.audio_dir.mkdir(parents=True, exist_ok=True)
     with connect(settings.db_path) as db:
         if not db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
-            create_user(db, email=settings.admin_email, name="Administrator", role="admin",
+            create_user(db, email=settings.admin_email, name=settings.admin_name, role="admin",
                         password=settings.admin_password)
             log.warning("Created first admin %s — change its password.", settings.admin_email)
         seed_choices(db)
@@ -70,13 +70,15 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
     app = FastAPI(title="Local School", version=VERSION, lifespan=lifespan,
                   docs_url="/api/docs", openapi_url="/api/openapi.json")
     for r in (auth.router, chat.router, library.router, roster.router, admin.router, install.router,
-              tools.router):
+              tools.router, relay.router):
         app.include_router(r)
 
     @app.get("/api/health")
     def health():
         # Public: the Mac app uses this to confirm it found a Local School server.
         out = {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
+        if settings.local_mode:
+            out["local"] = True  # the Mac app and sidebar say "Kept on this Mac"
         if settings.demo_logins:
             # Synthetic demo school only: lets the login page offer one-click demo sign-in.
             out["demo"] = {"email": DEMO_TEACHER[0], "password": DEMO_TEACHER[1]}

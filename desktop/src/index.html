@@ -20,7 +20,7 @@
         <span class="brand-name" data-product data-tauri-drag-region></span>
       </span>
       <span class="titlebar-meta" data-tauri-drag-region>
-        <span class="dot" aria-hidden="true"></span>Student data stays on your school's servers
+        <span class="dot" aria-hidden="true"></span>Student data stays with your school
       </span>
     </header>
 
@@ -125,6 +125,49 @@
               <p id="error" class="error" role="alert" hidden></p>
               <p id="hint" class="hint">Your IT administrator can give you this address.</p>
             </form>
+          </div>
+          <div class="actions actions-start">
+            <button class="link" id="go-local" type="button" hidden>Keep my data on this Mac instead</button>
+          </div>
+        </section>
+
+        <!-- Keep my data on this Mac: set up this Mac's own server -->
+        <section id="view-local" class="view" hidden aria-labelledby="local-title">
+          <h1 id="local-title" class="title">Keep your data on this Mac</h1>
+          <p class="sub">Sign in with your school account. Your documents, students and chats will stay on this Mac.</p>
+
+          <div class="panel notice" id="filevault" hidden>
+            <p class="empty-title">Turn on FileVault first</p>
+            <p class="empty-body">It encrypts this Mac, so your students' information is safe if it's ever lost.</p>
+            <div class="actions actions-start">
+              <button class="btn btn-secondary" id="filevault-open" type="button">Open FileVault settings</button>
+              <button class="link" id="filevault-check" type="button">Check again</button>
+            </div>
+          </div>
+
+          <form id="local-form" class="panel form" autocomplete="off" novalidate>
+            <label class="form-row"><span class="label">School email</span><input class="input" id="l-email" type="email" required spellcheck="false" autocapitalize="off" /></label>
+            <label class="form-row"><span class="label">Password</span><input class="input" id="l-password" type="password" required /></label>
+            <p id="local-error" class="error" role="alert" hidden></p>
+            <p class="hint" id="local-hint">The same email and password you use for <span id="local-school">your school's Teacher's Desk</span>.</p>
+          </form>
+
+          <div class="actions">
+            <button class="btn btn-ghost" id="local-back" type="button">Back</button>
+            <button class="btn btn-primary" id="local-start" type="submit" form="local-form"><span class="btn-label">Set up</span></button>
+          </div>
+        </section>
+
+        <!-- Setting up this Mac's server -->
+        <section id="view-installing" class="view" hidden aria-labelledby="installing-title">
+          <h1 id="installing-title" class="title">Setting up</h1>
+          <p class="sub">This takes a few minutes the first time. You can keep working in other apps.</p>
+          <div class="panel">
+            <div class="panel-head">
+              <span class="label" id="installing-step">Starting</span>
+              <span class="meta" id="installing-count"></span>
+            </div>
+            <div class="bar" role="progressbar" aria-labelledby="installing-step" aria-valuemin="0" aria-valuemax="5" id="installing-bar"><span></span></div>
           </div>
         </section>
       </div>

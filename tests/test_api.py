@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import time
 
+from fastapi.testclient import TestClient
+
+from app.main import create_app
+
 from .conftest import PASSWORD, login, sse, wait_index
 
 
@@ -187,6 +191,18 @@ def test_health_offers_demo_login_only_in_demo_mode(client, settings):
     assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@maplegrove.demo"
 
 
+def test_personal_desk_on_a_teachers_mac(settings, fake):
+    # scripts/setup-local-mac.sh: the teacher is the one account, and health says so.
+    settings.local_mode = True
+    settings.admin_name = "Jordan Lee"
+    settings.admin_email = "jordan@shipley.test"
+    with TestClient(create_app(settings, factory=lambda cfg, s: fake)) as c:
+        assert c.get("/api/health").json()["local"] is True
+        login(c, "jordan@shipley.test", "admin-pass-123")
+        me = c.get("/api/auth/me").json()["user"]
+        assert me["name"] == "Jordan Lee" and me["role"] == "admin"
+
+
 TRIP = (b"# Field trip permission\n\nGrade 7 science museum visit on November 14. "
         b"Signed zebrafish permission forms are due November 7.")
 
@@ -324,3 +340,81 @@ def test_teacher_model_choices(client, settings):
     assert tool["model"] == "fake-chat"
     # installed but not offered to teachers → not allowed
     assert sse(client.post("/api/chat", json={"question": "hi", "model": "fake-embed"}))[-1]["model"] == "fake-chat"
+
+
+# -- personal desks: a teacher's Mac borrows the school's models ----------------------
+
+def _device(client, password=PASSWORD):
+    return client.post("/api/auth/device", json={"email": "jordan.lee@maplegrove.demo", "password": password,
+                                                 "label": "Jordan's MacBook Air"})
+
+
+def test_device_key_needs_the_teachers_school_sign_in(client, settings):
+    assert _device(client, "wrong-password").status_code == 401
+    r = _device(client)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["key"].startswith("ls_dev_") and d["relay_url"].endswith("/api/relay")
+    assert d["name"] == "Jordan Lee" and d["chat_model"] == "fake-chat" and d["embed_model"] == "fake-embed"
+    from app.db import connect
+    with connect(settings.db_path) as db:
+        stored = db.execute("SELECT key_hash FROM device_keys").fetchone()["key_hash"]
+    assert d["key"] not in stored  # only the hash is kept
+
+
+def test_relay_serves_only_model_calls_to_a_known_mac(client):
+    key = _device(client).json()["key"]
+    h = {"Authorization": f"Bearer {key}"}
+    assert client.get("/api/relay/models").status_code == 401
+    assert client.get("/api/relay/models", headers={"Authorization": "Bearer ls_dev_nope"}).status_code == 401
+    assert client.post("/api/relay/pull", headers=h, json={"model": "x"}).status_code in (404, 405)
+    assert "fake-chat" in [m["name"] for m in client.get("/api/relay/models", headers=h).json()["models"]]
+    v = client.post("/api/relay/embed", headers=h, json={"model": "fake-embed", "texts": ["a", "b"]}).json()
+    assert len(v["vectors"]) == 2
+    r = client.post("/api/relay/chat", headers=h, json={"model": "fake-chat", "messages": [
+        {"role": "user", "content": "SOURCES:\n[1] Handbook\nLate work loses 10% per day.\n\nQUESTION: late work?"}]})
+    assert r.status_code == 200 and r.text
+    seg = client.post("/api/relay/transcribe", headers=h, files={"file": ("a.wav", b"RIFF....")}).json()["segments"]
+    assert seg and seg[0]["text"]
+    assert client.post("/api/relay/chat", headers=h, json={"model": "missing", "messages": []}).status_code >= 400
+
+    # The admin sees the Mac and can cut it off.
+    login(client, "admin@test.local", "admin-pass-123")
+    devs = client.get("/api/admin/devices").json()["devices"]
+    assert devs[0]["label"] == "Jordan's MacBook Air" and devs[0]["last_used_at"]
+    assert client.delete(f"/api/admin/devices/{devs[0]['id']}").status_code == 200
+    assert client.get("/api/relay/models", headers=h).status_code == 401
+
+
+def test_personal_desk_runs_on_the_relay(client, settings, tmp_path):
+    """The Mac's RelayProvider against the school server, end to end."""
+    import asyncio
+
+    import httpx
+
+    from app.llm.base import ChatMessage, RuntimeError_
+    from app.llm.relay import RelayProvider
+
+    key = _device(client).json()["key"]
+    transport = httpx.ASGITransport(app=client.app)
+    audio = tmp_path / "m.wav"
+    audio.write_bytes(b"RIFF....")
+
+    async def go():
+        p = RelayProvider("http://school/api/relay", token=key, transport=transport)
+        assert (await p.health()).ok
+        assert "fake-embed" in [m.name for m in await p.list_models()]
+        assert len((await p.embed("fake-embed", ["x"] * 300))[0]) > 0
+        text = "".join([c async for c in p.chat("fake-chat", [ChatMessage("user", "hello")])])
+        assert text
+        assert await p.transcribe(audio)
+        try:
+            [c async for c in p.pull("x")]
+            raise AssertionError("pull should be refused")
+        except RuntimeError_:
+            pass
+        bad = RelayProvider("http://school/api/relay", token="ls_dev_revoked", transport=transport)
+        assert not (await bad.health()).ok
+        await p.aclose(); await bad.aclose()
+
+    asyncio.run(go())

@@ -44,6 +44,45 @@ A teacher's own choice (*Switch School Server…*) overrides it.
 
 For discovery, start the server with `ADVERTISE_MDNS=true` and `SCHOOL_NAME="…"`.
 
+## Keep my data on this Mac
+
+For a teacher whose data should stay on their own laptop, the app runs its own server for them. It is bundled at `Contents/Resources/server`, staged by `desktop/stage-server.sh`.
+
+On the connect screen the teacher chooses *Keep my data on this Mac instead* and signs in with their **school email and password**. There's nothing else to type.
+
+1. **The app signs in to the school's server.** That is the saved one, else the IT default, else the built-in one. The call is `POST /api/auth/device`, and it returns:
+   - the teacher's name and the school;
+   - the school's chat and embedding models;
+   - a key for this Mac, stored only as a hash at school.
+2. **`scripts/setup-local-mac.sh` sets up the Mac:**
+   - it refuses to continue unless FileVault is on;
+   - it installs `uv` and a private Python 3.12 into `~/Library/Application Support/org.localschool.desktop/local`. Nothing is installed system-wide;
+   - it copies the server there and writes `server.env` (mode 600), with the bootstrap password removed after the first start;
+   - it starts the server with launchd (`org.localschool.desk`) on **127.0.0.1:8765 only**.
+3. **The teacher's server uses the school's AI through `/api/relay`** (`RUNTIME_KIND=relay`, `app/llm/relay.py`). Only model calls go through it: chat, embeddings, transcription and the model list. They pass through the school's runtime and its capacity limits. The runtime's own address and token never leave the school's server, and nothing is stored there.
+
+When the app opens, it updates the server if the app is newer, and restarts it if it isn't running.
+
+| Stays on the Mac | Leaves the Mac |
+|---|---|
+| Documents and their search index, roster, chats, drafts, meeting audio (until notes are approved) | Per question, the passages it needs, sent to the school's server for its AI. For meetings, the audio, for transcription. |
+
+The school's server forwards these to its AI runtime. On the school box that stays on-site; on the hosted pilot it reaches the cloud runtime, so use the pilot with fictional data only.
+
+**Admins** see these Macs in Settings › People (*Macs keeping their own data*). **Remove** cuts that Mac off from the school's AI, and so does deleting the teacher's account.
+
+**IT, without the app UI:** the CI step in `.github/workflows/desktop-macos.yml` shows the two calls: get a key from `/api/auth/device`, then run the bundled script with `RUNTIME_KIND=relay`. To stop it and delete this Mac's copy of the data (this cannot be undone):
+
+```bash
+LS_REMOVE=1 bash "/Applications/Teacher's Desk.app/Contents/Resources/server/scripts/setup-local-mac.sh"
+```
+
+Logs: `~/Library/Logs/Teachers Desk/`. The **Desktop (macOS)** workflow tests the whole path on a real Mac:
+- the sign-in for a key, and setup;
+- a question answered through the relay;
+- a restart, and an update that keeps the data;
+- the admin removing the Mac, and removal.
+
 ## Develop
 
 Requires Rust and Node, on a Mac.

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-local-progress"
+description = "Enables the local_progress command without any pre-configured scope."
+commands.allow = ["local_progress"]
+
+[[permission]]
+identifier = "deny-local-progress"
+description = "Denies the local_progress command without any pre-configured scope."
+commands.deny = ["local_progress"]

@@ -109,6 +109,17 @@ Build it with the **Desktop (macOS)** GitHub Action (no Mac needed; produces `Lo
 
 To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="Maple Grove Middle School"`.
 
+**Keep my data on this Mac.** A teacher can also run their own server inside the Mac app. On the connect screen they choose *Keep my data on this Mac instead* and sign in with their school account. There are no technical fields.
+
+The school's server hands that Mac a revocable key (`POST /api/auth/device`). The teacher's server then:
+- runs on `127.0.0.1:8765` only, kept running by launchd, after setup requires FileVault;
+- keeps documents, roster, chats, drafts and recordings on the Mac;
+- uses the school's AI through `/api/relay` (model calls only; the runtime's address and token never leave the school server).
+
+Admins see and remove these Macs in Settings › People. Details: [desktop/README.md](desktop/README.md#keep-my-data-on-this-mac).
+
+Their documents, roster, chats, drafts and recordings stay on that Mac. Only the models are remote: point it at the school box, because a cloud runtime would receive each question's passages. Details are in [desktop/README.md](desktop/README.md#keep-my-data-on-this-mac).
+
 ## Using it
 
 | Page | Who | What |
