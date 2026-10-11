@@ -86,6 +86,8 @@ jobs:
       - name: Verify signature + package zip (for curl / MDM installs)
         run: |
           codesign --verify --deep --strict --verbose=2 "$APP"
+          # Meeting recording in the app's web view needs the microphone usage description.
+          plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist"
           codesign -dv "$APP" 2>&1 | grep -E "Identifier|Signature|Format"
           lipo -archs "$APP/Contents/MacOS/"*
           ditto -c -k --keepParent "$APP" LocalSchool-macOS.zip

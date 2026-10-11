@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Mic, Square } from "lucide-react";
 import { clock } from "./TranscriptView";
+import { isDesktop } from "../../lib/shell";
 
 type Phase = "idle" | "consent" | "starting" | "recording" | "denied" | "unsupported";
 
@@ -162,7 +163,11 @@ export function ConsentRecorder({
   return (
     <div className="animate-fadein">
       {phase === "unsupported" ? (
-        <p className="text-base text-muted">This browser can't record. Upload a recording or paste a transcript instead.</p>
+        <p className="text-base text-muted">
+          {isDesktop
+            ? "Recording isn't available in this version of the app. Choose Teacher's Desk → Check for Updates…, or upload a recording or paste a transcript instead."
+            : "This browser can't record. Upload a recording or paste a transcript instead."}
+        </p>
       ) : (
         <button type="button" className="btn-primary btn-lg w-full sm:w-auto" onClick={() => setPhase("consent")}>
           <Mic className="h-4 w-4" aria-hidden />

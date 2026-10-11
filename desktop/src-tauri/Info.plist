@@ -13,6 +13,9 @@
   <!-- macOS 15+ asks before an app can see devices on the local network (Bonjour discovery). -->
   <key>NSLocalNetworkUsageDescription</key>
   <string>Teacher's Desk looks for your school's server on this network so you don't have to type its address.</string>
+  <!-- Meeting notes record in the app; without this macOS won't let the web view use the mic. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Teacher's Desk records meetings only when you press Start recording, after everyone has agreed.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_localschool._tcp</string>
