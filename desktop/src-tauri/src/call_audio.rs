@@ -329,6 +329,16 @@ mod tests {
         assert!(!is_school_page(&page("tauri://localhost/index.html"), Some(&school)));
     }
 
+    #[test]
+    fn works_on_the_desk_kept_on_this_mac() {
+        // "Keep my data on this Mac": the connected server is this Mac's own desk.
+        let desk = Url::parse(crate::local::URL).unwrap();
+        let page = |u: &str| Url::parse(u).unwrap();
+        assert!(is_school_page(&page("http://127.0.0.1:8765/tools/meeting"), Some(&desk)));
+        assert!(!is_school_page(&page("http://127.0.0.1:9999/tools/meeting"), Some(&desk)));
+        assert!(!is_school_page(&page("http://127.0.0.1:8765/"), Some(&Url::parse("https://school.example.org/").unwrap())));
+    }
+
     #[cfg(unix)]
     #[test]
     fn records_until_stopped_and_cleans_up() {
