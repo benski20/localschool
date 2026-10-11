@@ -56,7 +56,10 @@ jobs:
           PY
           cat vercel.json
           npx --yes vercel@latest link --yes --project "$PROJECT" --token "$VERCEL_TOKEN"
-          npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" | tee deploy.log
+          # A Vercel build can hang on their side; the current deployment keeps serving, so
+          # give up after 10 minutes and check the address as it is.
+          timeout 600 npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" | tee deploy.log \
+            || echo "::warning::Vercel deploy didn't finish; checking the current deployment instead"
           if [ -n "$DOMAIN" ]; then
             npx --yes vercel@latest domains add "$DOMAIN" "$PROJECT" --token "$VERCEL_TOKEN" || true
             URL="https://$DOMAIN"

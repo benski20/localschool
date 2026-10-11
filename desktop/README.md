@@ -44,6 +44,41 @@ A teacher's own choice (*Switch School Server…*) overrides it.
 
 For discovery, start the server with `ADVERTISE_MDNS=true` and `SCHOOL_NAME="…"`.
 
+## Keep my data on this Mac
+
+For a teacher whose data should stay on their own laptop, the app can run its own server.
+The server is bundled in the app at `Contents/Resources/server`, staged by
+`desktop/stage-server.sh`. On the connect screen the teacher chooses
+*Keep my data on this Mac instead* and enters:
+- their name, email and a password;
+- the school's **AI server** (the box's Ollama address) and access key.
+
+`scripts/setup-local-mac.sh` then:
+1. Refuses to continue unless FileVault is on.
+2. Installs `uv` and a private Python 3.12 into `~/Library/Application Support/org.localschool.desktop/local`. Nothing is installed system-wide.
+3. Copies the server there and installs its dependencies.
+4. Writes `server.env` (mode 600), with the bootstrap password removed after the first start.
+5. Starts it with launchd (`org.localschool.desk`) on **127.0.0.1:8765 only**.
+
+All data lives in `local/data`. When the app opens, it updates the server if the app is newer and restarts it if it isn't running.
+
+| Stays on the Mac | Leaves the Mac |
+|---|---|
+| Documents and their search index, roster, chats, drafts, meeting audio (until notes are approved) | Per question: the passages it needs, sent to the AI server you named. Meetings: the audio, for transcription. |
+
+Use the school box as the AI server. A cloud runtime (the Modal pilot) would receive those passages.
+
+**IT, without the app UI:**
+
+```bash
+S="/Applications/Teacher's Desk.app/Contents/Resources/server/scripts/setup-local-mac.sh"
+TEACHER_NAME="Jordan Lee" TEACHER_EMAIL=… TEACHER_PASSWORD=… SCHOOL_NAME="The Shipley School" \
+  RUNTIME_URL=http://ai.school.local:11434 RUNTIME_TOKEN=… bash "$S"
+LS_REMOVE=1 bash "$S"   # stop it and delete this Mac's copy of the data (cannot be undone)
+```
+
+Logs: `~/Library/Logs/Teachers Desk/`. The **Desktop (macOS)** workflow tests the whole path on a real Mac: setup, sign-in, upload, restart, update and removal.
+
 ## Develop
 
 Requires Rust and Node, on a Mac.

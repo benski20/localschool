@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "connect",
-  "description": "The bundled connect screen: find and remember the school's server.",
+  "description": "The bundled connect screen: find and remember the school's server, or set one up on this Mac.",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -9,6 +9,10 @@
     "allow-current-server",
     "allow-check-server",
     "allow-discover-servers",
-    "allow-connect-server"
+    "allow-connect-server",
+    "allow-local-status",
+    "allow-setup-local",
+    "allow-local-progress",
+    "allow-open-filevault-settings"
   ]
 }

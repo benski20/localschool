@@ -13,3 +13,6 @@ data-demo/
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+# Mac app: the server it bundles for "Keep my data on this Mac" (desktop/stage-server.sh)
+desktop/src-tauri/server/*
+!desktop/src-tauri/server/.gitkeep

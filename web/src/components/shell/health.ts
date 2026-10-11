@@ -8,6 +8,8 @@ export interface Health {
   school?: string;
   demo?: { email: string; password: string };
   mac_release_page?: string;
+  /** A teacher's own server on their Mac: their data never leaves it. */
+  local?: boolean;
 }
 
 let cached: Promise<Health> | null = null;

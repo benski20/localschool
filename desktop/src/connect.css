@@ -342,12 +342,27 @@ button { font: inherit; color: inherit; }
 .steps strong { display: block; font-weight: 500; font-size: 15px; line-height: 20px; color: rgb(var(--text)); }
 .steps li > span:last-child { font-size: 13px; line-height: 20px; color: rgb(var(--muted)); }
 
+/* ------------------------------------------------------------ this Mac's own server */
+.form { display: grid; gap: 14px; margin-top: 24px; }
+.form .panel-sep { margin: 6px -24px; }
+.form-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 16px; }
+.form-row .label { margin: 0; }
+.form .input { font-family: var(--sans); font-size: 14px; }
+.form .error { padding-top: 0; }
+.notice { margin-top: 24px; border-color: rgb(var(--warning) / 0.5); }
+.notice .actions { margin-top: 14px; }
+.notice:not([hidden]) + .form { opacity: 0.5; pointer-events: none; }
+.panel-head .meta { margin-right: 0; }
+.bar { height: 2px; background: rgb(var(--line)); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 4%; background: rgb(var(--text)); transition: width 600ms var(--ease); }
+
 /* ------------------------------------------------------------ narrow windows */
 @media (max-width: 520px) {
   .titlebar-meta { display: none; }
   .panel { padding: 16px; }
   .panel-sep { margin-left: -16px; margin-right: -16px; }
   .actions { flex-wrap: wrap; }
+  .form-row { grid-template-columns: 1fr; gap: 6px; }
 }
 
 /* ------------------------------------------------------------ motion */

@@ -22,7 +22,7 @@ function show(view) {
   if (currentView === next) return;
   const prev = currentView;
   currentView = next;
-  for (const v of ["checking", "unreachable", "choose"]) {
+  for (const v of ["checking", "unreachable", "choose", "local", "installing"]) {
     const el = $(`view-${v}`);
     if (el !== next && el !== prev) el.hidden = true;
   }
@@ -305,7 +305,10 @@ async function tryAddress(address, button) {
   }
 }
 
+let lastSaved = null;
+
 function choose(saved) {
+  lastSaved = saved;
   show("choose");
   setBusy($("connect"), false, "Connect");
   if (saved) address.value = hostOf(saved.url);
@@ -329,9 +332,127 @@ $("manual").onsubmit = (e) => {
   tryAddress(v);
 };
 
+// ---------------------------------------------------------------- keep my data on this Mac
+// This Mac runs its own server for one teacher (127.0.0.1 only); models stay remote.
+
+const LOCAL_URL = "http://127.0.0.1:8765";
+
+async function localStatus() {
+  const st = await invoke("local_status").catch(() => null);
+  $("go-local").hidden = !st?.bundled;
+  $("filevault").hidden = !st || st.filevault;
+  return st;
+}
+
+async function openLocal() {
+  const st = await localStatus();
+  if (st?.installed) {
+    // Already set up: just open it.
+    reconnect({ url: LOCAL_URL, name: "this Mac" });
+    return;
+  }
+  show("local");
+  const school = $("l-school");
+  if (!school.value && lastSaved && lastSaved.name !== "your school" && !lastSaved.url.startsWith(LOCAL_URL)) {
+    school.value = lastSaved.name;
+  }
+  $("l-name").focus({ preventScroll: true });
+}
+
+function setLocalError(message) {
+  const err = $("local-error");
+  err.textContent = message || "";
+  err.hidden = !message;
+}
+
+function localForm() {
+  const v = (id) => $(id).value.trim();
+  let runtime = v("l-runtime");
+  if (runtime && !/^https?:\/\//i.test(runtime)) runtime = `http://${runtime}`;
+  const form = {
+    name: v("l-name"),
+    email: v("l-email"),
+    password: $("l-password").value,
+    school: v("l-school"),
+    runtime_url: runtime.replace(/\/+$/, ""),
+    runtime_token: v("l-token"),
+  };
+  const problem =
+    (!form.name && ["l-name", "Enter your name."]) ||
+    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && ["l-email", "Enter your school email address."]) ||
+    (form.password.length < 8 && ["l-password", "Choose a password of at least 8 characters."]) ||
+    ((!runtime || validate(runtime)) && ["l-runtime", "Enter your school's AI server address."]);
+  return { form, problem };
+}
+
+async function setUpLocal() {
+  setLocalError("");
+  const st = await localStatus();
+  if (st && !st.filevault) {
+    shake($("filevault"));
+    return;
+  }
+  const { form, problem } = localForm();
+  if (problem) {
+    setLocalError(problem[1]);
+    $(problem[0]).focus();
+    shake($("local-form"));
+    return;
+  }
+  try {
+    await invoke("setup_local", { form });
+  } catch (e) {
+    setLocalError(String(e));
+    return;
+  }
+  show("installing");
+  watchSetup();
+}
+
+async function watchSetup() {
+  const p = await invoke("local_progress").catch(() => null);
+  if (p) {
+    const total = p.total || 5;
+    $("installing-step").textContent = p.text || "Starting";
+    $("installing-count").textContent = p.step ? `${p.step} of ${total}` : "";
+    $("installing-bar").setAttribute("aria-valuenow", String(p.step || 0));
+    $("installing-bar").firstElementChild.style.width = `${Math.max(4, ((p.step || 0) / total) * 100)}%`;
+  }
+  if (!p || p.running) {
+    setTimeout(watchSetup, 700);
+    return;
+  }
+  if (p.ready) {
+    $("installing-step").textContent = "Opening";
+    $("installing-bar").firstElementChild.style.width = "100%";
+    $("l-password").value = "";
+    try {
+      await connect(await invoke("check_server", { address: LOCAL_URL }));
+      return;
+    } catch (e) {
+      p.error = String(e);
+    }
+  }
+  show("local");
+  setLocalError(p.error || "Setup didn't finish. Try again.");
+}
+
+$("go-local").onclick = () => openLocal();
+$("local-back").onclick = () => choose(lastSaved);
+$("local-form").onsubmit = (e) => {
+  e.preventDefault();
+  setUpLocal();
+};
+$("filevault-open").onclick = () => invoke("open_filevault_settings").catch(() => {});
+$("filevault-check").onclick = async () => {
+  const st = await localStatus();
+  if (st && !st.filevault) shake($("filevault"));
+};
+
 // ---------------------------------------------------------------- start
 
 (async () => {
+  localStatus();
   const saved = await invoke("current_server").catch(() => null);
   if (saved && !params.has("switch")) reconnect(saved);
   else choose(saved);

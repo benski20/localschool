@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Bootstrap admin (created on first start if no users exist)
     admin_email: str = "admin@school.local"
     admin_password: str = "change-me"
+    admin_name: str = "Administrator"
+
+    # Personal desk: one teacher's own server on their Mac (scripts/setup-local-mac.sh).
+    # Their documents, roster, chats and recordings stay on that Mac; only the models are remote.
+    local_mode: bool = False
 
     # Identity + discovery (the Mac app finds servers on the LAN via mDNS/Bonjour)
     school_name: str = "Local School"

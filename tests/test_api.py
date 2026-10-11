@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import time
 
+from fastapi.testclient import TestClient
+
+from app.main import create_app
+
 from .conftest import PASSWORD, login, sse, wait_index
 
 
@@ -185,6 +189,18 @@ def test_health_offers_demo_login_only_in_demo_mode(client, settings):
     assert "demo" not in client.get("/api/health").json()
     settings.demo_logins = True
     assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@maplegrove.demo"
+
+
+def test_personal_desk_on_a_teachers_mac(settings, fake):
+    # scripts/setup-local-mac.sh: the teacher is the one account, and health says so.
+    settings.local_mode = True
+    settings.admin_name = "Jordan Lee"
+    settings.admin_email = "jordan@shipley.test"
+    with TestClient(create_app(settings, factory=lambda cfg, s: fake)) as c:
+        assert c.get("/api/health").json()["local"] is True
+        login(c, "jordan@shipley.test", "admin-pass-123")
+        me = c.get("/api/auth/me").json()["user"]
+        assert me["name"] == "Jordan Lee" and me["role"] == "admin"
 
 
 TRIP = (b"# Field trip permission\n\nGrade 7 science museum visit on November 14. "

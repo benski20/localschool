@@ -26,6 +26,8 @@ on:
       - "desktop/**"
       - "web/**"
       - "scripts/install-*.sh"
+      - "scripts/setup-local-mac.sh"
+      - "app/**"
       - "app/routes/install.py"
       - ".github/workflows/desktop-macos.yml"
 
@@ -56,6 +58,9 @@ jobs:
       - name: Install CLI
         working-directory: desktop
         run: npm ci
+
+      - name: Bundle the server (for "Keep my data on this Mac")
+        run: ./desktop/stage-server.sh
 
       - name: Unit tests
         working-directory: desktop/src-tauri
@@ -153,6 +158,67 @@ jobs:
 
           cp ~/Library/Logs/LocalSchool/server.log shots/server.log 2>/dev/null || true
           ls -la shots
+
+      - name: Keep my data on this Mac (the app's bundled setup, end to end)
+        run: |
+          APP_INSTALLED="/Applications/Teacher's Desk.app"
+          SETUP="$APP_INSTALLED/Contents/Resources/server/scripts/setup-local-mac.sh"
+          test -f "$SETUP"
+          test "$(cat "$APP_INSTALLED/Contents/Resources/server/VERSION")" = "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)"
+          export TEACHER_NAME="Jordan Lee" TEACHER_EMAIL="jordan@shipley.test" TEACHER_PASSWORD="local-pass-123" \
+                 SCHOOL_NAME="The Shipley School" RUNTIME_KIND=fake
+          LOCAL="$HOME/Library/Application Support/org.localschool.desktop/local"
+
+          # Without disk encryption it refuses (teachers are told to turn on FileVault).
+          if ! fdesetup status | grep -q "is On"; then
+            out=$(bash "$SETUP" || true); echo "$out"
+            echo "$out" | grep -q "^ERROR Turn on FileVault"
+            test ! -f "$LOCAL/server.env"
+          fi
+
+          time LS_ALLOW_NO_FILEVAULT=1 bash "$SETUP" | tee shots/local-setup.txt
+          grep -q "^READY http://127.0.0.1:8765" shots/local-setup.txt
+          H=$(curl -sf http://127.0.0.1:8765/api/health); echo "$H"; echo "$H" | grep -q '"local":true'
+          # Only this Mac can reach it, and the password isn't kept on disk.
+          # (`! cmd` never fails a step under set -e, hence the ifs)
+          if curl -sf --max-time 3 "http://$(ipconfig getifaddr en0 || echo 192.0.2.1):8765/api/health"; then exit 1; fi
+          if grep -q ADMIN_PASSWORD "$LOCAL/server.env"; then exit 1; fi
+          test "$(stat -f %Lp "$LOCAL")" = 700 && test "$(stat -f %Lp "$LOCAL/server.env")" = 600
+
+          # The teacher signs in, adds a document, asks about it.
+          J=$RUNNER_TEMP/jar
+          curl -sf -c $J -H 'content-type: application/json' -d '{"email":"jordan@shipley.test","password":"local-pass-123"}' http://127.0.0.1:8765/api/auth/login
+          curl -sf -b $J http://127.0.0.1:8765/api/auth/me | grep -q '"Jordan Lee"'
+          printf '# Field trip\n\nPermission slips are due Friday.\n' > "$RUNNER_TEMP/trip.md"
+          curl -sf -b $J -F "files=@$RUNNER_TEMP/trip.md" http://127.0.0.1:8765/api/documents
+          ls "$LOCAL/data"; test -f "$LOCAL/data/localschool.db"
+
+          # The app opens it (connect screen → this Mac).
+          mkdir -p "$HOME/Library/Application Support/org.localschool.desktop"
+          printf '{"url":"http://127.0.0.1:8765","name":"The Shipley School"}' > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+          osascript -e "tell application \"Teacher's Desk\" to quit" || true
+          sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
+          open "$APP_INSTALLED"; sleep 12; screencapture -x shots/7-local-signin.png || true
+          osascript -e "tell application \"System Events\" to keystroke \"jordan@shipley.test\"" -e "tell application \"System Events\" to keystroke tab" \
+                    -e "tell application \"System Events\" to keystroke \"local-pass-123\"" -e "tell application \"System Events\" to keystroke return" || true
+          sleep 6; screencapture -x shots/8-local-signed-in.png || true
+
+          # Server stopped (crash, logout): the app's next connect restarts it via launchd.
+          launchctl kickstart -k "gui/$(id -u)/org.localschool.desk"
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8765/api/health >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:8765/api/health >/dev/null
+
+          # A new app version refreshes the code and keeps the data.
+          echo 0.0.0 > "$LOCAL/server/VERSION"
+          LS_UPDATE=1 LS_ALLOW_NO_FILEVAULT=1 bash "$SETUP" | tail -2
+          curl -sf -b $J http://127.0.0.1:8765/api/documents | grep -q "trip"
+          test "$(cat "$LOCAL/server/VERSION")" != 0.0.0
+
+          # Removing it deletes this Mac's copy.
+          LS_REMOVE=1 bash "$SETUP"
+          test ! -d "$LOCAL"
+          if curl -sf --max-time 3 http://127.0.0.1:8765/api/health; then exit 1; fi
+          cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
 
       - name: Publish screenshots (branch ci/screenshots)
         if: always()

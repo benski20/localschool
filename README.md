@@ -109,6 +109,14 @@ Build it with the **Desktop (macOS)** GitHub Action (no Mac needed; produces `Lo
 
 To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="Maple Grove Middle School"`.
 
+**Keep my data on this Mac.** A teacher can also run their own server inside the Mac app (connect screen → *Keep my data on this Mac instead*). The app bundles the server and `scripts/setup-local-mac.sh`, which:
+- requires FileVault;
+- installs a private Python and the server into the app's folder (`~/Library/Application Support/org.localschool.desktop/local`);
+- listens on `127.0.0.1:8765` only, kept running by launchd;
+- makes the teacher its one account.
+
+Their documents, roster, chats, drafts and recordings stay on that Mac. Only the models are remote: point it at the school box, because a cloud runtime would receive each question's passages. Details are in [desktop/README.md](desktop/README.md#keep-my-data-on-this-mac).
+
 ## Using it
 
 | Page | Who | What |
