@@ -56,5 +56,11 @@ def admin_user(user: sqlite3.Row = Depends(current_user)) -> sqlite3.Row:
     return user
 
 
+def client_ip(request: Request) -> str:
+    """For the activity log: the first forwarded address behind a proxy (Modal, Vercel)."""
+    fwd = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return fwd or (request.client.host if request.client else "")
+
+
 def public_user(u: sqlite3.Row) -> dict:
     return {"id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"]}

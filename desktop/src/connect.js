@@ -337,11 +337,66 @@ $("manual").onsubmit = (e) => {
 
 const LOCAL_URL = "http://127.0.0.1:8765";
 
+const SSO_LABEL = { google: "Google", microsoft: "Microsoft" };
+
 async function localStatus() {
   const st = await invoke("local_status").catch(() => null);
   $("go-local").hidden = !st?.bundled;
   $("filevault").hidden = !st || st.filevault;
+  renderSso(st?.sso || []);
   return st;
+}
+
+// Google / Microsoft: sign in in the browser; the school's page hands a code back to the
+// app (teachersdesk://desk), which starts setting up. Meanwhile this screen waits.
+function renderSso(providers) {
+  $("local-sso").hidden = !providers.length;
+  const box = $("local-sso-buttons");
+  if (box.dataset.for === providers.join(",")) return;
+  box.dataset.for = providers.join(",");
+  box.replaceChildren(
+    ...providers.map((p) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn-secondary";
+      b.textContent = `Continue with ${SSO_LABEL[p] || p}`;
+      b.onclick = () => continueWith(p);
+      return b;
+    }),
+  );
+}
+
+let waitingForBrowser = false;
+async function continueWith(provider) {
+  setLocalError("");
+  const st = await localStatus();
+  if (st && !st.filevault) {
+    shake($("filevault"));
+    return;
+  }
+  try {
+    await invoke("setup_local_sso", { provider });
+  } catch (e) {
+    setLocalError(String(e));
+    return;
+  }
+  $("local-sso-wait").hidden = false;
+  if (waitingForBrowser) return;
+  waitingForBrowser = true;
+  const started = Date.now();
+  (async function wait() {
+    const p = await invoke("local_progress").catch(() => null);
+    if (p?.running) {
+      waitingForBrowser = false;
+      $("local-sso-wait").hidden = true;
+      show("installing");
+      watchSetup();
+    } else if (Date.now() - started < 10 * 60 * 1000 && !$("view-local").hidden) {
+      setTimeout(wait, 700);
+    } else {
+      waitingForBrowser = false;
+    }
+  })();
 }
 
 async function openLocal() {
@@ -440,6 +495,12 @@ $("filevault-check").onclick = async () => {
 
 (async () => {
   localStatus();
+  if (params.has("setup")) {
+    // Back from signing in with Google / Microsoft: setting up is under way.
+    show("installing");
+    watchSetup();
+    return;
+  }
   const saved = await invoke("current_server").catch(() => null);
   if (saved && !params.has("switch")) reconnect(saved);
   else choose(saved);

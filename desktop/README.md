@@ -44,6 +44,15 @@ A teacher's own choice (*Switch School Server…*) overrides it.
 
 For discovery, start the server with `ADVERTISE_MDNS=true` and `SCHOOL_NAME="…"`.
 
+## Sign in with Google or Microsoft
+
+Google refuses sign-in inside embedded web views, so the app does it in the teacher's browser:
+1. The **Continue with Google** button gets the provider's address from the school (`/api/auth/sso/google/start?mode=app&json=1`) and goes there. The app's navigation rule sends any other site to the default browser.
+2. When the teacher has signed in, the school's page opens `teachersdesk://signin?code=…`. The code is one-time and expires in two minutes.
+3. The app (`tauri-plugin-deep-link`, URL scheme `teachersdesk`) loads `/api/auth/sso/redeem?code=…` in its window, which signs that window in.
+
+*Keep my data on this Mac* works the same way with `teachersdesk://desk?code=…`. The teacher's own desk then gets a random password, stored in the login Keychain (`Teacher's Desk (this Mac)`). The app always opens that desk already signed in, using `/api/auth/code` on the desk.
+
 ## Keep my data on this Mac
 
 For a teacher whose data should stay on their own laptop, the app runs its own server for them. It is bundled at `Contents/Resources/server`, staged by `desktop/stage-server.sh`.

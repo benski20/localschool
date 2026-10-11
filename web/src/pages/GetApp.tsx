@@ -56,6 +56,11 @@ export function GetApp() {
         </div>
 
         <p className="mt-8 text-sm text-faint">Tip: in Safari, File → Add to Dock opens it in its own window.</p>
+        <p className="mt-3 text-sm text-faint">
+          <a href="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
+            How {PRODUCT_NAME} handles information
+          </a>
+        </p>
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, FileDown } from "lucide-react";
+import { downloadDocx } from "../../lib/api";
 import { tools, type Draft, type ToolIO, type ToolKey } from "../../lib/tools";
 
 /**
@@ -87,6 +88,31 @@ export function CopyButton({
     <button type="button" onClick={copy} className={clsx("btn-secondary", size === "sm" && "btn-sm", className)} aria-live="polite">
       {done ? <Check className="h-3.5 w-3.5 text-success" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
       {done ? "Copied" : label}
+    </button>
+  );
+}
+
+/** Download as a Word document: same text as Copy, formatted for Word. */
+export function WordButton({
+  title,
+  text,
+  size = "sm",
+  className,
+}: {
+  title: string | (() => string);
+  text: string | (() => string);
+  size?: "sm" | "md";
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => downloadDocx(typeof title === "function" ? title() : title, typeof text === "function" ? text() : text)}
+      className={clsx("btn-secondary", size === "sm" && "btn-sm", className)}
+      title="Download as a Word document"
+    >
+      <FileDown className="h-3.5 w-3.5" aria-hidden />
+      Word
     </button>
   );
 }

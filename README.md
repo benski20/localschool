@@ -120,6 +120,19 @@ Admins see and remove these Macs in Settings › People. Details: [desktop/READM
 
 Their documents, roster, chats, drafts and recordings stay on that Mac. Only the models are remote: point it at the school box, because a cloud runtime would receive each question's passages. Details are in [desktop/README.md](desktop/README.md#keep-my-data-on-this-mac).
 
+## For school leaders and IT
+
+- **Sign in with Google or Microsoft.** Settings › People › *Sign in with Google or Microsoft*.
+  - Paste the client ID and secret of the school's own Google Cloud OAuth client or Entra app registration. The page shows the exact redirect address to register.
+  - Set the school's email domain. Only accounts at that domain can sign in.
+  - Choose whether anyone at the domain may join as a teacher; off by default, so only people you've added can sign in.
+  - It's direct OpenID Connect (code flow with PKCE), with no third-party sign-in service. In the Mac app, sign-in happens in the teacher's browser and hands back to the app through a `teachersdesk://` link.
+- **Activity log.** Settings › Activity records who signed in, whose student information was used and by whom, and changes to people, documents and Macs.
+  - It never records the question text or document contents.
+  - It's searchable, can be downloaded as CSV, and is kept for a year (`ACTIVITY_DAYS`).
+- **Privacy page.** `/privacy` is public and needs no sign-in. It explains in plain language where information is kept, what the AI sees and how long things are kept, using this install's real settings (`/api/trust`). It prints as one page.
+- **Word export.** Teachers can download any answer or draft as a .docx. It's generated on the server and nothing is stored.
+
 ## Using it
 
 | Page | Who | What |

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import clsx from "clsx";
-import { AlertCircle, ArrowDown, Check, Copy, RotateCcw } from "lucide-react";
-import { api, streamChat } from "../lib/api";
+import { AlertCircle, ArrowDown, Check, Copy, FileDown, RotateCcw } from "lucide-react";
+import { api, downloadDocx, streamChat } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useStatus } from "../lib/status";
 import type { Message, Source } from "../lib/types";
@@ -479,6 +479,19 @@ function Turn({
               <TextAction onClick={() => copy(m.content.replace(/\s?\[\d+\]/g, ""))} label={copied ? "Copied" : "Copy answer"}>
                 {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />}
                 {copied ? "Copied" : "Copy"}
+              </TextAction>
+              <TextAction
+                onClick={() =>
+                  downloadDocx(
+                    question?.content.slice(0, 80) || "Answer",
+                    m.content,
+                    m.sources.map((s) => [s.title, s.subtitle].filter(Boolean).join(" — ")),
+                  )
+                }
+                label="Download as a Word document"
+              >
+                <FileDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Word
               </TextAction>
               {question && (
                 <TextAction onClick={onRetry} disabled={busy}>

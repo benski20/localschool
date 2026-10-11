@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ChevronsUpDown, Download, KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { ChevronsUpDown, Download, KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { isDesktop } from "../../lib/shell";
 import type { Theme } from "../../lib/theme";
@@ -136,6 +136,9 @@ export function UserMenu() {
               <Download className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Get the Mac app
             </a>
           )}
+          <a data-item role="menuitem" className={item} href="/privacy">
+            <ShieldCheck className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Privacy
+          </a>
           <div className="my-1.5 h-px bg-line" role="separator" />
           <button data-item role="menuitem" className={item} onClick={close(logout)}>
             <LogOut className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Sign out

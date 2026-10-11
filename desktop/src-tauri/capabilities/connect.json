@@ -13,6 +13,7 @@
     "allow-local-status",
     "allow-setup-local",
     "allow-local-progress",
-    "allow-open-filevault-settings"
+    "allow-open-filevault-settings",
+    "allow-setup-local-sso"
   ]
 }

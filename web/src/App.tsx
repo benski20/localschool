@@ -18,11 +18,13 @@ import { Roster } from "./pages/Roster";
 import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
 import { GetApp } from "./pages/GetApp";
+import { Privacy } from "./pages/Privacy";
 import { toolRoutes } from "./pages/tools";
 import "./components/shell/shell.css";
 
 export function App() {
   if (window.location.pathname === "/get") return <GetApp />;
+  if (window.location.pathname === "/privacy") return <Privacy />;
   return (
     <ToastProvider>
       <AuthProvider>

@@ -10,6 +10,8 @@ export interface Health {
   mac_release_page?: string;
   /** A teacher's own server on their Mac: their data never leaves it. */
   local?: boolean;
+  /** Sign-in providers this school turned on: "google", "microsoft". */
+  sso?: string[];
 }
 
 let cached: Promise<Health> | null = null;

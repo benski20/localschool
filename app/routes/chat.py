@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 
 from .. import deps
 from ..llm import Runtime
-from ..services import chat
+from ..db import connect
+from ..services import activity, chat
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -23,6 +24,14 @@ class AskIn(BaseModel):
     attachments: list[int] = Field(default_factory=list, max_length=20)
 
 
+def _log_students(runtime: Runtime, user: sqlite3.Row, sources: list[dict]) -> None:
+    """Which students' information an answer used (never the question itself)."""
+    names = sorted({s["title"] for s in sources if s.get("kind") == "student" and s.get("student_id")})
+    if names:
+        with connect(runtime.db_path) as db:
+            activity.log(db, user, "students_used", subject=", ".join(names))
+
+
 @router.post("/chat")
 async def ask(
     body: AskIn,
@@ -34,6 +43,8 @@ async def ask(
     async def events():
         async for evt in chat.answer(runtime, user, body.question, body.conversation_id,
                                      model=body.model, attachments=body.attachments):
+            if evt.get("type") == "sources":
+                _log_students(runtime, user, evt["sources"])
             yield f"data: {json.dumps(evt)}\n\n"
 
     return StreamingResponse(

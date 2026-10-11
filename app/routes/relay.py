@@ -27,7 +27,8 @@ from .. import deps
 from ..config import Settings
 from ..llm import Runtime
 from ..llm.base import ChatMessage, RuntimeError_, RuntimeUnavailable
-from ..services import auth, devices
+from ..services import activity, auth, devices
+from .auth import log_failed_sign_in
 from .install import _base
 
 router = APIRouter(tags=["relay"])
@@ -52,8 +53,17 @@ def create_device(
         raise HTTPException(400, "This is already a personal desk.")
     user = auth.authenticate(db, body.email, body.password)
     if user is None:
+        log_failed_sign_in(settings, body.email, deps.client_ip(request))
         raise HTTPException(401, "That email and password didn't work.")
-    key = devices.create_key(db, user["id"], body.label or "Mac")
+    return device_bundle(db, request, settings, runtime, user, body.label)
+
+
+def device_bundle(db: sqlite3.Connection, request: Request, settings: Settings, runtime: Runtime,
+                  user: sqlite3.Row, label: str) -> dict:
+    """A new key for this Mac plus what its personal desk needs (also used after Google /
+    Microsoft sign-in: app/routes/sso.py)."""
+    key = devices.create_key(db, user["id"], label or "Mac")
+    activity.log(db, user, "mac_added", detail=label or "Mac", ip=deps.client_ip(request))
     return {
         "key": key,
         "relay_url": f"{_base(request, settings)}/api/relay",
@@ -175,8 +185,11 @@ def list_devices(_: sqlite3.Row = Depends(deps.admin_user), db: sqlite3.Connecti
 
 
 @router.delete("/api/admin/devices/{device_id}")
-def remove_device(device_id: int, _: sqlite3.Row = Depends(deps.admin_user),
+def remove_device(device_id: int, me: sqlite3.Row = Depends(deps.admin_user),
                   db: sqlite3.Connection = Depends(deps.db, scope="function")):
-    if not devices.delete_device(db, device_id):
+    row = db.execute("SELECT d.label, u.name FROM device_keys d JOIN users u ON u.id = d.user_id WHERE d.id = ?",
+                     (device_id,)).fetchone()
+    if not row or not devices.delete_device(db, device_id):
         raise HTTPException(404, "Not found")
+    activity.log(db, me, "mac_removed", subject=row["name"], detail=row["label"])
     return {"ok": True}

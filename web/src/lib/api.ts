@@ -44,6 +44,24 @@ export const api = {
   del: <T>(p: string) => request<T>("DELETE", p),
 };
 
+/** Download text as a Word document. A real form post (not fetch + blob), so browsers and
+ *  the Mac app's web view both treat it as an ordinary download. */
+export function downloadDocx(title: string, text: string, sources: string[] = []): void {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "/api/export/docx";
+  form.style.display = "none";
+  for (const [name, value] of [["title", title], ["text", text], ["sources", JSON.stringify(sources)]]) {
+    const input = document.createElement("textarea");
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
+  form.remove();
+}
+
 /** POST a question and stream server-sent events back. */
 export async function streamChat(
   body: { question: string; conversation_id: number | null; model?: string; attachments?: number[] },
