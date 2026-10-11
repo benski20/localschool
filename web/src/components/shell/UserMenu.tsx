@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ChevronsUpDown, Download, KeyRound, Laptop, LogOut, Monitor, Moon, ShieldCheck, Sun } from "lucide-react";
+import { ChevronsUpDown, Download, KeyRound, Laptop, LogOut, Monitor, Moon, RefreshCw, ShieldCheck, Sun } from "lucide-react";
 import { useAuth } from "../../lib/auth";
-import { isDesktop } from "../../lib/shell";
+import { desktopVersion, isDesktop, isNewer } from "../../lib/shell";
 import type { Theme } from "../../lib/theme";
 import { useShell } from "./ShellContext";
 import { useHealth } from "./health";
@@ -40,6 +40,7 @@ export function UserMenu() {
   const { user, logout } = useAuth();
   const { theme, setTheme, openPassword } = useShell();
   const health = useHealth();
+  const updateReady = !!(desktopVersion && health?.mac_app_version && isNewer(health.mac_app_version, desktopVersion));
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -149,6 +150,25 @@ export function UserMenu() {
           <a data-item role="menuitem" className={item} href="/privacy">
             <ShieldCheck className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Privacy
           </a>
+          {isDesktop && (
+            // The Mac app checks, downloads and restarts, saying what happened at each step.
+            // Apps before 0.5.1 (no version in their user agent) don't know this link, so
+            // they get the install page instead.
+            <a data-item role="menuitem" className={item} href={desktopVersion ? "teachersdesk://check-updates" : "/get"}>
+              <RefreshCw className="h-4 w-4 shrink-0" strokeWidth={1.6} aria-hidden />
+              {updateReady ? (
+                <>
+                  <span className="min-w-0 flex-1 truncate">Update to {health?.mac_app_version}</span>
+                  <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                </>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1 truncate">Check for updates</span>
+                  {desktopVersion && <span className="tnum shrink-0 text-xs text-faint">{desktopVersion}</span>}
+                </>
+              )}
+            </a>
+          )}
           <div className="my-1.5 h-px bg-line" role="separator" />
           <button data-item role="menuitem" className={item} onClick={close(logout)}>
             <LogOut className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Sign out

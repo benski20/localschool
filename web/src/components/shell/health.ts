@@ -12,6 +12,8 @@ export interface Health {
   local?: boolean;
   /** Sign-in providers this school turned on: "google", "microsoft". */
   sso?: string[];
+  /** The Mac app this server hands out (installed apps update to it). */
+  mac_app_version?: string;
 }
 
 let cached: Promise<Health> | null = null;

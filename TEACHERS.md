@@ -69,7 +69,7 @@ Things to know:
 - Everything else lives only on this Mac. There's no shared school library and no backup, so if you replace your Mac, add your documents again.
 - To go back to the school's Teacher's Desk, use **Switch School Server…** again.
 
-The Mac app keeps itself up to date: it downloads new versions in the background and installs them when you quit it. To update right away, choose **Teacher's Desk → Check for Updates…**
+The Mac app keeps itself up to date: it downloads new versions in the background and installs them when you quit it. To update right away, click your name at the bottom left and choose **Check for updates** (it shows **Update to …** when a new version is waiting). It tells you what it's doing and reopens on the new version. If macOS ever says it can't update itself, follow the steps it shows, or quit the app and run the install line from the **Get the Mac app** page in Terminal.
 
 ## Privacy
 
