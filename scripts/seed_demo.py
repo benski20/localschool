@@ -50,6 +50,8 @@ def main() -> None:
             db.execute("DELETE FROM conversations")
             db.execute("DELETE FROM students")
             db.execute("DELETE FROM sections")
+            # Demo teachers from the old placeholder school (before it became The Shipley School)
+            db.execute("DELETE FROM users WHERE email LIKE '%@maplegrove.demo'")
 
         for email, name in TEACHERS:
             if not db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
