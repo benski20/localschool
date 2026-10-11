@@ -2,19 +2,35 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Mic, Square } from "lucide-react";
 import { clock } from "./TranscriptView";
 import { isDesktop } from "../../lib/shell";
+import { callAudio } from "../../lib/native";
+import { NotepadField, NotepadHint, useNotepad } from "./Notepad";
+import { ErrorLine } from "./ToolPage";
 
-type Phase = "idle" | "consent" | "starting" | "recording" | "denied" | "unsupported";
+export type RecorderPhase = "idle" | "consent" | "starting" | "recording" | "stopping" | "denied" | "unsupported";
+type Phase = RecorderPhase;
+
+export interface Recording {
+  id: number;
+  mic: Blob;
+  /** The computer's sound (Mac app), or null. */
+  call: Blob | null;
+  seconds: number;
+}
 
 /**
- * Record a meeting in the browser. Nothing is captured until the teacher confirms that everyone
- * agreed; while recording a red dot, a timer and the input level stay visible, with one Stop.
+ * Record a meeting. Nothing is captured until the teacher confirms that everyone agreed. Start
+ * makes the meeting right away (`onStart` returns its id) so the notepad below the recording bar
+ * can save as the teacher types. In the Mac app the computer's sound is recorded too.
  */
 export function ConsentRecorder({
+  onStart,
   onRecorded,
   onPhase,
   footer,
 }: {
-  onRecorded: (audio: Blob, seconds: number) => void;
+  /** Create the meeting; resolves with its id. */
+  onStart: () => Promise<number>;
+  onRecorded: (r: Recording) => void;
   /** Lets the page hide its other inputs while recording. */
   onPhase?: (p: Phase) => void;
   /** Small secondary links under the button ("Upload a recording"…). Hidden while recording. */
@@ -25,6 +41,11 @@ export function ConsentRecorder({
   );
   const [agreed, setAgreed] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [withCall, setWithCall] = useState(false);
+  const [micOnly, setMicOnly] = useState("");
+  const [failure, setFailure] = useState("");
+  const notes = useNotepad(draftId);
   const level = useRef<HTMLSpanElement>(null);
   const rec = useRef<{
     stream: MediaStream;
@@ -50,11 +71,18 @@ export function ConsentRecorder({
     r.ctx?.close().catch(() => undefined);
     rec.current = null;
   };
-  useEffect(() => teardown, []);
+  const callOn = useRef(false);
+  useEffect(
+    () => () => {
+      teardown();
+      if (callOn.current) void callAudio.stop(); // leaving the page mid-recording
+    },
+    [],
+  );
 
   // Leaving mid-recording would lose the meeting: ask the browser to confirm.
   useEffect(() => {
-    if (phase !== "recording") return;
+    if (phase !== "recording" && phase !== "stopping") return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
@@ -65,6 +93,7 @@ export function ConsentRecorder({
 
   const start = async () => {
     setPhase("starting");
+    setFailure("");
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
@@ -72,6 +101,29 @@ export function ConsentRecorder({
       setPhase("denied");
       return;
     }
+    let id: number;
+    try {
+      id = await onStart();
+    } catch (e) {
+      stream.getTracks().forEach((t) => t.stop());
+      setFailure((e as Error).message);
+      setPhase("consent");
+      return;
+    }
+    let call = false;
+    let reason = "";
+    if (await callAudio.available()) {
+      try {
+        await callAudio.start();
+        call = true;
+      } catch (e) {
+        reason = (e as Error).message;
+      }
+    }
+    setDraftId(id);
+    setWithCall(call);
+    callOn.current = call;
+    setMicOnly(reason);
     const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((t) => MediaRecorder.isTypeSupported?.(t));
     const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
     const chunks: Blob[] = [];
@@ -107,37 +159,55 @@ export function ConsentRecorder({
 
   const stop = () => {
     const r = rec.current;
-    if (!r) return;
+    if (!r || phase !== "recording") return;
+    setPhase("stopping");
     const seconds = (Date.now() - r.started) / 1000;
-    r.recorder.onstop = () => {
-      const blob = new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
+    const id = draftId!;
+    r.recorder.onstop = async () => {
+      const mic = new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
       teardown();
+      callOn.current = false;
+      const [call] = await Promise.all([withCall ? callAudio.stop() : Promise.resolve(null), notes.flush()]);
       setPhase("idle");
       setAgreed(false);
-      onRecorded(blob, seconds);
+      setDraftId(null);
+      onRecorded({ id, mic, call, seconds });
     };
     r.recorder.stop();
   };
 
-  if (phase === "recording")
+  if (phase === "recording" || phase === "stopping")
     return (
-      <div
-        role="status"
-        aria-label={`Recording, ${clock(elapsed)}`}
-        className="flex animate-fadein items-center gap-4 rounded border border-line bg-panel px-4 py-3 sm:gap-5 sm:px-5"
-      >
-        <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
-          <span className="absolute inset-0 animate-pulse-soft rounded-full bg-danger" />
-        </span>
-        <span className="hidden text-sm text-ink sm:inline">Recording</span>
-        <span className="tnum font-mono text-sm text-muted">{clock(elapsed)}</span>
-        <span aria-hidden className="block h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-ink/[0.08]">
-          <span ref={level} className="block h-full w-full origin-left bg-ink/50 transition-transform duration-instant" style={{ transform: "scaleX(0.04)" }} />
-        </span>
-        <button type="button" onClick={stop} className="btn-primary shrink-0">
-          <Square className="h-3 w-3 fill-current" aria-hidden />
-          Stop
-        </button>
+      <div className="animate-fadein">
+        <div
+          role="status"
+          aria-label={`Recording, ${clock(elapsed)}`}
+          className="sticky top-0 z-10 -mx-4 flex items-center gap-3 border-b border-line bg-bg px-4 py-3 sm:mx-0 sm:gap-4 sm:px-0"
+        >
+          <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute inset-0 animate-pulse-soft rounded-full bg-danger" />
+          </span>
+          <span className="tnum font-mono text-sm text-ink">{clock(elapsed)}</span>
+          <span aria-hidden className="block h-1 w-12 shrink-0 overflow-hidden rounded-full bg-ink/[0.08] sm:w-20">
+            <span ref={level} className="block h-full w-full origin-left bg-ink/50 transition-transform duration-instant" style={{ transform: "scaleX(0.04)" }} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-sm text-muted">
+            <span className="sm:hidden">{withCall ? "Mic + call" : "Mic"}</span>
+            <span className="hidden sm:inline">{withCall ? "Microphone + call audio" : "Microphone"}</span>
+          </span>
+          <span className="hidden sm:inline">
+            <NotepadHint state={notes.state} />
+          </span>
+          <button type="button" onClick={stop} disabled={phase === "stopping"} className="btn-primary btn-sm shrink-0">
+            <Square className="h-3 w-3 fill-current" aria-hidden />
+            Stop
+          </button>
+        </div>
+        <p className="mt-2 h-4 text-right sm:hidden">
+          <NotepadHint state={notes.state} />
+        </p>
+        {micOnly && <p className="mt-3 text-sm text-faint">Recording your microphone only — {micOnly}</p>}
+        <NotepadField value={notes.text} onChange={notes.setText} autoFocus className="mt-4 min-h-[50vh] sm:mt-8" />
       </div>
     );
 
@@ -157,6 +227,11 @@ export function ConsentRecorder({
             Cancel
           </button>
         </div>
+        {failure && (
+          <div className="mt-4">
+            <ErrorLine>{failure}</ErrorLine>
+          </div>
+        )}
       </div>
     );
 

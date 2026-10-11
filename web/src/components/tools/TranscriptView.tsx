@@ -59,7 +59,10 @@ export function TranscriptView({
           >
             {stamp(s, i)}
           </button>
-          <span className="min-w-0">{s.text}</span>
+          <span className="min-w-0">
+            {s.speaker && <span className={s.speaker === "You" ? "text-ink" : "text-faint"}>{s.speaker}: </span>}
+            {s.text}
+          </span>
         </li>
       ))}
     </ol>

@@ -15,6 +15,7 @@ export function EditableText({
   className,
   placeholder,
   single,
+  tone = "ink",
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -24,6 +25,8 @@ export function EditableText({
   placeholder?: string;
   /** One line (Enter does nothing). */
   single?: boolean;
+  /** "faint" for text the teacher didn't write (e.g. added from a recording). */
+  tone?: "ink" | "faint";
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -43,7 +46,8 @@ export function EditableText({
       onChange={(e) => onChange(single ? e.target.value.replace(/\n/g, " ") : e.target.value)}
       onKeyDown={single ? (e) => e.key === "Enter" && e.preventDefault() : undefined}
       className={clsx(
-        "-mx-2 block w-[calc(100%+1rem)] resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-2 py-1 text-base leading-[26px] text-ink outline-none",
+        "-mx-2 block w-[calc(100%+1rem)] resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-2 py-1 text-base leading-[26px] outline-none",
+        tone === "faint" ? "text-faint" : "text-ink",
         "transition-[border-color,background-color] duration-fast hover:border-line focus:border-ink/40 focus:bg-panel",
         className,
       )}
