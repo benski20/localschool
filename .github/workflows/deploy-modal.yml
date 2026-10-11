@@ -21,6 +21,10 @@ on:
       chat_model:
         description: "Chat model to pull and evaluate (use qwen3:1.7b with gpu=none)"
         default: qwen3:1.7b
+      reset_demo:
+        description: Wipe and re-seed the fictional demo school (documents, roster, chats)
+        type: boolean
+        default: false
       public_url:
         description: Address teachers use (the Vercel front door), shown in the Mac installer
         default: https://teachers-desk-xi.vercel.app
@@ -156,7 +160,10 @@ jobs:
             ADMIN_EMAIL=admin@school.local ADMIN_PASSWORD="$ADMIN_PW" \
             RUNTIME_URL="$RUNTIME" RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" \
             CHAT_MODEL="$CHAT" EMBED_MODEL="$EMBED" SCHOOL_NAME="$SCHOOL" \
-            LS_SEED_DEMO="$DEMO" MAC_APP_URL="https://github.com/${{ github.repository }}/releases/latest/download/LocalSchool-macOS.zip" PUBLIC_URL="${{ inputs.public_url }}" DEMO_LOGINS="$([ "$DEMO" = 1 ] && echo true || echo false)" >/dev/null
+            LS_SEED_DEMO="$DEMO" MAC_APP_URL="https://github.com/${{ github.repository }}/releases/latest/download/LocalSchool-macOS.zip" PUBLIC_URL="${{ inputs.public_url }}" LS_RESET_DEMO="${{ inputs.reset_demo && github.run_id || '' }}" DEMO_LOGINS="$([ "$DEMO" = 1 ] && echo true || echo false)" >/dev/null
+          # SQLite has one writer: stop the running app first so an old container can't write
+          # its copy of the database over the new one's (about a minute of downtime).
+          yes | modal app stop localschool-app 2>/dev/null || true
           modal deploy deploy/modal/web_app.py 2>&1 | tee app.log
           APP=$(grep -oE 'https://[A-Za-z0-9.-]*localschool-app[A-Za-z0-9.-]*\.modal\.run' app.log | head -1)
           test -n "$APP" || { echo "could not find the app URL"; exit 1; }

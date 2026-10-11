@@ -282,3 +282,23 @@ def test_migration_upgrades_an_existing_database(settings):
         assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1  # no second admin
         with pytest.raises(Exception):
             db.execute("INSERT INTO documents(title, filename, visibility) VALUES ('x', 'x.md', 'public')")
+
+
+def test_keyword_index_is_rebuilt_when_out_of_sync(tmp_path):
+    from app.db import connect, init_db
+    from app.services import ingest
+    from app.services.retrieval import keyword_search
+
+    path = tmp_path / "x.db"
+    init_db(path)
+    with connect(path) as db:
+        ingest.store_document(db, title="Phones", filename="p.md", mime="text/markdown",
+                              data=b"# Phones\n\nA second cell phone violation means the office holds it.",
+                              owner_id=None, files_dir=tmp_path / "files")
+        # Simulate a restored older index: wipe the keyword index behind the triggers' back.
+        db.execute("INSERT INTO chunks_fts(chunks_fts) VALUES ('delete-all')")
+    with connect(path) as db:
+        assert keyword_search(db, "cell phone violation", user_id=None) == []
+    init_db(path)  # startup repairs it
+    with connect(path) as db:
+        assert keyword_search(db, "cell phone violation", user_id=None)

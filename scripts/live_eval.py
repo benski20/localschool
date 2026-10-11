@@ -280,6 +280,8 @@ def main() -> int:
     print("waiting for the real embedding model to index the library…", flush=True)
     idx = wait_index(admin, args.index_timeout)
     print(f"  indexed {idx['embedded_chunks']}/{idx['total_chunks']} passages with {idx['model']}", flush=True)
+    for d in admin.get("/api/documents").json()["documents"]:
+        print(f"  · {d['title']} — {d['status']}, {d.get('chunk_count', '?')} passages", flush=True)
 
     teacher = login(args.base, spec["teacher"], args.teacher_password)
     forbidden = set(spec.get("other_teachers_students", []))

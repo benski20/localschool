@@ -10,6 +10,7 @@ drop-in SQLite build with extension loading enabled.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from collections.abc import Iterator
@@ -210,6 +211,7 @@ def _driver():
 
 
 DRIVER = _driver()
+log = logging.getLogger(__name__)
 
 
 def vec_table(space_id: int) -> str:
@@ -236,8 +238,22 @@ def init_db(path: Path, journal: str = "wal") -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         for i, script in enumerate(MIGRATIONS[version:], start=version + 1):
             conn.executescript(f"BEGIN; {script}; PRAGMA user_version = {i}; COMMIT;")
+        repair_search_index(conn)
     finally:
         conn.close()
+
+
+def repair_search_index(conn) -> bool:
+    """Rebuild the keyword index if it no longer matches the passages (e.g. after a storage
+    layer restored an older copy of the database file). Returns True if it was rebuilt."""
+    try:
+        conn.execute("INSERT INTO chunks_fts(chunks_fts, rank) VALUES ('integrity-check', 1)")  # 1: compare with the passages
+        return False
+    except DRIVER.DatabaseError:
+        conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')")
+        conn.commit()
+        log.warning("Keyword index was out of sync with the library; rebuilt it.")
+        return True
 
 
 @contextmanager

@@ -53,15 +53,44 @@ data = modal.Volume.from_name("localschool-app-data", create_if_missing=True)
 app = modal.App("localschool-app", image=image)
 
 
+def _signature() -> tuple:
+    """(path, size, mtime) of every file on the volume: changes whenever this container writes."""
+    out = []
+    for root, _dirs, files in os.walk(DATA):
+        for name in files:
+            try:
+                st = os.stat(os.path.join(root, name))
+            except OSError:
+                continue
+            out.append((root, name, st.st_size, st.st_mtime_ns))
+    return tuple(sorted(out))
+
+
+_committed = {"sig": None}
+_commit_lock = threading.Lock()
+
+
+def _commit_if_changed() -> None:
+    # Commit ONLY this container's own changes. During a deploy the previous container keeps
+    # running for a while; an unconditional commit from it would overwrite the new container's
+    # database with its stale copy (found by the live eval: the library went out of sync).
+    with _commit_lock:
+        sig = _signature()
+        if sig == _committed["sig"]:
+            return
+        data.commit()
+        _committed["sig"] = sig
+
+
 def _persist_loop(interval: float = 20.0) -> None:
     # Volume changes become durable on commit; background writes (embeddings, streamed
-    # chat answers) are covered by this loop, request writes by the middleware below.
+    # chat answers, tool drafts) are covered by this loop, request writes by the middleware.
     while True:
         time.sleep(interval)
         try:
-            data.commit()
-        except Exception:  # noqa: BLE001 — never kill the server over a commit
-            pass
+            _commit_if_changed()
+        except Exception as e:  # noqa: BLE001 — never kill the server over a commit
+            print(f"volume commit deferred: {e!r}", flush=True)
 
 
 @app.function(
@@ -91,6 +120,13 @@ def web():
         subprocess.run([sys.executable, "-m", "scripts.seed_demo"], cwd=SRV, check=True)
         marker.touch()
         data.commit()
+    # One-time demo reset (the deploy workflow's reset_demo input sets a fresh token).
+    reset = os.environ.get("LS_RESET_DEMO", "").strip()
+    reset_marker = Path(DATA) / f".demo-reset-{reset}"
+    if reset and reset.isalnum() and not reset_marker.exists():
+        subprocess.run([sys.executable, "-m", "scripts.seed_demo", "--reset"], cwd=SRV, check=True)
+        reset_marker.touch()
+        data.commit()
 
     from app.main import create_app
 
@@ -101,10 +137,11 @@ def web():
         response = await call_next(request)
         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
             try:
-                await asyncio.to_thread(data.commit)
+                await asyncio.to_thread(_commit_if_changed)
             except Exception as e:  # noqa: BLE001 — the 20s loop retries; never fail the request
                 print(f"volume commit deferred: {e!r}", flush=True)
         return response
 
+    _committed["sig"] = _signature()  # what the volume held when this container started
     threading.Thread(target=_persist_loop, daemon=True).start()
     return api
