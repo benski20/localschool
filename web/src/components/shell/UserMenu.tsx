@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ChevronsUpDown, Download, KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun } from "lucide-react";
+import { ChevronsUpDown, Download, KeyRound, Laptop, LogOut, Monitor, Moon, ShieldCheck, Sun } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { isDesktop } from "../../lib/shell";
 import type { Theme } from "../../lib/theme";
 import { useShell } from "./ShellContext";
+import { useHealth } from "./health";
 
 export function initials(name: string) {
   return (
@@ -38,6 +39,7 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 export function UserMenu() {
   const { user, logout } = useAuth();
   const { theme, setTheme, openPassword } = useShell();
+  const health = useHealth();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -134,6 +136,13 @@ export function UserMenu() {
           {!isDesktop && (
             <a data-item role="menuitem" className={item} href="/get">
               <Download className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Get the Mac app
+            </a>
+          )}
+          {!health?.local && (
+            // In the Mac app this opens its "Keep my data on this Mac" screen; in a
+            // browser it explains how (/get), since it needs the Mac app.
+            <a data-item role="menuitem" className={item} href={isDesktop ? "teachersdesk://keep-on-mac" : "/get#keep"}>
+              <Laptop className="h-4 w-4" strokeWidth={1.6} aria-hidden /> Keep my data on this Mac…
             </a>
           )}
           <a data-item role="menuitem" className={item} href="/privacy">

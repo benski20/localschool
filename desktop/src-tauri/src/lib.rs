@@ -14,6 +14,7 @@
 mod discovery;
 mod local;
 mod server;
+mod updater;
 
 use std::time::Duration;
 
@@ -164,6 +165,15 @@ fn on_deep_link(app: &AppHandle, url: &Url) {
     }
 }
 
+/// The connect screen's "Keep my data on this Mac" (menu, or the account menu in the window).
+fn open_keep_on_mac(app: &AppHandle) {
+    app.state::<CurrentServer>().set(None);
+    if let Some(w) = main_window(app) {
+        let _ = w.navigate(connect_screen_url("?local=1"));
+    }
+    show_main(app);
+}
+
 // ---------------------------------------------------------------- navigation helpers
 
 fn main_window(app: &AppHandle) -> Option<WebviewWindow> {
@@ -213,7 +223,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let app_menu = SubmenuBuilder::new(app, "Teacher's Desk")
         .item(&PredefinedMenuItem::about(app, Some("About Teacher's Desk"), Some(about))?)
         .separator()
+        .item(&MenuItemBuilder::with_id("check_updates", "Check for Updates…").build(app)?)
+        .separator()
         .item(&MenuItemBuilder::with_id("switch_server", "Switch School Server…").build(app)?)
+        .item(&MenuItemBuilder::with_id("keep_on_mac", "Keep My Data on This Mac…").build(app)?)
         .separator()
         .item(&PredefinedMenuItem::services(app, None)?)
         .separator()
@@ -284,6 +297,19 @@ fn on_menu(app: &AppHandle, id: &str) {
             }
         }
         "show_main" => show_main(app),
+        "keep_on_mac" => open_keep_on_mac(app),
+        "check_updates" => {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                if updater::staged(&app).is_none() {
+                    updater::check(&app);
+                }
+                if updater::staged(&app).is_some() {
+                    updater::install_on_exit(&app, true);
+                    app.exit(0);
+                }
+            });
+        }
         "switch_server" => {
             app.state::<CurrentServer>().set(None);
             if let Some(w) = main_window(app) {
@@ -317,6 +343,15 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .on_navigation(move |url| {
             if is_local_page(url) || url.scheme() == "about" {
                 return true;
+            }
+            // The school's pages may ask for app screens through teachersdesk:// links
+            // (the account menu's "Keep my data on this Mac…"); nothing else gets through.
+            if url.scheme() == "teachersdesk" {
+                if url.host_str() == Some("keep-on-mac") {
+                    let app = nav_app.clone();
+                    tauri::async_runtime::spawn(async move { open_keep_on_mac(&app) });
+                }
+                return false;
             }
             let allowed = nav_app
                 .state::<CurrentServer>()
@@ -419,6 +454,7 @@ pub fn run() {
                     }
                 });
             }
+            updater::start(app.handle());
             if let Err(e) = app.global_shortcut().register(ask_shortcut) {
                 eprintln!("global shortcut unavailable: {e}");
             }
@@ -443,6 +479,10 @@ pub fn run() {
         #[cfg(target_os = "macos")]
         if let RunEvent::Reopen { .. } = event {
             show_main(app); // clicking the Dock icon brings the window back
+        }
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Exit = event {
+            updater::install_on_exit(app, false); // a downloaded update goes in as we quit
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (app, event);

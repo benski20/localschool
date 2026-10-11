@@ -21,6 +21,7 @@ from .discovery import Advertiser
 from .llm import Runtime
 from .llm.registry import ProviderFactory, default_factory, is_local_url
 from .routes import admin, auth, chat, export, install, library, relay, roster, sso, tools
+from .routes.install import mac_zip_version
 from .services import activity
 from .services import sso as sso_service
 from .services.auth import create_user
@@ -29,7 +30,7 @@ from .services.models import PullManager, seed_choices
 from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 DEMO_TEACHER = ("jordan.lee@shipley.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
@@ -103,6 +104,9 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         if settings.demo_logins:
             # Synthetic demo school only: lets the login page offer one-click demo sign-in.
             out["demo"] = {"email": DEMO_TEACHER[0], "password": DEMO_TEACHER[1]}
+        mac = mac_zip_version(settings)
+        if mac:
+            out["mac_app_version"] = mac  # installed Mac apps update themselves to this
         if "/releases/" in settings.mac_app_url:
             # The /get page links here for the .dmg (browser download; see TEACHERS.md).
             out["mac_release_page"] = settings.mac_app_url.split("/download/")[0]

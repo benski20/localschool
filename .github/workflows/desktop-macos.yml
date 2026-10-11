@@ -290,6 +290,34 @@ jobs:
           if security find-generic-password -s "Teacher's Desk (this Mac)" >/dev/null 2>&1; then exit 1; fi
           cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
 
+      - name: The app updates itself from the school's server
+        run: |
+          APP_INSTALLED="/Applications/Teacher's Desk.app"
+          DATA="$HOME/Library/Application Support/LocalSchoolServer"
+          UPD="$HOME/Library/Application Support/org.localschool.desktop/update"
+          # A "newer" release: this same app, marked 9.9.9 and re-signed, served by the school.
+          rm -rf "$RUNNER_TEMP/new" && mkdir -p "$RUNNER_TEMP/new" && cp -R "$APP_INSTALLED" "$RUNNER_TEMP/new/"
+          plutil -replace CFBundleShortVersionString -string 9.9.9 "$RUNNER_TEMP/new/Teacher's Desk.app/Contents/Info.plist"
+          codesign --force --deep -s - "$RUNNER_TEMP/new/Teacher's Desk.app"
+          (cd "$RUNNER_TEMP/new" && ditto -c -k --keepParent "Teacher's Desk.app" "$DATA/downloads/LocalSchool-macOS.zip")
+          curl -sf http://127.0.0.1:8000/api/health | grep -q '"mac_app_version":"9.9.9"'
+
+          printf '{"url":"http://127.0.0.1:8000","name":"The Shipley School"}' > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+          osascript -e "tell application \"Teacher's Desk\" to quit" || true; sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
+          open "$APP_INSTALLED"
+          # It notices, downloads and checks the update in the background…
+          for i in $(seq 1 180); do test -f "$UPD/ready" && break; sleep 1; done
+          test "$(cat "$UPD/ready")" = 9.9.9
+          # …and puts it in place when the teacher quits.
+          osascript -e "tell application \"Teacher's Desk\" to quit"
+          for i in $(seq 1 60); do pgrep -f "Desk.app/Contents/MacOS" >/dev/null || break; sleep 1; done
+          for i in $(seq 1 30); do test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = 9.9.9 && break; sleep 1; done
+          test "$(defaults read "$APP_INSTALLED/Contents/Info.plist" CFBundleShortVersionString)" = 9.9.9
+          codesign --verify --deep --strict "$APP_INSTALLED"
+          test ! -d "$UPD"
+          open "$APP_INSTALLED"; sleep 10; pgrep -f "Desk.app/Contents/MacOS" >/dev/null
+          screencapture -x shots/12-after-update.png || true
+
       - name: Publish screenshots (branch ci/screenshots)
         if: always()
         env:

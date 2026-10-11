@@ -10,8 +10,10 @@ does this for you), else MAC_APP_URL (e.g. the latest GitHub release).
 
 from __future__ import annotations
 
+import plistlib
 import re
 import sqlite3
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -27,6 +29,32 @@ ZIP_NAME = "LocalSchool-macOS.zip"
 
 def zip_path(settings: Settings) -> Path:
     return settings.data_dir / "downloads" / ZIP_NAME
+
+
+_version_cache: dict[str, tuple[float, str]] = {}
+
+
+def mac_zip_version(settings: Settings) -> str:
+    """The version of the Mac app this server hands out (from Info.plist inside the zip),
+    so installed apps can update themselves. "" if there's no zip."""
+    path = zip_path(settings)
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return ""
+    cached = _version_cache.get(str(path))
+    if cached and cached[0] == mtime:
+        return cached[1]
+    version = ""
+    try:
+        with zipfile.ZipFile(path) as z:
+            name = next((n for n in z.namelist() if n.endswith(".app/Contents/Info.plist")), None)
+            if name:
+                version = str(plistlib.loads(z.read(name)).get("CFBundleShortVersionString", ""))
+    except (zipfile.BadZipFile, plistlib.InvalidFileException, OSError, ValueError):
+        version = ""
+    _version_cache[str(path)] = (mtime, version)
+    return version
 
 
 def _shell_safe(value: str) -> str:
