@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from .config import Settings, get_settings
 from .db import connect, init_db
@@ -157,7 +157,12 @@ def _mount_web(app: FastAPI, dist: Path) -> None:
         if path and candidate.is_file() and root in candidate.parents:
             headers = {"Cache-Control": "public, max-age=31536000, immutable"} if path.startswith("assets/") else {}
             return FileResponse(candidate, headers=headers)
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})
+        # The page itself is never cached and carries no ETag/Last-Modified: every build of
+        # index.html is the same size, and file times can repeat across deploys, so a
+        # validator could answer "304 unchanged" with an old build (the Mac app's web view
+        # kept showing one). It's 1 KB; the hashed assets it points to are cached for good.
+        return HTMLResponse(index.read_text(encoding="utf-8"),
+                            headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"})
 
 
 app = create_app()
