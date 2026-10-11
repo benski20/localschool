@@ -63,6 +63,10 @@ jobs:
       - name: Bundle the server (for "Keep my data on this Mac")
         run: ./desktop/stage-server.sh
 
+      # Before cargo: tauri-build needs bundle.externalBin (bin/td-call-audio-<triple>) to exist.
+      - name: Build the call-audio helper (Swift, ScreenCaptureKit, universal)
+        run: ./desktop/helpers/build-call-audio.sh
+
       - name: Unit tests
         working-directory: desktop/src-tauri
         run: cargo test
@@ -88,10 +92,39 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$APP"
           # Meeting recording in the app's web view needs the microphone usage description.
           plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist"
+          plutil -extract NSAudioCaptureUsageDescription raw "$APP/Contents/Info.plist"
+          # Call audio: the helper is in the app, universal, and signed.
+          HELPER="$APP/Contents/MacOS/td-call-audio"
+          test -x "$HELPER"
+          lipo -archs "$HELPER" | grep -q arm64
+          lipo -archs "$HELPER" | grep -q x86_64
+          codesign --verify --strict --verbose=2 "$HELPER"
           codesign -dv "$APP" 2>&1 | grep -E "Identifier|Signature|Format"
           lipo -archs "$APP/Contents/MacOS/"*
           ditto -c -k --keepParent "$APP" LocalSchool-macOS.zip
           ls -lh LocalSchool-macOS.zip desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+
+      - name: Call-audio helper runs (READY…SAVED, or the permission error; never hangs)
+        run: |
+          HELPER="$APP/Contents/MacOS/td-call-audio"
+          OUT="$RUNNER_TEMP/call-audio.txt"
+          # stdin stays open for 3 s, then closes (= Stop). macOS has no `timeout`: kill at 30 s.
+          (sleep 3) | "$HELPER" "$RUNNER_TEMP/call.m4a" > "$OUT" 2> "$RUNNER_TEMP/call-audio.err" &
+          PID=$!
+          ( sleep 30; kill -9 $PID ) >/dev/null 2>&1 &   # a hang shows as exit 137
+          WATCHDOG=$!
+          set +e; wait $PID; CODE=$?; set -e
+          kill $WATCHDOG 2>/dev/null || true
+          echo "exit $CODE"; cat "$OUT"; cat "$RUNNER_TEMP/call-audio.err" || true
+          if grep -q "^READY" "$OUT"; then
+            test $CODE -eq 0
+            grep -q "^SAVED" "$OUT"
+            ls -l "$RUNNER_TEMP/call.m4a" 2>/dev/null || echo "(no sound played: no file)"
+          else
+            # Runners can't grant Screen & System Audio Recording: the teacher-facing message.
+            test $CODE -eq 1
+            grep -q "^ERROR .*Screen & System Audio Recording" "$OUT"
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

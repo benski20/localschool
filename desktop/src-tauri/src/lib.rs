@@ -9,8 +9,11 @@
 //! teacher, with the models still remote.
 //!
 //! Security model: the bundled connect screen (tauri://localhost) may call the app
-//! commands below; pages from the school server may only drag the window.
+//! commands below; pages from the school server may only drag the window and use call
+//! audio (call_audio.rs: record the computer's sound during a meeting), and only from the
+//! connected school's origin.
 
+mod call_audio;
 mod discovery;
 mod local;
 mod server;
@@ -26,8 +29,9 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_opener::OpenerExt;
+use tauri::RunEvent;
 #[cfg(target_os = "macos")]
-use tauri::{RunEvent, WindowEvent};
+use tauri::WindowEvent;
 
 const MAIN: &str = "main";
 /// Lets the web app adapt to the native shell (title-bar spacing, no service worker).
@@ -430,6 +434,7 @@ pub fn run() {
         )
         .manage(CurrentServer::default())
         .manage(local::Setup::default())
+        .manage(call_audio::CallAudio::default())
         .menu(build_menu)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .invoke_handler(tauri::generate_handler![
@@ -441,7 +446,10 @@ pub fn run() {
             setup_local,
             local_progress,
             open_filevault_settings,
-            setup_local_sso
+            setup_local_sso,
+            call_audio::call_audio_available,
+            call_audio::call_audio_start,
+            call_audio::call_audio_stop
         ])
         .setup(move |app| {
             create_main_window(app.handle())?;
@@ -480,11 +488,10 @@ pub fn run() {
         if let RunEvent::Reopen { .. } = event {
             show_main(app); // clicking the Dock icon brings the window back
         }
-        #[cfg(target_os = "macos")]
         if let RunEvent::Exit = event {
+            call_audio::shutdown(app); // nothing keeps recording after quitting
+            #[cfg(target_os = "macos")]
             updater::install_on_exit(app, false); // a downloaded update goes in as we quit
         }
-        #[cfg(not(target_os = "macos"))]
-        let _ = (app, event);
     });
 }

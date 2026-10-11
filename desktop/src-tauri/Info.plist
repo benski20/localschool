@@ -16,6 +16,12 @@
   <!-- Meeting notes record in the app; without this macOS won't let the web view use the mic. -->
   <key>NSMicrophoneUsageDescription</key>
   <string>Teacher's Desk records meetings only when you press Start recording, after everyone has agreed.</string>
+  <!-- Call audio (the other side of a video call) is recorded by Contents/MacOS/td-call-audio
+       with ScreenCaptureKit. That needs no Info.plist key: macOS asks the teacher to allow
+       Teacher's Desk under Privacy & Security → Screen & System Audio Recording. This key is
+       for macOS's audio-capture prompt (Core Audio taps, macOS 14.2+), shown with the same reason. -->
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>Teacher's Desk records the other side of a video call only while you record a meeting, after everyone has agreed.</string>
   <key>NSBonjourServices</key>
   <array>
     <string>_localschool._tcp</string>

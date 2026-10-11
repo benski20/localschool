@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-call-audio-start"
+description = "Enables the call_audio_start command without any pre-configured scope."
+commands.allow = ["call_audio_start"]
+
+[[permission]]
+identifier = "deny-call-audio-start"
+description = "Denies the call_audio_start command without any pre-configured scope."
+commands.deny = ["call_audio_start"]
