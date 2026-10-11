@@ -100,7 +100,7 @@ jobs:
           lipo -archs "$HELPER" | grep -q x86_64
           codesign --verify --strict --verbose=2 "$HELPER"
           codesign -dv "$APP" 2>&1 | grep -E "Identifier|Signature|Format"
-          lipo -archs "$APP/Contents/MacOS/"*
+          for b in "$APP/Contents/MacOS/"*; do echo "$(basename "$b"): $(lipo -archs "$b")"; done
           ditto -c -k --keepParent "$APP" LocalSchool-macOS.zip
           ls -lh LocalSchool-macOS.zip desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
