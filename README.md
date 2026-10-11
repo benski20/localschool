@@ -42,7 +42,7 @@ LS_SEED_DEMO=1 ./scripts/install-server-mac.sh
 curl -fsSL http://localhost:8000/install/mac.sh | bash     # installs + opens the Mac app
 ```
 
-Sign in as `jordan.lee@maplegrove.demo` / `demo-pass-123` (demo teacher), or with the admin account you chose. `LS_SEED_DEMO=1` loads the fictional Maple Grove school. Leave it off for your own data.
+Sign in as `jordan.lee@shipley.demo` / `demo-pass-123` (demo teacher), or with the admin account you chose. `LS_SEED_DEMO=1` loads demo data for The Shipley School with fictional students and documents. Leave it off for your own data.
 
 ## Pilot in 30 minutes
 
@@ -58,10 +58,10 @@ Undo with `./scripts/uninstall-server-mac.sh`.
 ```bash
 make setup        # Python venv + web deps
 make web          # build the UI
-make demo         # fictional "Maple Grove" school + offline fake runtime → http://localhost:8000
+make demo         # fictional "Shipley" school + offline fake runtime → http://localhost:8000
 ```
 
-Sign in as **jordan.lee@maplegrove.demo / demo-pass-123** (teacher) or **admin@school.local / change-me** (admin; set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to change).
+Sign in as **jordan.lee@shipley.demo / demo-pass-123** (teacher) or **admin@school.local / change-me** (admin; set `ADMIN_EMAIL`/`ADMIN_PASSWORD` to change).
 The fake runtime returns canned, cited answers so you can walk through the UI. Connect a real GPU (below) for real answers.
 
 ## Connect a free GPU runtime (pilot)
@@ -107,7 +107,7 @@ Teachers open `http://<box-name>.local:8000`. Ollama is never exposed to the net
 
 Build it with the **Desktop (macOS)** GitHub Action (no Mac needed; produces `LocalSchool-macOS.zip` and a `.dmg`). Teachers install with one line from the school server, `curl -fsSL http://<server>:8000/install/mac.sh | bash`, which needs **no Apple Developer ID** and shows no security prompt. Details: [desktop/README.md](desktop/README.md).
 
-To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="Maple Grove Middle School"`.
+To make the server discoverable, start it with `ADVERTISE_MDNS=true SCHOOL_NAME="The Shipley School"`.
 
 **Keep my data on this Mac.** A teacher can also run their own server inside the Mac app. On the connect screen they choose *Keep my data on this Mac instead* and sign in with their school account. There are no technical fields.
 

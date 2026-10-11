@@ -1,11 +1,11 @@
-"""Load the fictional Maple Grove demo school (synthetic data only — no real students).
+"""Load the demo for The Shipley School: fictional students and documents (synthetic data only — no real students).
 
     python -m scripts.seed_demo            # add demo teachers, docs and roster
     python -m scripts.seed_demo --reset    # wipe documents/roster/chats first
 
 Teacher logins (password `demo-pass-123`):
-    jordan.lee@maplegrove.demo  — ELA 7, periods 1 and 3
-    sam.patel@maplegrove.demo   — Math 7, periods 2 and 4
+    jordan.lee@shipley.demo  — ELA 7, periods 1 and 3
+    sam.patel@shipley.demo   — Math 7, periods 2 and 4
 Embeddings are created by the app's background worker once a runtime is connected.
 """
 
@@ -27,8 +27,8 @@ from app.services.auth import create_user  # noqa: E402
 DEMO = ROOT / "demo"
 PASSWORD = "demo-pass-123"
 TEACHERS = [
-    ("jordan.lee@maplegrove.demo", "Jordan Lee"),
-    ("sam.patel@maplegrove.demo", "Sam Patel"),
+    ("jordan.lee@shipley.demo", "Jordan Lee"),
+    ("sam.patel@shipley.demo", "Sam Patel"),
 ]
 DOCS = [
     ("Student & Family Handbook 2026–27", "student-handbook.md"),

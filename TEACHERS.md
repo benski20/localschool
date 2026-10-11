@@ -8,7 +8,7 @@ Open this link in Safari or Chrome:
 
 **https://teachers-desk-xi.vercel.app**
 
-- **Just looking?** Press **Try the demo**. You'll be a demo teacher at a fictional school (Maple Grove Middle School).
+- **Just looking?** Press **Try the demo**. You'll be a demo teacher at The Shipley School, with fictional students and documents.
 - **Have an account?** Press **Continue with Google** or **Continue with Microsoft** if your school turned it on. Otherwise, sign in with the email and password your administrator gave you; to change your password, use the menu at the bottom left.
 
 > The first visit of the day can take up to a minute while it wakes up. After that it's quick.

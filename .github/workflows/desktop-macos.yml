@@ -108,8 +108,8 @@ jobs:
       - name: Install the server with the real installer (launchd, demo school)
         env:
           LS_NONINTERACTIVE: "1"
-          SCHOOL_NAME: Maple Grove Middle School
-          ADMIN_EMAIL: admin@maplegrove.demo
+          SCHOOL_NAME: The Shipley School
+          ADMIN_EMAIL: admin@shipley.demo
           ADMIN_PASSWORD: admin-pass-123
           RUNTIME_KIND: fake
           LS_SEED_DEMO: "1"
@@ -140,7 +140,7 @@ jobs:
           # 3) Sign in as a teacher and ask a question.
           osascript -e "tell application \"Teacher's Desk\" to activate"
           sleep 1
-          keys 'keystroke "jordan.lee@maplegrove.demo"'
+          keys 'keystroke "jordan.lee@shipley.demo"'
           keys 'keystroke tab'
           keys 'keystroke "demo-pass-123"'
           keys 'keystroke return'
@@ -169,7 +169,7 @@ jobs:
           # What the app does: sign in to the school's server (the demo school on :8000) for
           # this Mac's key, then set up with the school's AI through its relay.
           D=$(curl -sf -H 'content-type: application/json' \
-              -d '{"email":"jordan.lee@maplegrove.demo","password":"demo-pass-123","label":"CI Mac"}' \
+              -d '{"email":"jordan.lee@shipley.demo","password":"demo-pass-123","label":"CI Mac"}' \
               http://127.0.0.1:8000/api/auth/device)
           eval "$(echo "$D" | python3 -c 'import json,shlex,sys; d=json.load(sys.stdin); print(" ".join(f"export {k}={shlex.quote(d[v])}" for k, v in [("TEACHER_NAME","name"),("TEACHER_EMAIL","email"),("SCHOOL_NAME","school"),("RUNTIME_URL","relay_url"),("RUNTIME_TOKEN","key"),("CHAT_MODEL","chat_model"),("EMBED_MODEL","embed_model")]))')"
           export TEACHER_PASSWORD="demo-pass-123" RUNTIME_KIND=relay
@@ -193,7 +193,7 @@ jobs:
 
           # The teacher signs in, adds a document, asks about it.
           J=$RUNNER_TEMP/jar
-          curl -sf -c $J -H 'content-type: application/json' -d '{"email":"jordan.lee@maplegrove.demo","password":"demo-pass-123"}' http://127.0.0.1:8765/api/auth/login
+          curl -sf -c $J -H 'content-type: application/json' -d '{"email":"jordan.lee@shipley.demo","password":"demo-pass-123"}' http://127.0.0.1:8765/api/auth/login
           curl -sf -b $J http://127.0.0.1:8765/api/auth/me | grep -q '"Jordan Lee"'
           printf '# Field trip\n\nPermission slips are due Friday.\n' > "$RUNNER_TEMP/trip.md"
           curl -sf -b $J -F "files=@$RUNNER_TEMP/trip.md" http://127.0.0.1:8765/api/documents
@@ -210,7 +210,7 @@ jobs:
           osascript -e "tell application \"Teacher's Desk\" to quit" || true
           sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
           open "$APP_INSTALLED"; sleep 12; screencapture -x shots/7-local-signin.png || true
-          osascript -e "tell application \"System Events\" to keystroke \"jordan.lee@maplegrove.demo\"" -e "tell application \"System Events\" to keystroke tab" \
+          osascript -e "tell application \"System Events\" to keystroke \"jordan.lee@shipley.demo\"" -e "tell application \"System Events\" to keystroke tab" \
                     -e "tell application \"System Events\" to keystroke \"demo-pass-123\"" -e "tell application \"System Events\" to keystroke return" || true
           sleep 6; screencapture -x shots/8-local-signed-in.png || true
 
@@ -227,7 +227,7 @@ jobs:
 
           # The school's admin can cut this Mac off from its AI.
           AJ=$RUNNER_TEMP/admin
-          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@maplegrove.demo","password":"admin-pass-123"}' http://127.0.0.1:8000/api/auth/login >/dev/null
+          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@shipley.demo","password":"admin-pass-123"}' http://127.0.0.1:8000/api/auth/login >/dev/null
           DEV=$(curl -sf -b $AJ http://127.0.0.1:8000/api/admin/devices | python3 -c 'import json,sys; print(json.load(sys.stdin)["devices"][0]["id"])')
           curl -sf -b $AJ -X DELETE http://127.0.0.1:8000/api/admin/devices/$DEV
           curl -sfN -b $J -H 'content-type: application/json' -d '{"question":"When are slips due?"}' http://127.0.0.1:8765/api/chat | grep -q "removed this Mac"
@@ -243,18 +243,18 @@ jobs:
           APP_INSTALLED="/Applications/Teacher's Desk.app"
           S=http://127.0.0.1:8000
           # The demo school uses a stand-in Google on :9999.
-          python3 scripts/fake_idp.py 9999 jordan.lee@maplegrove.demo > "$RUNNER_TEMP/idp.log" 2>&1 &
+          python3 scripts/fake_idp.py 9999 jordan.lee@shipley.demo > "$RUNNER_TEMP/idp.log" 2>&1 &
           echo 'SSO_ENDPOINTS_OVERRIDE={"google":{"auth":"http://127.0.0.1:9999/auth","token":"http://127.0.0.1:9999/token","issuer":"http://127.0.0.1:9999"}}' >> .env
           launchctl kickstart -k "gui/$(id -u)/org.localschool.server"
           for i in $(seq 1 60); do curl -sf $S/api/health >/dev/null && break; sleep 1; done
           AJ=$RUNNER_TEMP/admin2
-          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@maplegrove.demo","password":"admin-pass-123"}' $S/api/auth/login >/dev/null
+          curl -sf -c $AJ -H 'content-type: application/json' -d '{"email":"admin@shipley.demo","password":"admin-pass-123"}' $S/api/auth/login >/dev/null
           curl -sf -b $AJ -X PUT -H 'content-type: application/json' \
-            -d '{"google_client_id":"ci-client","google_client_secret":"ci-secret-123","domains":"maplegrove.demo"}' $S/api/admin/sso | grep -q '"enabled":\["google"\]'
+            -d '{"google_client_id":"ci-client","google_client_secret":"ci-secret-123","domains":"shipley.demo"}' $S/api/admin/sso | grep -q '"enabled":\["google"\]'
           curl -sf $S/api/health | grep -q '"sso":\["google"\]'
 
           # 1) The Mac app's sign-in: the browser part (curl here), then the teachersdesk:// link.
-          printf '{"url":"%s","name":"Maple Grove Middle School"}' "$S" > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
+          printf '{"url":"%s","name":"The Shipley School"}' "$S" > "$HOME/Library/Application Support/org.localschool.desktop/server.json"
           osascript -e "tell application \"Teacher's Desk\" to quit" || true; sleep 3; pkill -f "Desk.app/Contents/MacOS" || true
           open "$APP_INSTALLED"; sleep 10
           screencapture -x shots/9-login-with-google.png || true
@@ -280,9 +280,9 @@ jobs:
           for i in $(seq 1 240); do curl -sf http://127.0.0.1:8765/api/health | grep -q '"local":true' && break; sleep 1; done
           curl -sf http://127.0.0.1:8765/api/health | grep -q '"local":true'
           sleep 8; screencapture -x shots/11-desk-from-google.png || true
-          security find-generic-password -s "Teacher's Desk (this Mac)" -a jordan.lee@maplegrove.demo >/dev/null
+          security find-generic-password -s "Teacher's Desk (this Mac)" -a jordan.lee@shipley.demo >/dev/null
           LOCAL="$HOME/Library/Application Support/org.localschool.desktop/local"
-          test "$(cat "$LOCAL/account")" = jordan.lee@maplegrove.demo
+          test "$(cat "$LOCAL/account")" = jordan.lee@shipley.demo
           grep -q '^RUNTIME_KIND=relay' "$LOCAL/server.env"
           launchctl unsetenv LS_ALLOW_NO_FILEVAULT
           # Clean up: removal also deletes the Keychain entry.

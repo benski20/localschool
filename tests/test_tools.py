@@ -19,7 +19,7 @@ from app.services.tools.common import FORMAT_FAILED
 
 from .conftest import PASSWORD, login, seed
 
-JORDAN, SAM, ADMIN = "jordan.lee@maplegrove.demo", "sam.patel@maplegrove.demo", "admin@test.local"
+JORDAN, SAM, ADMIN = "jordan.lee@shipley.demo", "sam.patel@shipley.demo", "admin@test.local"
 
 WORK = ("My hero is my grandmother because she never gives up. When the factory closed, she went back to "
         "school at fifty and became a nurse. She studied every night at the kitchen table while we did our "

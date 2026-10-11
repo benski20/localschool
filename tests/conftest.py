@@ -48,7 +48,7 @@ def runtime(settings, fake) -> Runtime:
 def seed(settings: Settings) -> None:
     init_db(settings.db_path)
     with connect(settings.db_path) as db:
-        for email, name in (("jordan.lee@maplegrove.demo", "Jordan Lee"), ("sam.patel@maplegrove.demo", "Sam Patel")):
+        for email, name in (("jordan.lee@shipley.demo", "Jordan Lee"), ("sam.patel@shipley.demo", "Sam Patel")):
             if not db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
                 create_user(db, email=email, name=name, role="teacher", password=PASSWORD)
         for title, fn in (("Handbook", "student-handbook.md"), ("ELA 7 Pacing Guide", "ela7-pacing-guide.md")):

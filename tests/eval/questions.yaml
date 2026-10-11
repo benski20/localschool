@@ -7,7 +7,7 @@
 #   offers it); the answer must come from that model.
 # `attach`: a file (relative to this folder) uploaded as the teacher's private document and
 #   attached to the question; one of its passages must be among the sources.
-teacher: jordan.lee@maplegrove.demo
+teacher: jordan.lee@shipley.demo
 other_teachers_students: [Grace Lewis, Daniel Walker, Layla Hassan, Jack Young, Chloe King,
   Samuel Wright, Nora Scott, Leo Green, Hana Sato, David Adams]
 questions:

@@ -9,7 +9,7 @@ from docx import Document
 
 from .conftest import login
 
-JORDAN = "jordan.lee@maplegrove.demo"
+JORDAN = "jordan.lee@shipley.demo"
 
 
 def test_word_export_formats_and_needs_sign_in(client):
@@ -99,7 +99,7 @@ def _setup_sso(client, settings, **extra):
     settings.sso_endpoints_override = json.dumps(IDP)
     login(client, "admin@test.local", "admin-pass-123")
     r = client.put("/api/admin/sso", json={"google_client_id": "cid-123", "google_client_secret": "shh-secret-xyz",
-                                           "domains": "maplegrove.demo", **extra})
+                                           "domains": "shipley.demo", **extra})
     assert r.status_code == 200 and r.json()["enabled"] == ["google"]
     assert "shh-secret" not in r.text and r.json()["redirect_uris"]["google"].endswith("/api/auth/sso/google/callback")
     client.post("/api/auth/logout")
@@ -110,7 +110,7 @@ def _provider(client, settings, mode="web", **claims):
     r = client.get(f"/api/auth/sso/google/start?mode={mode}", follow_redirects=False)
     assert r.status_code == 302, r.text
     q = parse_qs(urlparse(r.headers["location"]).query)
-    assert q["client_id"] == ["cid-123"] and q["code_challenge_method"] == ["S256"] and q["hd"] == ["maplegrove.demo"]
+    assert q["client_id"] == ["cid-123"] and q["code_challenge_method"] == ["S256"] and q["hd"] == ["shipley.demo"]
     state = q["state"][0]
     from app.db import connect
     with connect(settings.db_path) as db:
@@ -143,7 +143,7 @@ def test_google_sign_in_in_the_browser(client, settings):
 def test_google_sign_in_refuses_what_it_should(client, settings):
     _setup_sso(client, settings)
     for claims, says in [({"email": "someone@gmail.com"}, "Use your school account"),
-                         ({"email": "new.teacher@maplegrove.demo"}, "doesn't have a Teacher's Desk account"),
+                         ({"email": "new.teacher@shipley.demo"}, "doesn't have a Teacher's Desk account"),
                          ({"nonce": "forged"}, "couldn't be confirmed"),
                          ({"aud": "other-app"}, "different app"),
                          ({"iss": "https://evil.test"}, "unexpected place"),
@@ -163,7 +163,7 @@ def test_google_sign_in_refuses_what_it_should(client, settings):
 
 def test_auto_join_creates_a_teacher(client, settings):
     _setup_sso(client, settings, auto_join=True)
-    r, _ = _provider(client, settings, email="new.teacher@maplegrove.demo", name="Riley New")
+    r, _ = _provider(client, settings, email="new.teacher@shipley.demo", name="Riley New")
     assert r.headers["location"] == "/chat"
     me = client.get("/api/auth/me").json()["user"]
     assert me["name"] == "Riley New" and me["role"] == "teacher"

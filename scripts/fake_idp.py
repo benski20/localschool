@@ -1,7 +1,7 @@
 """A stand-in Google for CI (Desktop macOS workflow): just enough OpenID Connect to sign
 someone in without a real Google account. Never used outside tests.
 
-    python scripts/fake_idp.py 9999 jordan.lee@maplegrove.demo
+    python scripts/fake_idp.py 9999 jordan.lee@shipley.demo
 """
 
 from __future__ import annotations

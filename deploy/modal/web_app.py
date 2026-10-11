@@ -5,7 +5,7 @@ Deployed by the "Deploy Modal runtime" GitHub Action, after the model runtime. B
     cd web && npm ci && npm run build && cd ..
     modal secret create localschool-app ADMIN_EMAIL=… ADMIN_PASSWORD=… \\
         RUNTIME_URL=https://…-localschool-ollama-serve.modal.run RUNTIME_TOKEN=… \\
-        CHAT_MODEL=qwen3:1.7b EMBED_MODEL=nomic-embed-text SCHOOL_NAME="Maple Grove" \\
+        CHAT_MODEL=qwen3:1.7b EMBED_MODEL=nomic-embed-text SCHOOL_NAME="Shipley" \\
         LS_SEED_DEMO=1 DEMO_LOGINS=true
     modal deploy deploy/modal/web_app.py        # → https://<workspace>--localschool-app-web.modal.run
 

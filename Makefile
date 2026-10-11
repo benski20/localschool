@@ -18,7 +18,7 @@ dev:              ## API on :8000 + Vite dev server on :5173 (hot reload)
 web-dev:
 	cd web && npm run dev -- --host
 
-seed:             ## load the fictional Maple Grove demo school
+seed:             ## load the demo (The Shipley School, fictional students)
 	$(PY) -m scripts.seed_demo
 
 demo:             ## offline demo: fake runtime, demo data, built UI — no GPU needed

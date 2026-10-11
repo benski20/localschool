@@ -13,14 +13,14 @@ from .conftest import PASSWORD, login, sse, wait_index
 
 def test_auth_required_and_roles(client):
     assert client.get("/api/status").status_code == 401
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     assert client.get("/api/auth/me").json()["user"]["role"] == "teacher"
     assert client.get("/api/admin/models").status_code == 403
-    assert client.post("/api/auth/login", json={"email": "jordan.lee@maplegrove.demo", "password": "x"}).status_code == 401
+    assert client.post("/api/auth/login", json={"email": "jordan.lee@shipley.demo", "password": "x"}).status_code == 401
 
 
 def test_chat_end_to_end_with_citations(client):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     wait_index(client)
     r = client.post("/api/chat", json={"question": "Which of my students have extended time?"})
     assert r.headers["content-type"].startswith("text/event-stream")
@@ -37,12 +37,12 @@ def test_chat_end_to_end_with_citations(client):
     sse(client.post("/api/chat", json={"question": "And the cell phone policy?", "conversation_id": conv_id}))
     assert len(client.get(f"/api/conversations/{conv_id}").json()["messages"]) == 4
     client.post("/api/auth/logout")
-    login(client, "sam.patel@maplegrove.demo")
+    login(client, "sam.patel@shipley.demo")
     assert client.get(f"/api/conversations/{conv_id}").status_code == 404
 
 
 def test_library_upload_paste_cite_delete(client):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     r = client.post("/api/documents", files=[("files", ("bus-policy.md", b"# Buses\n\nBus 12 leaves at 3:05 pm sharp.", "text/markdown")),
                                              ("files", ("bad.exe", b"MZ", "application/octet-stream"))])
     body = r.json()
@@ -59,7 +59,7 @@ def test_library_upload_paste_cite_delete(client):
     assert any(p["cited"] and "3:05" in p["text"] for p in passage["passages"])
 
     client.post("/api/auth/logout")
-    login(client, "sam.patel@maplegrove.demo")
+    login(client, "sam.patel@shipley.demo")
     assert client.delete(f"/api/documents/{doc_id}").status_code == 403
     client.post("/api/auth/logout")
     login(client, "admin@test.local", "admin-pass-123")
@@ -176,19 +176,19 @@ def test_db_dependency_commits_before_the_response_is_sent():
 
 
 def test_change_password(client):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     assert client.put("/api/auth/password", json={"current": "wrong", "new": "brand-new-pass"}).status_code == 400
     assert client.put("/api/auth/password", json={"current": PASSWORD, "new": "short"}).status_code == 400
     assert client.put("/api/auth/password", json={"current": PASSWORD, "new": "brand-new-pass"}).status_code == 200
     client.post("/api/auth/logout")
-    assert client.post("/api/auth/login", json={"email": "jordan.lee@maplegrove.demo", "password": PASSWORD}).status_code == 401
-    login(client, "jordan.lee@maplegrove.demo", "brand-new-pass")
+    assert client.post("/api/auth/login", json={"email": "jordan.lee@shipley.demo", "password": PASSWORD}).status_code == 401
+    login(client, "jordan.lee@shipley.demo", "brand-new-pass")
 
 
 def test_health_offers_demo_login_only_in_demo_mode(client, settings):
     assert "demo" not in client.get("/api/health").json()
     settings.demo_logins = True
-    assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@maplegrove.demo"
+    assert client.get("/api/health").json()["demo"]["email"] == "jordan.lee@shipley.demo"
 
 
 def test_personal_desk_on_a_teachers_mac(settings, fake):
@@ -213,7 +213,7 @@ def _relogin(c, email, password=PASSWORD):
 
 
 def test_private_documents_are_invisible_to_everyone_else(client):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     up = client.post("/api/documents", data={"visibility": "private"},
                      files=[("files", ("trip.md", TRIP, "text/markdown"))]).json()
     doc_id = up["created"][0]
@@ -235,7 +235,7 @@ def test_private_documents_are_invisible_to_everyone_else(client):
     passage = f"/api/documents/{doc_id}/chunks/{own[0]['chunk_id']}"
     assert client.get(passage).status_code == 200
 
-    _relogin(client, "sam.patel@maplegrove.demo")
+    _relogin(client, "sam.patel@shipley.demo")
     assert not {doc_id, pasted} & {d["id"] for d in client.get("/api/documents").json()["documents"]}
     assert client.get(f"/api/documents/{doc_id}/file").status_code == 404
     assert client.get(f"/api/documents/{doc_id}/preview").status_code == 404
@@ -256,13 +256,13 @@ def test_private_documents_are_invisible_to_everyone_else(client):
     assert client.get(f"/api/documents/{doc_id}/file").status_code == 404
     assert client.delete(f"/api/documents/{doc_id}").status_code == 200
     # and owners delete their own
-    _relogin(client, "jordan.lee@maplegrove.demo")
+    _relogin(client, "jordan.lee@shipley.demo")
     assert client.delete(f"/api/documents/{pasted}").status_code == 200
     assert not {doc_id, pasted} & {d["id"] for d in client.get("/api/documents").json()["documents"]}
 
 
 def test_chat_attachment_is_cited_and_kept_for_follow_ups(client):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     doc_id = client.post("/api/documents", data={"visibility": "private"},
                          files=[("files", ("trip.md", TRIP, "text/markdown"))]).json()["created"][0]
     events = sse(client.post("/api/chat", json={"question": "When are forms due?", "attachments": [doc_id, 99999]}))
@@ -291,7 +291,7 @@ def _wait_pulls(c):
 
 
 def test_teacher_model_choices(client, settings):
-    login(client, "jordan.lee@maplegrove.demo")
+    login(client, "jordan.lee@shipley.demo")
     # the seeded Fast/Thorough (qwen3) aren't on the fake runtime: the active model is the one option
     assert client.get("/api/models").json() == {"default": "fake-chat", "options": [
         {"model": "fake-chat", "label": "Standard", "description": "", "installed": True}]}
@@ -310,7 +310,7 @@ def test_teacher_model_choices(client, settings):
         {"model": "qwen3:4b-instruct-2507-q4_K_M", "label": "Thorough", "description": "Takes a little longer."}]}).json()
     assert r["default"] == "qwen3:4b-instruct-2507-q4_K_M" and [o["installed"] for o in r["options"]] == [True, False]
 
-    _relogin(client, "jordan.lee@maplegrove.demo")
+    _relogin(client, "jordan.lee@shipley.demo")
     m = client.get("/api/models").json()
     assert [o["model"] for o in m["options"]] == ["fake-chat"] and m["default"] == "fake-chat"
     done = sse(client.post("/api/chat", json={"question": "late work policy", "model": "qwen3:4b-instruct-2507-q4_K_M"}))[-1]
@@ -320,7 +320,7 @@ def test_teacher_model_choices(client, settings):
     client.post("/api/admin/models/pull", json={"model": "qwen3:4b-instruct-2507-q4_K_M"})
     _wait_pulls(client)
 
-    _relogin(client, "jordan.lee@maplegrove.demo")
+    _relogin(client, "jordan.lee@shipley.demo")
     m = client.get("/api/models").json()
     assert [(o["model"], o["label"]) for o in m["options"]] == [("fake-chat", "Fast"), ("qwen3:4b-instruct-2507-q4_K_M", "Thorough")]
     assert m["default"] == "qwen3:4b-instruct-2507-q4_K_M"
@@ -345,7 +345,7 @@ def test_teacher_model_choices(client, settings):
 # -- personal desks: a teacher's Mac borrows the school's models ----------------------
 
 def _device(client, password=PASSWORD):
-    return client.post("/api/auth/device", json={"email": "jordan.lee@maplegrove.demo", "password": password,
+    return client.post("/api/auth/device", json={"email": "jordan.lee@shipley.demo", "password": password,
                                                  "label": "Jordan's MacBook Air"})
 
 

@@ -49,7 +49,7 @@ fn config_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// IT-managed default (push this file with Jamf/Mosyle/any MDM so teachers never type
-/// an address): {"url": "http://maplegrove.local:8000", "name": "Maple Grove Middle School"}
+/// an address): {"url": "http://shipley.local:8000", "name": "The Shipley School"}
 #[cfg(target_os = "macos")]
 const MANAGED_CONFIG: &str = "/Library/Application Support/Teachers Desk/server.json";
 #[cfg(not(target_os = "macos"))]
@@ -130,7 +130,7 @@ pub fn origin(url: &Url) -> Url {
 pub fn check(input: &str) -> Result<ServerInfo, String> {
     let urls = candidates(input);
     if urls.is_empty() {
-        return Err("Enter your school server's address, e.g. maplegrove.local:8000".into());
+        return Err("Enter your school server's address, e.g. shipley.local:8000".into());
     }
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(3))
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn candidates_cover_common_inputs() {
-        assert_eq!(strs(candidates("maplegrove.local")), ["http://maplegrove.local:8000/", "http://maplegrove.local/"]);
+        assert_eq!(strs(candidates("shipley.local")), ["http://shipley.local:8000/", "http://shipley.local/"]);
         assert_eq!(strs(candidates("10.0.0.5:9000")), ["http://10.0.0.5:9000/"]);
         assert_eq!(strs(candidates("school.example.org")), ["https://school.example.org/", "http://school.example.org/"]);
         assert_eq!(strs(candidates("https://x.modal.run/")), ["https://x.modal.run/"]);

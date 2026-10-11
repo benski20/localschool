@@ -1,4 +1,4 @@
-# Maple Grove Middle School — Student & Family Handbook 2026–27
+# The Shipley School — Student & Family Handbook 2026–27
 
 This is a fictional handbook for demonstration purposes.
 
