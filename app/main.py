@@ -30,7 +30,7 @@ from .services.models import PullManager, seed_choices
 from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 DEMO_TEACHER = ("jordan.lee@shipley.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
