@@ -199,3 +199,24 @@ def test_health_reports_the_mac_app_version_it_serves(client, settings):
     with zipfile.ZipFile(path, "w") as z:
         z.writestr("Teacher's Desk.app/Contents/Info.plist", plistlib.dumps({"CFBundleShortVersionString": "9.9.9"}))
     assert client.get("/api/health").json()["mac_app_version"] == "9.9.9"
+
+
+def test_the_page_is_never_served_stale(settings, fake, tmp_path):
+    """Every build of index.html is the same size: no validators, no caching, so a reload
+    (or the Mac app reopening) always gets the build that's live now."""
+    from fastapi.testclient import TestClient as TC
+
+    from app.main import create_app
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text('<script type="module" src="/assets/index-AAAA.js"></script>')
+    (dist / "assets" / "index-AAAA.js").write_text("1")
+    settings.web_dist = dist
+    with TC(create_app(settings, factory=lambda cfg, s: fake)) as c:
+        r = c.get("/chat")
+        assert "index-AAAA" in r.text and "no-store" in r.headers["cache-control"]
+        assert "etag" not in r.headers and "last-modified" not in r.headers
+        (dist / "index.html").write_text('<script type="module" src="/assets/index-BBBB.js"></script>')
+        assert "index-BBBB" in c.get("/", headers={"If-None-Match": "anything"}).text
+        assert "immutable" in c.get("/assets/index-AAAA.js").headers["cache-control"]
