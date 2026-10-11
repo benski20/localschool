@@ -49,6 +49,9 @@
     },
     "resources": [
       "server/"
+    ],
+    "externalBin": [
+      "bin/td-call-audio"
     ]
   },
   "plugins": {

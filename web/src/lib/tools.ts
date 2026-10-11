@@ -9,7 +9,9 @@
  *   POST   /api/drafts/{id}/approve       → { draft }   (meeting: deletes the recording)
  *   POST   /api/drafts/{id}/retry         → { draft }
  *   DELETE /api/drafts/{id}               → { ok }
- *   POST   /api/meetings/{id}/audio       multipart file + offset/final/consent → { draft, received }
+ *   POST   /api/meetings/{id}/audio       multipart file + offset/final/consent, ?track=mic|call → { draft, received }
+ *   PUT    /api/meetings/{id}/notepad     { text } → { ok }   (the teacher's own notes; any status)
+ *   POST   /api/meetings/{id}/ask         { question } → { answer, refs }   (409 before a transcript)
  */
 import { useEffect, useState } from "react";
 import { api, ApiError } from "./api";
@@ -31,7 +33,7 @@ export interface ToolsMeta {
   meeting_types: { key: MeetingType; label: string; sections: NoteSection[] }[];
   adapt_levels: { key: string; label: string }[];
   email_tones: Tone[];
-  audio: { accept: string[]; max_bytes: number; chunk_bytes: number };
+  audio: { accept: string[]; max_bytes: number; chunk_bytes: number; tracks?: AudioTrack[] };
   limits: { feedback_pieces: number; work_chars: number; reading_chars: number; adapt_versions: number };
 }
 
@@ -58,6 +60,9 @@ export function useToolsMeta(): ToolsMeta | null {
 
 /* ---------- Meeting notes ---------- */
 
+/** "mic" is the teacher's microphone; "call" is the computer's sound (Mac app only). */
+export type AudioTrack = "mic" | "call";
+
 export interface MeetingCreate {
   meeting_type: MeetingType;
   student_id?: number | null;
@@ -72,22 +77,29 @@ export interface Segment {
   start: number | null;
   end: number | null;
   text: string;
+  /** Present when a call track was recorded: "You" (microphone) or "Others" (call audio). */
+  speaker?: "You" | "Others";
 }
 
 export interface NoteItem {
   text: string;
   refs: number[];
+  /** True when it came from the teacher's own notes; false when added from the recording. */
+  mine?: boolean;
 }
 export interface ActionItem {
   owner: string;
   task: string;
   due: string | null;
   refs: number[];
+  mine?: boolean;
 }
 export interface MeetingNotes {
   meeting_type: MeetingType;
   summary: string;
   action_items: ActionItem[];
+  /** The teacher's notepad as it was when these notes were written. */
+  my_notes?: string;
   [section: string]: unknown;
 }
 
@@ -249,6 +261,11 @@ export const tools = {
   remove: (id: number) => api.del<{ ok: true }>(`/api/drafts/${id}`),
 
   uploadAudio,
+
+  saveNotepad: (id: number, text: string) => api.put<{ ok: true }>(`/api/meetings/${id}/notepad`, { text }),
+
+  askMeeting: (id: number, question: string) =>
+    api.post<{ answer: string; refs: number[] }>(`/api/meetings/${id}/ask`, { question }),
 };
 
 /* ---------- Recording upload (chunked, resumable) ---------- */
@@ -282,16 +299,17 @@ function postChunk(url: string, form: FormData, onBytes: (n: number) => void): P
 /**
  * Send a recording to POST /api/meetings/{id}/audio in chunks of `chunkBytes`. A chunk the server
  * already has (409 with `received`) is skipped; a dropped connection is retried a few times.
- * Resolves with the draft once the last chunk has queued transcription.
+ * Resolves with the draft once the last chunk has queued transcription. A "call" track never
+ * queues anything: upload it first, then the microphone.
  */
 async function uploadAudio(
   id: number,
   audio: Blob,
-  opts: { filename?: string; chunkBytes?: number; onProgress?: (fraction: number) => void } = {},
+  opts: { filename?: string; chunkBytes?: number; onProgress?: (fraction: number) => void; track?: AudioTrack } = {},
 ): Promise<Draft<"meeting">> {
   const size = audio.size;
   const chunk = Math.max(256 * 1024, opts.chunkBytes ?? 8 * 1024 * 1024);
-  const url = `/api/meetings/${id}/audio`;
+  const url = `/api/meetings/${id}/audio${opts.track ? `?track=${opts.track}` : ""}`;
   let offset = 0;
   let failures = 0;
   for (;;) {

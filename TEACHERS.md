@@ -32,7 +32,7 @@ Pick **Fast** or **Thorough** under the question box. Thorough takes a little lo
 
 Open **Tools** in the sidebar. Each tool makes a **draft** for you to check and edit. Nothing is sent and nothing is graded.
 
-- **Meeting notes.** Choose the meeting type, confirm that everyone agreed to be recorded, and press **Start recording**. When you stop, you get a summary, decisions and action items, each linked to the moment it was said. Press **Approve** and the recording is deleted. You can also upload a recording or paste a transcript.
+- **Meeting notes.** Choose the meeting type, confirm that everyone agreed to be recorded, and press **Start**. While it records, type notes as you go if you like — they save themselves and become the backbone of the notes. In the Mac app, the other side of a Zoom, Meet or Teams call is recorded too. When you stop, you get a summary, decisions and action items, each linked to the moment it was said; anything added from the recording that wasn't in your notes is shown in gray. Ask a question about the meeting underneath, or change your notes and press **Update notes with my changes**. Press **Approve** and the recording is deleted. You can also upload a recording or paste a transcript.
 - **Feedback.** Paste student work, or drop in a stack of files, and choose a rubric. You get strengths and next steps that quote the student's own words.
 - **Adapt a reading.** Paste a text and pick a reading level, a student (their accommodations are applied) or a language.
 - **Parent email.** Pick a student, say what it's about in a few words, and choose a tone. Copy it, or open it in your Mail app.

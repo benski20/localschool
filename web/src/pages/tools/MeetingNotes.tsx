@@ -1,10 +1,12 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { Check, FileAudio, Plus, X } from "lucide-react";
+import { Check, ChevronRight, FileAudio, Plus, X } from "lucide-react";
+import clsx from "clsx";
 import { SkeletonText } from "../../components/ui";
 import { ToolPage, Narrow, Choice, Labelled, ErrorLine } from "../../components/tools/ToolPage";
 import { StudentPicker } from "../../components/tools/StudentPicker";
-import { ConsentRecorder } from "../../components/tools/ConsentRecorder";
+import { ConsentRecorder, type Recording } from "../../components/tools/ConsentRecorder";
+import { NotepadField, NotepadHint, useNotepad } from "../../components/tools/Notepad";
 import { DraftProgress, JobProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
 import { CopyButton, EditableText, WordButton, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
 import { RefChips, TranscriptView, clock, type TranscriptFocus } from "../../components/tools/TranscriptView";
@@ -16,11 +18,13 @@ import {
   tools,
   useToolsMeta,
   type ActionItem,
+  type AudioTrack,
   type Draft,
   type MeetingNotes as Notes,
   type MeetingType,
   type NoteItem,
   type NoteSection,
+  type Segment,
 } from "../../lib/tools";
 
 const AUDIO = ".webm,.ogg,.m4a,.mp3,.wav,audio/*";
@@ -30,11 +34,31 @@ function useSend(onDone: (d: Draft<"meeting">) => void) {
   const [uploading, setUploading] = useState<number | null>(null);
   const [failure, setFailure] = useState("");
 
-  const upload = async (id: number, audio: Blob, filename: string) => {
+  const upload = (id: number, audio: Blob, filename: string) => uploadAll(id, [{ audio, filename }]);
+
+  /** Upload several tracks in order (call audio first, the microphone last: it queues the notes). */
+  const uploadAll = async (id: number, parts: { audio: Blob; filename: string; track?: AudioTrack; optional?: boolean }[]) => {
     const meta = await loadMeta().catch(() => null);
+    const total = parts.reduce((n, p) => n + p.audio.size, 0) || 1;
+    let before = 0;
+    let last: Draft<"meeting"> | null = null;
     setUploading(0);
     try {
-      return await tools.uploadAudio(id, audio, { filename, chunkBytes: meta?.audio.chunk_bytes, onProgress: setUploading });
+      for (const p of parts) {
+        const base = before;
+        try {
+          last = await tools.uploadAudio(id, p.audio, {
+            filename: p.filename,
+            track: p.track,
+            chunkBytes: meta?.audio.chunk_bytes,
+            onProgress: (f) => setUploading((base + f * p.audio.size) / total),
+          });
+        } catch (e) {
+          if (!p.optional) throw e; // the call audio is a bonus; the microphone is the meeting
+        }
+        before += p.audio.size;
+      }
+      return last!;
     } finally {
       setUploading(null);
     }
@@ -49,7 +73,7 @@ function useSend(onDone: (d: Draft<"meeting">) => void) {
       setFailure((e as Error).message);
     }
   };
-  return { uploading, failure, setFailure, upload, run };
+  return { uploading, failure, setFailure, upload, uploadAll, run };
 }
 
 const audioName = (b: Blob) => (b instanceof File ? b.name : b.type.includes("mp4") ? "meeting.m4a" : b.type.includes("ogg") ? "meeting.ogg" : "meeting.webm");
@@ -86,6 +110,20 @@ export function MeetingNotes() {
       const { draft: d } = await tools.create("meeting", { meeting_type: type, student_id: studentId, consent: true });
       return send.upload(d.id, audio, audioName(audio));
     });
+
+  const startRecording = async () => {
+    send.setFailure("");
+    const { draft: d } = await tools.create("meeting", { meeting_type: type, student_id: studentId, consent: true });
+    return d.id;
+  };
+
+  const sendRecording = ({ id: draftId, mic, call }: Recording) =>
+    send.run(() =>
+      send.uploadAll(draftId, [
+        ...(call ? [{ audio: call, filename: "meeting-call.m4a", track: "call" as const, optional: true }] : []),
+        { audio: mic, filename: audioName(mic) },
+      ]),
+    );
 
   const sendTranscript = () =>
     send.run(async () => {
@@ -150,7 +188,12 @@ export function MeetingNotes() {
             {send.uploading !== null ? (
               <JobProgress label="Uploading…" progress={send.uploading} note="Keep this page open until the upload finishes." />
             ) : mode === "record" ? (
-              <ConsentRecorder onRecorded={(b) => sendAudio(b)} onPhase={(p) => setRecording(p === "recording")} footer={links} />
+              <ConsentRecorder
+                onStart={startRecording}
+                onRecorded={sendRecording}
+                onPhase={(p) => setRecording(p === "recording" || p === "stopping")}
+                footer={links}
+              />
             ) : mode === "file" && file ? (
               <div className="animate-fadein rounded border border-line bg-panel p-5 sm:p-6">
                 <p className="flex items-center gap-3 text-sm">
@@ -251,7 +294,12 @@ export function MeetingNotes() {
           )}
         </Narrow>
       ) : (
-        <NotesView draft={draft} sections={draft.sections ?? meta?.meeting_types.find((t) => t.key === draft.meeting_type)?.sections ?? []} onApproved={setDraft} />
+        <NotesView
+          draft={draft}
+          sections={draft.sections ?? meta?.meeting_types.find((t) => t.key === draft.meeting_type)?.sections ?? []}
+          onApproved={setDraft}
+          onRestart={restart}
+        />
       )}
 
       {!recording && send.uploading === null && (
@@ -301,7 +349,17 @@ function notesText(n: Notes, sections: NoteSection[]): string {
   return out.join("\n").trim();
 }
 
-function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; sections: NoteSection[]; onApproved: (d: Draft<"meeting">) => void }) {
+function NotesView({
+  draft,
+  sections,
+  onApproved,
+  onRestart,
+}: {
+  draft: Draft<"meeting">;
+  sections: NoteSection[];
+  onApproved: (d: Draft<"meeting">) => void;
+  onRestart: (d: Draft<"meeting">) => void;
+}) {
   const { output, setOutput, saved } = useDraftOutput(draft);
   const segments = draft.transcript ?? [];
   const [focus, setFocus] = useState<TranscriptFocus | null>(null);
@@ -334,6 +392,12 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
   };
 
   const last = segments[segments.length - 1];
+  // Gray marks what the recording added to the teacher's own notes, so it only means something
+  // when the teacher wrote notes.
+  const all = sections.filter((s) => s.kind !== "text").flatMap((s) => list(s.key));
+  const legend = Boolean(output.my_notes?.trim()) || (all.some((it) => it.mine === true) && all.some((it) => it.mine === false));
+  const gray = (it: NoteItem | ActionItem) => legend && it.mine === false;
+  const notepad = String(draft.input?.my_notes ?? output.my_notes ?? "");
   // Empty sections stay out of the way; action items always show so one can be added.
   const shown = sections.filter((s) => s.kind !== "items" || list(s.key).length > 0);
 
@@ -345,6 +409,7 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
           <WordButton title={draft.title || "Meeting notes"} text={() => notesText(output, sections)} />
         </span>
       } className="min-w-0">
+        {legend && <p className="-mt-2 mb-8 text-xs text-faint">Gray = added from the recording</p>}
         <div className="space-y-10">
           {shown.map((s) => (
             <div key={s.key}>
@@ -356,12 +421,17 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
                   {list(s.key).map((it, i) => (
                     <li key={i} className="group relative pr-8">
                       {isAction(it) ? (
-                        <ActionRow item={it} onChange={(p) => setItem(s.key, i, p)}>
+                        <ActionRow item={it} gray={gray(it)} onChange={(p) => setItem(s.key, i, p)}>
                           <RefChips refs={it.refs} segments={segments} onJump={jump} className="" />
                         </ActionRow>
                       ) : (
                         <>
-                          <EditableText label={s.title} value={it.text} onChange={(text) => setItem(s.key, i, { text })} />
+                          <EditableText
+                            label={s.title}
+                            value={it.text}
+                            onChange={(text) => setItem(s.key, i, { text })}
+                            tone={gray(it) ? "faint" : "ink"}
+                          />
                           <RefChips refs={it.refs} segments={segments} onJump={jump} />
                         </>
                       )}
@@ -386,6 +456,16 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
             </div>
           ))}
 
+          {recorded && (
+            <YourNotes
+              id={draft.id}
+              initial={notepad}
+              usedText={output.my_notes ?? notepad}
+              canUpdate={!draft.approved_at && segments.length > 0}
+              onRestart={onRestart}
+            />
+          )}
+
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-line pt-8">
             {draft.approved_at ? (
               <p className="flex animate-fade-in items-center gap-2 text-sm text-muted">
@@ -402,6 +482,8 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
             )}
             {failure && <ErrorLine>{failure}</ErrorLine>}
           </div>
+
+          <MeetingAsk id={draft.id} segments={segments} onJump={jump} />
         </div>
       </OutputEditor>
 
@@ -420,10 +502,16 @@ function NotesView({ draft, sections, onApproved }: { draft: Draft<"meeting">; s
   );
 }
 
-function ActionRow({ item, onChange, children }: { item: ActionItem; onChange: (p: Partial<ActionItem>) => void; children?: ReactNode }) {
+function ActionRow({ item, gray, onChange, children }: { item: ActionItem; gray?: boolean; onChange: (p: Partial<ActionItem>) => void; children?: ReactNode }) {
   return (
     <div>
-      <EditableText label="Action item" value={item.task} onChange={(task) => onChange({ task })} placeholder="What needs doing" />
+      <EditableText
+        label="Action item"
+        value={item.task}
+        onChange={(task) => onChange({ task })}
+        placeholder="What needs doing"
+        tone={gray ? "faint" : "ink"}
+      />
       <div className="mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
         <Meta label="Who" value={item.owner} onChange={(owner) => onChange({ owner })} placeholder="Someone" />
         <Meta label="By" value={item.due ?? ""} onChange={(due) => onChange({ due: due.trim() ? due : null })} placeholder="Any time" />
@@ -441,5 +529,146 @@ function Meta({ label, value, onChange, placeholder }: { label: string; value: s
         <EditableText single label={label} value={value} onChange={onChange} placeholder={placeholder} className="text-sm leading-[22px] text-muted" />
       </span>
     </span>
+  );
+}
+
+/* ---------- The teacher's own notes, after the fact ---------- */
+
+function YourNotes({
+  id,
+  initial,
+  usedText,
+  canUpdate,
+  onRestart,
+}: {
+  id: number;
+  initial: string;
+  /** The notepad the current notes were written from. */
+  usedText: string;
+  canUpdate: boolean;
+  onRestart: (d: Draft<"meeting">) => void;
+}) {
+  const notes = useNotepad(id, initial);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const changed = notes.text.trim() !== usedText.trim();
+
+  const update = async () => {
+    setBusy(true);
+    setFailure("");
+    try {
+      await notes.flush();
+      onRestart(await tools.retry<"meeting">(id));
+    } catch (e) {
+      setFailure((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex min-h-7 items-center justify-between gap-3">
+        <button type="button" className="flex items-center gap-1.5 text-base font-medium text-ink" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <ChevronRight className={clsx("h-4 w-4 text-faint transition-transform duration-fast", open && "rotate-90")} aria-hidden />
+          Your notes
+        </button>
+        {open && (
+          <span className="flex items-center gap-3">
+            <NotepadHint state={notes.state} />
+            {!editing && (
+              <button type="button" className="btn-link font-normal" onClick={() => setEditing(true)}>
+                Edit
+              </button>
+            )}
+          </span>
+        )}
+      </div>
+      {open && (
+        <div className="mt-3 animate-fade-in pl-6">
+          {editing ? (
+            <div className="rounded-sm border border-line bg-panel px-4 py-3">
+              <NotepadField value={notes.text} onChange={notes.setText} autoFocus className="min-h-[8rem] text-base leading-[26px]" placeholder="Your notes" />
+            </div>
+          ) : notes.text.trim() ? (
+            <p className="whitespace-pre-wrap text-base text-muted">{notes.text}</p>
+          ) : (
+            <p className="text-base text-faint">None</p>
+          )}
+        </div>
+      )}
+      {changed && canUpdate && (
+        <div className="mt-4 space-y-3 pl-6">
+          <button type="button" className="btn-secondary btn-sm" onClick={update} disabled={busy}>
+            Update notes with my changes
+          </button>
+          {failure && <ErrorLine>{failure}</ErrorLine>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Ask about this meeting ---------- */
+
+interface QA {
+  question: string;
+  answer: string;
+  refs: number[];
+  error?: boolean;
+}
+
+function MeetingAsk({ id, segments, onJump }: { id: number; segments: Segment[]; onJump: (i: number) => void }) {
+  const [question, setQuestion] = useState("");
+  const [asked, setAsked] = useState<QA[]>([]);
+  const [busy, setBusy] = useState(false);
+  const ready = segments.length > 0;
+
+  const ask = async (e: FormEvent) => {
+    e.preventDefault();
+    const q = question.trim();
+    if (!q || busy || !ready) return;
+    setBusy(true);
+    try {
+      const r = await tools.askMeeting(id, q);
+      setAsked((a) => [...a, { question: q, answer: r.answer, refs: r.refs ?? [] }]);
+      setQuestion("");
+    } catch (err) {
+      setAsked((a) => [...a, { question: q, answer: (err as Error).message, refs: [], error: true }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-line pt-8">
+      <h3 className="mb-3 text-base font-medium">Ask about this meeting</h3>
+      <form onSubmit={ask} className="flex gap-2">
+        <input
+          className="input min-w-0 flex-1"
+          aria-label="Question about this meeting"
+          placeholder={ready ? "What did we decide about…" : "Available once there's a transcript"}
+          maxLength={500}
+          value={question}
+          disabled={!ready}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <button type="submit" className="btn-secondary shrink-0" disabled={!ready || busy || !question.trim()}>
+          {busy ? "Asking…" : "Ask"}
+        </button>
+      </form>
+      {asked.length > 0 && (
+        <ul className="mt-6 space-y-6" aria-live="polite">
+          {asked.map((qa, i) => (
+            <li key={i} className="animate-fade-in">
+              <p className="text-base text-ink">{qa.question}</p>
+              <p className={clsx("mt-1 whitespace-pre-wrap text-base", qa.error ? "text-danger" : "text-muted")}>{qa.answer}</p>
+              <RefChips refs={qa.refs} segments={segments} onJump={onJump} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
