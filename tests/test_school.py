@@ -187,3 +187,15 @@ def test_mac_app_sign_in_hands_back_a_one_time_code(client, settings):
     assert client.post("/api/auth/device/sso", json={"code": code}).status_code == 401
     # Only a personal desk hands out sign-in codes for a password.
     assert client.post("/api/auth/code", json={"email": JORDAN, "password": "demo-pass-123"}).status_code == 404
+
+
+def test_health_reports_the_mac_app_version_it_serves(client, settings):
+    import plistlib
+    import zipfile
+
+    assert "mac_app_version" not in client.get("/api/health").json()
+    path = settings.data_dir / "downloads" / "LocalSchool-macOS.zip"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("Teacher's Desk.app/Contents/Info.plist", plistlib.dumps({"CFBundleShortVersionString": "9.9.9"}))
+    assert client.get("/api/health").json()["mac_app_version"] == "9.9.9"

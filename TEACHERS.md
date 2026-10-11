@@ -59,7 +59,7 @@ All the options are on one page: **https://teachers-desk-xi.vercel.app/get**
 If your school wants your documents, students and chats to stay on your own Mac:
 
 1. Turn on **FileVault** (System Settings → Privacy & Security → FileVault). It keeps your students' information safe if the Mac is ever lost.
-2. In the Mac app choose **Teacher's Desk → Switch School Server…**, then **Keep my data on this Mac instead**.
+2. In the Mac app, click your name at the bottom left and choose **Keep my data on this Mac…**
 3. Press **Continue with Google** (or Microsoft), or sign in with your usual school email and password. Then click **Set up**.
 
 The first setup takes a few minutes. Afterwards the app opens your own Teacher's Desk already signed in, and the sidebar says *Your data is kept on this Mac*. Add your documents under **Documents** and your class list under **Settings → People**.
@@ -68,6 +68,8 @@ Things to know:
 - Answers still come from your school's AI. It sees only the passages each question needs and keeps nothing.
 - Everything else lives only on this Mac. There's no shared school library and no backup, so if you replace your Mac, add your documents again.
 - To go back to the school's Teacher's Desk, use **Switch School Server…** again.
+
+The Mac app keeps itself up to date: it downloads new versions in the background and installs them when you quit it. To update right away, choose **Teacher's Desk → Check for Updates…**
 
 ## Privacy
 

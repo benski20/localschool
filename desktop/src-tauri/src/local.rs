@@ -127,16 +127,26 @@ pub struct Status {
     pub bundled: bool,
     /// Google / Microsoft sign-in, when the school turned it on.
     pub sso: Vec<String>,
+    /// The hosted demo's teacher sign-in (fictional students only), so testers can try it.
+    pub demo: Option<DemoLogin>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DemoLogin {
+    pub email: String,
+    pub password: String,
 }
 
 #[derive(Deserialize, Default)]
 struct SchoolHealth {
     #[serde(default)]
     sso: Vec<String>,
+    #[serde(default)]
+    demo: Option<DemoLogin>,
 }
 
-fn school_sso(app: &AppHandle) -> Vec<String> {
-    let Ok((base, _)) = school(app) else { return vec![] };
+fn school_health(app: &AppHandle) -> SchoolHealth {
+    let Ok((base, _)) = school(app) else { return SchoolHealth::default() };
     ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(4))
         .build()
@@ -144,7 +154,6 @@ fn school_sso(app: &AppHandle) -> Vec<String> {
         .call()
         .ok()
         .and_then(|r| r.into_json::<SchoolHealth>().ok())
-        .map(|h| h.sso.into_iter().filter(|p| SSO_PROVIDERS.contains(&p.as_str())).collect())
         .unwrap_or_default()
 }
 
@@ -249,7 +258,17 @@ pub fn status(app: &AppHandle) -> Status {
         filevault: filevault_on(),
         installed: home(app).is_some_and(|h| h.join("server.env").exists()),
         bundled: script(app).is_some(),
-        sso: school_sso(app),
+        sso: Vec::new(),
+        demo: None,
+    }
+    .with_school(school_health(app))
+}
+
+impl Status {
+    fn with_school(mut self, h: SchoolHealth) -> Self {
+        self.sso = h.sso.into_iter().filter(|p| SSO_PROVIDERS.contains(&p.as_str())).collect();
+        self.demo = h.demo;
+        self
     }
 }
 

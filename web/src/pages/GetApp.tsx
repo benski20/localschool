@@ -55,7 +55,20 @@ export function GetApp() {
           </Option>
         </div>
 
-        <p className="mt-8 text-sm text-faint">Tip: in Safari, File → Add to Dock opens it in its own window.</p>
+        <section id="keep" className="mt-12 scroll-mt-8">
+          <h2 className="text-lg font-normal text-ink">Keep your data on your Mac</h2>
+          <p className="mt-2 text-base text-muted">
+            With the Mac app, your documents, students and chats can stay on your own Mac instead of the school's server. Answers
+            still come from the school's AI.
+          </p>
+          <ol className="mt-4 space-y-2 text-base text-muted">
+            <li>1. Install the Mac app (above) and turn on FileVault in System Settings.</li>
+            <li>2. In the app, open your name at the bottom left and choose <span className="text-ink">Keep my data on this Mac…</span></li>
+            <li>3. Sign in with your school account and click Set up.</li>
+          </ol>
+        </section>
+
+        <p className="mt-10 text-sm text-faint">Tip: in Safari, File → Add to Dock opens it in its own window.</p>
         <p className="mt-3 text-sm text-faint">
           <a href="/privacy" className="underline-offset-4 hover:text-ink hover:underline">
             How {PRODUCT_NAME} handles information

@@ -344,6 +344,13 @@ async function localStatus() {
   $("go-local").hidden = !st?.bundled;
   $("filevault").hidden = !st || st.filevault;
   renderSso(st?.sso || []);
+  // The hosted demo (fictional students): fill in its teacher with one click.
+  $("local-demo").hidden = !st?.demo;
+  $("local-demo-fill").onclick = () => {
+    $("l-email").value = st.demo.email;
+    $("l-password").value = st.demo.password;
+    $("local-start").focus();
+  };
   return st;
 }
 
@@ -495,6 +502,12 @@ $("filevault-check").onclick = async () => {
 
 (async () => {
   localStatus();
+  if (params.has("local")) {
+    // "Keep my data on this Mac…" from the menu or the account menu.
+    lastSaved = await invoke("current_server").catch(() => null);
+    openLocal();
+    return;
+  }
   if (params.has("setup")) {
     // Back from signing in with Google / Microsoft: setting up is under way.
     show("installing");

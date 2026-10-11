@@ -44,6 +44,16 @@ A teacher's own choice (*Switch School Server…*) overrides it.
 
 For discovery, start the server with `ADVERTISE_MDNS=true` and `SCHOOL_NAME="…"`.
 
+## Updates
+
+The app updates itself from the school's own server, with no Apple account or update service.
+1. `/api/health` reports `mac_app_version`, read from the `Info.plist` inside the zip the server hands out (`/install/LocalSchool-macOS.zip`).
+2. Shortly after each launch, and every six hours after that, the app compares that version with its own. If the server's is newer, it downloads the zip, unpacks it, and checks its signature and version.
+3. When the teacher quits, a small helper puts the new app in place of the old one.
+4. **Check for Updates…** in the app menu does the same at once, and reopens the app.
+
+Deploying a new release to the school's server is all it takes. On a personal desk, the local server follows the app, as before.
+
 ## Sign in with Google or Microsoft
 
 Google refuses sign-in inside embedded web views, so the app does it in the teacher's browser:

@@ -349,6 +349,7 @@ button { font: inherit; color: inherit; }
 .form-row .label { margin: 0; }
 .form .input { font-family: var(--sans); font-size: 14px; }
 .form .error, .form .hint { padding-top: 0; }
+#local-demo .link { font-size: inherit; padding: 0; }
 .notice { margin-top: 24px; border-color: rgb(var(--warning) / 0.5); }
 .notice .actions { margin-top: 14px; }
 .notice:not([hidden]) + .form { opacity: 0.5; pointer-events: none; }
