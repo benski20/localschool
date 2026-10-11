@@ -19,11 +19,11 @@ Moving from the pilot GPU to the school box is a URL change in **Admin → Runti
 
 ## Try it now: just open a link
 
-**https://highlightcenter1234--localschool-app-web.modal.run**
+**https://teachers-desk-xi.vercel.app**
 
 Press **Try the demo** (a fictional school) or sign in as `admin@school.local`. There's nothing to install. Send teachers [TEACHERS.md](TEACHERS.md), a one-page guide.
 
-This hosted pilot runs on Modal, deployed by **Actions → Deploy Modal runtime**: the app server sits in one small container with its data on a Modal Volume, and the model runtime in another. Both sleep when idle. Use it for **demo data only**; real student data goes on the on-site server below. The admin password is the `LS_ADMIN_PASSWORD` secret, or `LS_RUNTIME_TOKEN` if that isn't set. Change it with the key icon.
+This address is a Vercel front door that forwards everything to the hosted pilot on Modal (`Actions → Deploy Vercel front door`). The pilot runs on Modal, deployed by **Actions → Deploy Modal runtime**: the app server sits in one small container with its data on a Modal Volume, and the model runtime in another. Both sleep when idle. Use it for **demo data only**; real student data goes on the on-site server below. The admin password is the `LS_ADMIN_PASSWORD` secret, or `LS_RUNTIME_TOKEN` if that isn't set. Change it with the key icon.
 
 The Mac app ships connected to this link, so the release zip just works. A school's own server or IT's managed `server.json` overrides it.
 
