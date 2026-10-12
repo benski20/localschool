@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import clsx from "clsx";
-import { ArrowLeft, ArrowUp, AudioLines, Calendar, Check, CircleCheck, Plus, Sparkles, User, X, ZoomIn } from "lucide-react";
-import { CopyButton, EditableText, SaveHint, WordButton, useDraftOutput } from "../OutputEditor";
+import { ArrowUp, AudioLines, Calendar, Check, CircleCheck, Plus, Sparkles, User, X, ZoomIn } from "lucide-react";
+import { EditableText, useDraftOutput } from "../OutputEditor";
+import { DocHeader } from "../DocHeader";
 import { NotepadField, NotepadHint, useNotepad } from "../Notepad";
 import { TranscriptView, clock, stamp, type TranscriptFocus } from "../TranscriptView";
-import { ErrorLine } from "../ToolPage";
+import { Chip, ErrorLine } from "../ToolPage";
 import {
   tools,
   type ActionItem,
@@ -51,16 +51,6 @@ function when(iso: string): string {
   if (diff === 0) return `Today, ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
   if (diff === 1) return "Yesterday";
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function Chip({ children, className, ...rest }: { children: ReactNode; className?: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const base = "inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-panel px-3 text-sm text-muted";
-  if (!rest.onClick) return <span className={clsx(base, className)}>{children}</span>;
-  return (
-    <button type="button" {...rest} className={clsx(base, "transition-colors hover:border-ink/25 hover:text-ink", className)}>
-      {children}
-    </button>
-  );
 }
 
 export function MeetingDoc({
@@ -123,26 +113,16 @@ export function MeetingDoc({
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 pt-8 sm:px-8 sm:pt-12">
-      <Link to="/tools/meeting" className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm text-faint transition-colors hover:text-ink">
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-        Meetings
-      </Link>
-
-      <div className="mt-5 flex items-start justify-between gap-4">
-        <h1 className="min-w-0 font-serif text-[32px] leading-[40px] tracking-[-0.01em] text-ink sm:text-[36px] sm:leading-[44px]">
-          {draft.title || "Meeting notes"}
-        </h1>
-        <div className="mt-2 flex shrink-0 items-center gap-2">
-          <SaveHint state={saved} />
-          <CopyButton text={text} />
-          <WordButton title={draft.title || "Meeting notes"} text={text} className="hidden sm:inline-flex" />
-        </div>
-      </div>
-
-      {/* Chips: which notes, when, who, and the way to the transcript. */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <DocHeader
+        back={{ to: "/tools/meeting", label: "Meetings" }}
+        title={draft.title || "Meeting notes"}
+        saved={saved}
+        copy={text}
+        word={{ title: draft.title || "Meeting notes", text }}
+        chips={
+          <>
         {recorded ? (
-          <span role="tablist" aria-label="Notes" className="inline-flex h-8 items-center rounded-full border border-line bg-subtle p-0.5 text-sm">
+          <span role="tablist" aria-label="Notes" className="segmented">
             {(
               [
                 ["enhanced", "Enhanced", <Sparkles key="i" className="h-3.5 w-3.5" aria-hidden />],
@@ -155,10 +135,6 @@ export function MeetingDoc({
                 aria-selected={view === key}
                 type="button"
                 onClick={() => setView(key)}
-                className={clsx(
-                  "inline-flex h-7 items-center gap-1.5 rounded-full px-3 transition-[background-color,color,box-shadow] duration-fast",
-                  view === key ? "bg-panel text-ink shadow-sm" : "text-faint hover:text-ink",
-                )}
               >
                 {icon}
                 {label}
@@ -184,7 +160,9 @@ export function MeetingDoc({
             {last?.end != null && <span className="tnum text-faint">{clock(last.end)}</span>}
           </Chip>
         )}
-      </div>
+          </>
+        }
+      />
 
       {view === "enhanced" ? (
         <div className="mt-10 animate-fade-in">

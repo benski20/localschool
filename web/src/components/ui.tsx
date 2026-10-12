@@ -32,7 +32,7 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={clsx("flex animate-fadein flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-8", className)}>
+    <header className={clsx("flex animate-fade-in flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-8", className)}>
       <div className="min-w-0">
         {eyebrow && <div className="label mb-3">{eyebrow}</div>}
         <h1 className="text-2xl font-normal text-ink">{title}</h1>
@@ -57,7 +57,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={clsx("flex animate-fadein flex-col items-center justify-center rounded border border-line bg-panel px-6 py-16 text-center", className)}>
+    <div className={clsx("flex animate-fade-in flex-col items-center justify-center rounded border border-line bg-panel px-6 py-16 text-center", className)}>
       <div className="mb-5 flex h-10 w-10 items-center justify-center rounded border border-line text-muted [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:stroke-[1.5]">
         {icon}
       </div>
@@ -152,7 +152,7 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p className="mt-1.5 animate-fadein text-xs text-danger" role="alert">
+        <p className="mt-1.5 animate-fade-in text-xs text-danger" role="alert">
           {error}
         </p>
       ) : (

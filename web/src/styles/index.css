@@ -1,6 +1,7 @@
 /*
  * Design system — shared classes. Tokens live in tokens.css; Tailwind maps them in tailwind.config.js.
- * Language: enterprise-flat. Hairline 1px borders, NO drop shadows, near-square corners (≤2px),
+ * Language: calm and quiet. Hairline 1px borders, soft corners (6–8px controls, 12px floating
+ * panels, pills for chips and toggles), very soft shadows only on things that float or press,
  * regular-weight headings, tiny uppercase tracked section labels, near-black primary buttons,
  * blue accent only for small details, status as UPPERCASE coloured text (no pills).
  *
@@ -9,12 +10,12 @@
  *           accent accent-hover accent-fg accent-soft ring (blue: small details only)
  *           danger warning success
  * Shadows   shadow-card = hairline ring only · shadow-card-hover · shadow-pop (menus, toasts: ring +
- *           whisper) · shadow-overlay (dialogs) · shadow-focus. shadow-xs/sm/md are intentionally none.
- * Radii     every rounded-* (sm…2xl) is 1–3px. rounded-full still makes dots/avatars.
+ *           whisper) · shadow-overlay (dialogs) · shadow-focus · shadow-xs/sm/md (very soft lift).
+ * Radii     rounded-sm 4 · rounded/md 6 · lg 8 · xl 12 · 2xl 16 · rounded-full (pills, dots).
  * Type      text-2xs 11 · xs 12 · sm 13 · base 15 (body) · md 16 · lg 18 · xl 22 · 2xl 28 (page title)
  *           · 3xl 36 · display 48. tracking-tightest/tighter/tight/wide/eyebrow. font-mono for numbers/ids.
  * Motion    duration-instant 80 · fast 120 · DEFAULT 160 · slow 220; ease-out / in-out (no overshoot)
- *           animate-fadein (kept) fade-in fade-out slide-up slide-down slide-in-right slide-in-left
+ *           animate-fade-in (kept) fade-in fade-out slide-up slide-down slide-in-right slide-in-left
  *           scale-in scale-out toast-in toast-out pulse-soft pulse-ring shimmer shimmer-bg
  *           .stagger (children fade in in sequence) or .stagger-item + style={{ "--i": n }}
  *
@@ -28,8 +29,8 @@
  *           ("CERTIFIED" in green) · .step-num (mono blue "01") · .meta (small grey · separated)
  * Surfaces  .card · .card-interactive (border darkens on hover) · .surface-pop · .rail (subtle grey
  *           right column) · .divider · .scrim (dialog backdrop)
- * Bits      .kbd · .chip (rectangular outlined suggestion; aria-pressed / data-active)
- *           .segmented > button (aria-selected / aria-pressed / aria-current / data-active="true")
+ * Bits      .kbd · .chip (outlined pill; aria-pressed / data-active)
+ *           .segmented > button (pill toggle; aria-selected / aria-pressed / aria-current / data-active)
  *           .tabs > a|button (underline tabs, same active attributes) · .table · .link · .skeleton
  *           .text-balance .text-pretty .tnum
  */
@@ -132,8 +133,8 @@
 @layer components {
   /* ---------- Buttons ---------- */
   .btn {
-    @apply relative inline-flex h-9 cursor-default select-none items-center justify-center gap-2 whitespace-nowrap rounded border border-transparent px-3.5 text-sm font-medium;
-    transition-property: color, background-color, border-color, box-shadow, opacity;
+    @apply relative inline-flex h-9 cursor-default select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-transparent px-3.5 text-sm font-medium;
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-duration: var(--dur-fast);
     transition-timing-function: var(--ease-out);
     -webkit-tap-highlight-color: transparent;
@@ -154,7 +155,7 @@
   }
 
   .btn-primary {
-    @apply btn bg-primary text-primary-fg;
+    @apply btn bg-primary text-primary-fg shadow-sm;
   }
   .btn-primary:hover {
     @apply bg-primary-hover;
@@ -164,7 +165,7 @@
   }
 
   .btn-secondary {
-    @apply btn border-line bg-panel text-ink;
+    @apply btn border-line bg-panel text-ink shadow-xs;
   }
   .btn-secondary:hover {
     @apply border-line-strong bg-subtle;
@@ -222,7 +223,7 @@
     @apply h-7 gap-1.5 px-2.5 text-xs;
   }
   .btn-lg {
-    @apply h-11 gap-2 px-5 text-base;
+    @apply h-11 gap-2 rounded-xl px-5 text-base;
   }
   .btn-icon {
     @apply w-9 px-0;
@@ -236,7 +237,7 @@
 
   /* ---------- Forms ---------- */
   .input {
-    @apply h-10 w-full rounded border border-line bg-panel px-3 text-base text-ink placeholder:text-faint;
+    @apply h-10 w-full rounded-lg border border-line bg-panel px-3 text-base text-ink shadow-xs placeholder:text-faint;
     transition-property: border-color, box-shadow, background-color;
     transition-duration: var(--dur-fast);
     transition-timing-function: var(--ease-out);
@@ -246,8 +247,8 @@
   }
   .input:focus,
   .input:focus-visible {
-    @apply border-ink/50 outline-none;
-    box-shadow: 0 0 0 1px rgb(var(--text) / 0.5);
+    @apply border-ink/30 outline-none;
+    box-shadow: 0 0 0 3px rgb(var(--text) / 0.06);
   }
   .input:disabled {
     @apply cursor-not-allowed bg-subtle text-muted;
@@ -261,12 +262,9 @@
   .input[aria-invalid="true"]:focus {
     box-shadow: 0 0 0 1px rgb(var(--danger) / 0.7);
   }
-  /* Long-form entry sits in a quiet grey well, like the reference's question box. */
+  /* Long-form entry: a calm white sheet with room to write. */
   textarea.input {
-    @apply h-auto bg-bg px-4 py-3 leading-[26px];
-  }
-  textarea.input:focus {
-    @apply bg-panel;
+    @apply h-auto rounded-xl px-4 py-3 leading-[26px];
   }
   select.input {
     @apply cursor-pointer appearance-none pr-9;
@@ -279,7 +277,7 @@
     @apply h-auto py-1.5 text-sm text-muted;
   }
   input[type="file"].input::file-selector-button {
-    @apply mr-3 h-7 cursor-pointer rounded border border-line bg-subtle px-2.5 text-xs font-medium text-ink;
+    @apply mr-3 h-7 cursor-pointer rounded-md border border-line bg-subtle px-2.5 text-xs font-medium text-ink;
     font-family: inherit;
   }
   .field-label {
@@ -312,20 +310,20 @@
 
   /* ---------- Surfaces ---------- */
   .card {
-    @apply rounded border border-line bg-panel;
+    @apply rounded-xl border border-line bg-panel;
   }
   .card-interactive {
     @apply card cursor-pointer;
-    transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+    transition: border-color var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
   }
   .card-interactive:hover {
-    @apply border-line-strong;
+    @apply border-line-strong shadow-md;
   }
   .card-interactive:active {
     @apply bg-subtle;
   }
   .surface-pop {
-    @apply rounded border border-line bg-elevated shadow-lg;
+    @apply rounded-xl border border-line bg-elevated shadow-lg;
   }
   .rail {
     @apply bg-subtle/60;
@@ -346,9 +344,9 @@
     @apply rounded-sm text-accent underline-offset-4 transition-colors hover:text-accent-hover hover:underline;
   }
 
-  /* Rectangular outlined suggestion box. */
+  /* Outlined pill: suggestions, choices, metadata. */
   .chip {
-    @apply inline-flex min-h-9 min-w-0 cursor-pointer select-none items-center gap-2 rounded border border-line bg-panel px-3.5 py-1.5 text-left text-sm text-muted;
+    @apply inline-flex min-h-8 min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-full border border-line bg-panel px-3.5 py-1 text-left text-sm text-muted;
     transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
   }
   .chip:hover {
@@ -364,22 +362,22 @@
   .chip[aria-pressed="true"],
   .chip[aria-selected="true"],
   .chip[data-active="true"] {
-    @apply border-ink/60 text-ink;
+    @apply border-ink/40 bg-subtle text-ink;
   }
   .chip:disabled {
     @apply pointer-events-none opacity-40;
   }
 
   .segmented {
-    @apply inline-flex items-stretch overflow-hidden rounded border border-line bg-panel;
+    @apply inline-flex items-stretch gap-0.5 rounded-full border border-line bg-subtle p-0.5;
   }
   .segmented > button,
   .segmented > a {
-    @apply inline-flex h-8 select-none items-center justify-center gap-1.5 whitespace-nowrap border-l border-line px-3 text-sm text-muted first:border-l-0;
-    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+    @apply inline-flex h-7 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm text-faint;
+    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   }
   .segmented > :hover {
-    @apply bg-subtle/60 text-ink;
+    @apply text-ink;
   }
   .segmented > :focus-visible {
     outline: none;
@@ -389,7 +387,7 @@
   .segmented > [aria-pressed="true"],
   .segmented > [aria-current="page"],
   .segmented > [data-active="true"] {
-    @apply bg-subtle text-ink;
+    @apply bg-panel text-ink shadow-sm;
   }
   .segmented > :disabled {
     @apply pointer-events-none opacity-40;

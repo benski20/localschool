@@ -137,7 +137,7 @@ export function Feedback() {
           {files.length > 0 && (
             <ul className="mt-3 divide-y divide-line rounded border border-line bg-panel">
               {files.map((f, i) => (
-                <li key={`${f.name}-${i}`} className="flex animate-fadein items-center gap-3 py-2 pl-3 pr-1.5 text-sm">
+                <li key={`${f.name}-${i}`} className="flex animate-fade-in items-center gap-3 py-2 pl-3 pr-1.5 text-sm">
                   <FileText className="h-4 w-4 shrink-0 text-faint" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-ink">{f.name}</span>
                   <span className="tnum shrink-0 text-xs text-faint">{formatBytes(f.size)}</span>
@@ -200,7 +200,7 @@ export function Feedback() {
           </select>
           {rubric === PASTE && (
             <textarea
-              className="input mt-3 animate-fadein"
+              className="input mt-3 animate-fade-in"
               rows={4}
               aria-label="Rubric text"
               placeholder="Paste the rubric here, one criterion per line"
@@ -209,7 +209,7 @@ export function Feedback() {
             />
           )}
           {rubric === UPLOAD && rubricFile && (
-            <div className="mt-3 flex animate-fadein items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
+            <div className="mt-3 flex animate-fade-in items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
               <FileText className="h-4 w-4 shrink-0 text-faint" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{rubricFile.name}</span>
               <button type="button" className="btn-ghost btn-icon btn-sm text-faint" aria-label="Remove rubric file" onClick={() => setRubricFile(null)}>

@@ -212,7 +212,7 @@ export function MeetingNotes() {
                 footer={links}
               />
             ) : mode === "file" && file ? (
-              <div className="animate-fadein rounded border border-line bg-panel p-5 sm:p-6">
+              <div className="animate-fade-in rounded border border-line bg-panel p-5 sm:p-6">
                 <p className="flex items-center gap-3 text-sm">
                   <FileAudio className="h-4 w-4 shrink-0 text-faint" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-ink">{file.name}</span>
@@ -232,7 +232,7 @@ export function MeetingNotes() {
                 </div>
               </div>
             ) : (
-              <div className="animate-fadein space-y-4">
+              <div className="animate-fade-in space-y-4">
                 <textarea
                   className="input"
                   rows={8}
@@ -323,7 +323,7 @@ export function MeetingNotes() {
 
 function ResumeUpload({ file, onSend, onCancel }: { file: File; onSend: () => void; onCancel: () => void }) {
   return (
-    <div className="flex animate-fadein items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
+    <div className="flex animate-fade-in items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
       <FileAudio className="h-4 w-4 shrink-0 text-faint" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{file.name}</span>
       <button type="button" className="btn-primary btn-sm" onClick={onSend}>

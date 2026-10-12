@@ -86,7 +86,7 @@ export function PasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   </p>
                 </div>
                 {error && (
-                  <p role="alert" className="animate-fadein text-sm text-danger">
+                  <p role="alert" className="animate-fade-in text-sm text-danger">
                     {error}
                   </p>
                 )}

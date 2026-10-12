@@ -178,7 +178,7 @@ export function ConsentRecorder({
 
   if (phase === "recording" || phase === "stopping")
     return (
-      <div className="animate-fadein">
+      <div className="animate-fade-in">
         <div className="flex h-5 items-center justify-between gap-3">
           {micOnly ? <p className="truncate text-sm text-faint">Recording your microphone only — {micOnly}</p> : <span />}
           <NotepadHint state={notes.state} />
@@ -217,7 +217,7 @@ export function ConsentRecorder({
 
   if (phase === "consent" || phase === "starting")
     return (
-      <div className="animate-fadein rounded border border-line bg-panel p-5 sm:p-6">
+      <div className="animate-fade-in rounded border border-line bg-panel p-5 sm:p-6">
         <label className="flex cursor-pointer items-start gap-3 text-base text-ink">
           <input type="checkbox" className="checkbox mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} autoFocus />
           Everyone in this meeting has agreed to be recorded
@@ -240,7 +240,7 @@ export function ConsentRecorder({
     );
 
   return (
-    <div className="animate-fadein">
+    <div className="animate-fade-in">
       {phase === "unsupported" ? (
         <p className="text-base text-muted">
           {isDesktop
@@ -254,7 +254,7 @@ export function ConsentRecorder({
         </button>
       )}
       {phase === "denied" && (
-        <p role="alert" className="mt-4 max-w-prose animate-fadein text-sm text-muted">
+        <p role="alert" className="mt-4 max-w-prose animate-fade-in text-sm text-muted">
           {isDesktop ? (
             <>
               The microphone is blocked. Open System Settings → Privacy &amp; Security → Microphone, turn on Teacher's

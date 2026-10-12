@@ -86,7 +86,7 @@ export function ParentEmail() {
               ))}
             </select>
             {suggest && (
-              <button type="button" className="btn-link mt-2 animate-fadein font-normal" onClick={() => setLanguage(suggest)}>
+              <button type="button" className="btn-link mt-2 animate-fade-in font-normal" onClick={() => setLanguage(suggest)}>
                 Use {suggest}, the family's language
               </button>
             )}

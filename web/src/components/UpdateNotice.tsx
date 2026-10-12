@@ -44,7 +44,7 @@ export function UpdateNotice() {
   }, []);
   if (!ready) return null;
   return (
-    <div role="status" className="animate-fadein fixed inset-x-0 bottom-5 z-[100] flex justify-center px-4 print:hidden">
+    <div role="status" className="animate-fade-in fixed inset-x-0 bottom-5 z-[100] flex justify-center px-4 print:hidden">
       <div className="flex items-center gap-4 border border-line bg-panel py-2.5 pl-4 pr-2.5 text-sm text-ink shadow-lg">
         <span>A new version of {PRODUCT_NAME} is ready.</span>
         <button type="button" className="btn-primary btn-sm" onClick={() => location.reload()}>

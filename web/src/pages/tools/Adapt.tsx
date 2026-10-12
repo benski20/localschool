@@ -87,7 +87,7 @@ export function Adapt() {
       <Narrow className="space-y-8">
         <Labelled label="Reading" htmlFor="adapt-text">
           {file ? (
-            <div className="flex animate-fadein items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
+            <div className="flex animate-fade-in items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
               <FileText className="h-4 w-4 shrink-0 text-faint" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{file.name}</span>
               <button type="button" className="btn-ghost btn-icon btn-sm text-faint" aria-label="Remove file" onClick={() => setFile(null)}>
@@ -118,7 +118,7 @@ export function Adapt() {
           <p className="field-label">{wants.length > 1 ? "Versions" : "Make it"}</p>
           <ul className="space-y-3">
             {wants.map((w, i) => (
-              <li key={i} className="flex animate-fadein items-center gap-2 sm:gap-3">
+              <li key={i} className="flex animate-fade-in items-center gap-2 sm:gap-3">
                 <select
                   className="input min-w-0 flex-[3]"
                   aria-label={`Version ${i + 1} level or student`}
