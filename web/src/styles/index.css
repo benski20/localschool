@@ -163,6 +163,10 @@
   .btn-primary:active:not(:disabled) {
     @apply bg-primary/80;
   }
+  /* Not ready yet: a quiet grey, not a heavy block. */
+  .btn-primary:disabled {
+    @apply bg-ink/10 text-ink/45 opacity-100 shadow-none;
+  }
 
   .btn-secondary {
     @apply btn border-line bg-panel text-ink shadow-xs;
