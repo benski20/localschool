@@ -37,7 +37,7 @@ export function Sidebar({ variant = "rail", onClose }: { variant?: "rail" | "dra
 
   return (
     <aside
-      className={clsx("flex h-full shrink-0 flex-col overflow-hidden border-r border-line bg-panel", drawer ? "w-full" : "w-[244px]")}
+      className={clsx("flex h-full shrink-0 flex-col overflow-hidden bg-ink/[0.025]", drawer ? "w-full" : "w-[244px]")}
       aria-label="Sidebar"
     >
       <div className="flex h-16 shrink-0 items-center gap-3 pl-5 pr-2">
@@ -54,7 +54,7 @@ export function Sidebar({ variant = "rail", onClose }: { variant?: "rail" | "dra
 
       <div className="shrink-0 px-3 pt-1">
         <button
-          className="group flex h-9 w-full items-center gap-2 rounded-[2px] border border-line bg-panel px-3 text-sm text-ink transition-colors hover:border-line-strong hover:bg-subtle"
+          className="group flex h-9 w-full items-center gap-2 rounded-lg bg-ink/[0.04] px-3 text-sm text-ink transition-colors hover:bg-ink/[0.07]"
           onClick={() => {
             navigate("/chat");
             onClose?.();
@@ -74,8 +74,8 @@ export function Sidebar({ variant = "rail", onClose }: { variant?: "rail" | "dra
               to={to}
               aria-current={active ? "page" : undefined}
               className={clsx(
-                "group flex h-9 items-center gap-3 rounded-[2px] px-3 text-[14.5px] transition-colors duration-100",
-                active ? "bg-subtle text-ink" : "text-muted hover:bg-subtle/60 hover:text-ink",
+                "group flex h-9 items-center gap-3 rounded-lg px-3 text-[14.5px] transition-colors duration-100",
+                active ? "bg-ink/[0.07] text-ink" : "text-muted hover:bg-ink/[0.04] hover:text-ink",
               )}
             >
               <Icon className={clsx("h-[17px] w-[17px] shrink-0", active ? "text-ink" : "text-faint group-hover:text-muted")} strokeWidth={1.6} aria-hidden />
@@ -168,8 +168,8 @@ function Recent({ conversations, onChanged }: { conversations: ConversationSumma
                     title={c.title}
                     className={({ isActive }) =>
                       clsx(
-                        "flex h-8 items-center rounded-[2px] pl-3 pr-9 text-[13.5px] transition-colors duration-100",
-                        isActive ? "bg-subtle text-ink" : "text-muted hover:bg-subtle/60 hover:text-ink",
+                        "flex h-8 items-center rounded-lg pl-3 pr-9 text-[13.5px] transition-colors duration-100",
+                        isActive ? "bg-ink/[0.07] text-ink" : "text-muted hover:bg-ink/[0.04] hover:text-ink",
                       )
                     }
                   >
@@ -182,7 +182,7 @@ function Recent({ conversations, onChanged }: { conversations: ConversationSumma
                     aria-label={isConfirming ? `Confirm delete “${c.title}”` : `Delete “${c.title}”`}
                     title={isConfirming ? "Click again to delete" : "Delete"}
                     className={clsx(
-                      "absolute right-1 top-1/2 flex h-6 -translate-y-1/2 items-center justify-center gap-1 rounded-[2px] text-[12px] transition-opacity duration-100",
+                      "absolute right-1 top-1/2 flex h-6 -translate-y-1/2 items-center justify-center gap-1 rounded-lg text-[12px] transition-opacity duration-100",
                       isConfirming
                         ? "border border-danger/40 bg-panel px-1.5 text-danger opacity-100"
                         : "w-6 text-faint opacity-0 hover:text-danger focus-visible:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-60",

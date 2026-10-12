@@ -220,7 +220,7 @@ function DocItem({ d, i, onOpen }: { d: Doc; i: number; onOpen: () => void }) {
   const processing = isProcessing(d);
   return (
     <li style={{ ["--i" as string]: i }}>
-      <button data-doc-row type="button" onClick={onOpen} className="group -mx-3 flex w-[calc(100%+24px)] items-center gap-4 rounded-[2px] px-3 py-5 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60">
+      <button data-doc-row type="button" onClick={onOpen} className="group -mx-3 flex w-[calc(100%+24px)] items-center gap-4 rounded-lg px-3 py-5 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60">
         <DocIcon filename={d.filename} mime={d.mime} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base text-ink">{d.title}</span>
@@ -434,7 +434,7 @@ function AddDialog({
             type="button"
             data-autofocus
             onClick={() => fileInput.current?.click()}
-            className="group flex w-full flex-col items-center justify-center rounded-[2px] border border-dashed border-line-strong px-6 py-14 text-center transition-colors duration-150 hover:border-ink/50 hover:bg-subtle/40 focus-visible:border-ink/50"
+            className="group flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong px-6 py-14 text-center transition-colors duration-150 hover:border-ink/50 hover:bg-subtle/40 focus-visible:border-ink/50"
           >
             <CloudUpload className="h-6 w-6 text-faint transition-colors group-hover:text-ink" strokeWidth={1.5} aria-hidden />
             <span className="mt-3 text-base text-ink">
@@ -456,7 +456,7 @@ function AddDialog({
 function DropOverlay() {
   return (
     <div className="ws-overlay pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 p-6">
-      <div className="flex h-full max-h-[360px] w-full max-w-[560px] flex-col items-center justify-center rounded-[2px] border border-dashed border-ink/50 text-center">
+      <div className="flex h-full max-h-[360px] w-full max-w-[560px] flex-col items-center justify-center rounded-lg border border-dashed border-ink/50 text-center">
         <CloudUpload className="h-7 w-7 text-ink" strokeWidth={1.5} aria-hidden />
         <div className="mt-4 text-xl font-normal text-ink">Drop to add</div>
       </div>

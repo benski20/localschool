@@ -29,7 +29,7 @@ export function AttachmentChip({
   return (
     <span
       className={clsx(
-        "ls-chip relative inline-flex h-8 max-w-full items-center gap-2 overflow-hidden rounded-[2px] border bg-panel pl-2.5 pr-1 text-[13px]",
+        "ls-chip relative inline-flex h-8 max-w-full items-center gap-2 overflow-hidden rounded-lg border bg-panel pl-2.5 pr-1 text-[13px]",
         failed ? "border-danger/35" : "border-line",
         className,
       )}
@@ -56,7 +56,7 @@ export function AttachmentChip({
           type="button"
           onClick={onRetry}
           aria-label={`Retry ${item.name}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-faint transition-colors hover:bg-subtle hover:text-ink"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-faint transition-colors hover:bg-subtle hover:text-ink"
         >
           <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>
@@ -66,7 +66,7 @@ export function AttachmentChip({
           type="button"
           onClick={onRemove}
           aria-label={`Remove ${item.name}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] text-faint transition-colors hover:bg-subtle hover:text-ink"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-faint transition-colors hover:bg-subtle hover:text-ink"
         >
           <X className="h-3.5 w-3.5" strokeWidth={1.75} />
         </button>

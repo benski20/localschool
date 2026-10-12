@@ -22,7 +22,7 @@ export function Avatar({ name, size = 28 }: { name: string; size?: number }) {
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-[2px] border border-line bg-subtle font-mono font-medium text-muted"
+      className="inline-flex shrink-0 items-center justify-center rounded-lg bg-subtle font-mono font-medium text-muted"
       style={{ width: size, height: size, fontSize: Math.round(size * 0.39) }}
     >
       {initials(name)}
@@ -86,7 +86,7 @@ export function UserMenu() {
     <div ref={root} className="relative">
       <button
         ref={trigger}
-        className="group flex h-11 w-full items-center gap-3 rounded-[2px] px-2 text-left transition-colors hover:bg-subtle aria-expanded:bg-subtle"
+        className="group flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors hover:bg-subtle aria-expanded:bg-subtle"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -101,7 +101,7 @@ export function UserMenu() {
           ref={menu}
           role="menu"
           aria-label="Account"
-          className="ls-menu absolute bottom-full left-0 right-0 z-50 mb-2 border border-line bg-panel py-1.5 shadow-lg"
+          className="ls-menu absolute bottom-full left-0 right-0 z-50 mb-2 border border-ink/[0.07] bg-panel py-1.5 shadow-lg"
         >
           <div className="flex items-center gap-3 border-b border-line px-3 pb-3 pt-1.5">
             <Avatar name={user.name} size={32} />
@@ -112,7 +112,7 @@ export function UserMenu() {
           </div>
 
           <div className="px-3 pb-1.5 pt-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Theme</div>
-          <div className="mx-3 mb-2 grid grid-cols-3 border border-line" role="group" aria-label="Theme">
+          <div className="bg-ink/[0.04] mx-3 mb-2 grid grid-cols-3 " role="group" aria-label="Theme">
             {THEMES.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}

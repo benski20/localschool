@@ -87,7 +87,7 @@ export function DropZoneOverlay({
           over ? "scale-100" : "scale-[0.985]",
         )}
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-[2px] border border-line bg-panel text-ink">
+        <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-ink/[0.04] text-ink">
           <Upload className="h-5 w-5" strokeWidth={1.6} />
         </span>
         <span className="text-[17px] text-ink">{label}</span>

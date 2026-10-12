@@ -43,16 +43,16 @@ export function DraftList({ tool, activeId, refreshKey }: { tool: ToolKey; activ
   };
 
   return (
-    <section aria-label="Recent" className="animate-fade-in pt-4">
-      <h2 className="label mb-2">Recent</h2>
-      <ul className="divide-y divide-line border-t border-line">
+    <section aria-label="Recent" className="animate-fade-in pt-2">
+      <h2 className="mb-2 text-sm font-medium text-muted">Recent</h2>
+      <ul className="-mx-3 space-y-0.5">
         {others.slice(0, 8).map((d) => (
-          <li key={d.id} className="group relative flex items-center">
+          <li key={d.id} className="group relative flex items-center rounded-lg transition-colors duration-fast hover:bg-ink/[0.03]">
             <Link
               to={`/tools/${tool}/${d.id}`}
               className={clsx(
-                "flex min-w-0 flex-1 items-baseline justify-between gap-4 py-3 pr-9 text-sm transition-colors",
-                "text-muted hover:text-ink",
+                "flex min-w-0 flex-1 items-baseline justify-between gap-4 rounded-lg py-2.5 pl-3 pr-11 text-sm transition-colors",
+                "text-ink/80 hover:text-ink",
               )}
             >
               <span className="truncate">{d.title || "Untitled"}</span>
@@ -66,7 +66,7 @@ export function DraftList({ tool, activeId, refreshKey }: { tool: ToolKey; activ
                 autoFocus
                 onClick={() => remove(d)}
                 onBlur={() => setConfirm(null)}
-                className="btn-ghost btn-sm absolute right-0 animate-fade-in bg-bg text-danger hover:text-danger"
+                className="btn-ghost btn-sm absolute right-1.5 animate-fade-in bg-bg text-danger hover:text-danger"
               >
                 Delete
               </button>
@@ -75,7 +75,7 @@ export function DraftList({ tool, activeId, refreshKey }: { tool: ToolKey; activ
                 type="button"
                 onClick={() => setConfirm(d.id)}
                 aria-label={`Delete ${d.title || "draft"}`}
-                className="btn-ghost btn-icon btn-sm absolute right-0 text-faint opacity-100 transition-opacity focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                className="btn-ghost btn-icon btn-sm absolute right-1.5 text-faint opacity-100 transition-opacity focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
               >
                 <X className="h-3.5 w-3.5" aria-hidden />
               </button>

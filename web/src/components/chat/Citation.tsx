@@ -35,7 +35,7 @@ export function CitationChip({ source, active, onOpen }: { source: Source; activ
         onBlur={hide}
         aria-label={`Source ${source.n}: ${source.title}`}
         className={clsx(
-          "mx-[1.5px] inline-flex h-[18px] min-w-[18px] -translate-y-[1.5px] items-center justify-center rounded-[2px] border px-[4px] align-middle font-mono text-[10.5px] font-medium leading-none tabular-nums transition-colors duration-150",
+          "mx-[1.5px] inline-flex h-[18px] min-w-[18px] -translate-y-[1.5px] items-center justify-center rounded-lg border px-[4px] align-middle font-mono text-[10.5px] font-medium leading-none tabular-nums transition-colors duration-150",
           active
             ? "border-accent bg-accent text-accent-fg"
             : "border-accent/25 bg-accent-soft text-accent hover:border-accent hover:bg-accent hover:text-accent-fg",
@@ -69,7 +69,7 @@ function Preview({ anchor, source }: { anchor: HTMLElement; source: Source }) {
       role="tooltip"
       style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}
       className={clsx(
-        "pointer-events-none fixed z-50 w-[340px] max-w-[calc(100vw-24px)] rounded-[2px] border border-line-strong bg-panel",
+        "pointer-events-none fixed z-50 w-[340px] max-w-[calc(100vw-24px)] rounded-lg border border-ink/[0.07] bg-panel",
         pos && "chat-pop",
       )}
     >

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import clsx from "clsx";
-import { FileText, Plus, X } from "lucide-react";
+import { Plus, RotateCcw, X } from "lucide-react";
 import { SkeletonText } from "../../components/ui";
-import { ToolPage, Narrow, Labelled, ErrorLine, Reveal } from "../../components/tools/ToolPage";
+import { ToolPage, Narrow, Labelled, ErrorLine, Chip } from "../../components/tools/ToolPage";
 import { useRoster } from "../../components/tools/StudentPicker";
 import { DraftProgress, RetryButton, useDraft } from "../../components/tools/JobProgress";
-import { CopyButton, EditableText, WordButton, OutputEditor, useDraftOutput } from "../../components/tools/OutputEditor";
+import { EditableText, useDraftOutput } from "../../components/tools/OutputEditor";
 import { DraftList } from "../../components/tools/DraftList";
+import { DocHeader } from "../../components/tools/DocHeader";
+import { FileRow } from "../../components/tools/FileRow";
 import {
   LANGUAGES,
   isWorking,
@@ -33,12 +35,14 @@ const toVersion = (w: Want): AdaptVersionIn => {
   return kind === "student" ? { student_id: Number(value), language } : { level: value, language };
 };
 
+const TITLE = "Adapt a reading";
+
 export function Adapt() {
   const { draftId } = useParams();
   const id = draftId ? Number(draftId) : null;
   const navigate = useNavigate();
-  const initial = (useLocation().state as { draft?: Draft<"adapt"> } | null)?.draft ?? null;
-  const { draft, restart, error } = useDraft<"adapt">(id, initial);
+  const state = useLocation().state as { draft?: Draft<"adapt">; from?: Draft<"adapt"> } | null;
+  const { draft, restart, error } = useDraft<"adapt">(id, state?.draft ?? null);
   const meta = useToolsMeta();
   const roster = useRoster();
 
@@ -49,21 +53,51 @@ export function Adapt() {
   const [failure, setFailure] = useState("");
   const picker = useRef<HTMLInputElement>(null);
 
-  // A draft reopened from Recent fills the form with what it was asked, ready for a variation.
+  // A draft that was opened (or "Adapt again" from one) fills the form with what it was asked,
+  // ready for a variation.
+  const source = draft ?? state?.from ?? null;
   const seeded = useRef<number | null>(null);
   useEffect(() => {
-    if (!draft || seeded.current === draft.id) return;
-    seeded.current = draft.id;
+    if (!source || seeded.current === source.id) return;
+    seeded.current = source.id;
     setFile(null);
-    setText(draft.input.text ?? "");
-    const asked = (draft.input.versions ?? []) as { level: string; language: string; student: { id: number } | null }[];
+    setText(source.input.text ?? "");
+    const asked = (source.input.versions ?? []) as { level: string; language: string; student: { id: number } | null }[];
     if (asked.length)
       setWants(asked.map((v) => ({ who: v.student ? `student:${v.student.id}` : `level:${v.level}`, language: v.language || "English" })));
-  }, [draft]);
+  }, [source]);
+
+  // A finished reading reads like a document: its own header, no tool chrome.
+  if (id !== null && draft && !error && draft.status === "ready" && draft.output) {
+    return <AdaptDoc draft={draft} onAgain={() => navigate("/tools/adapt", { state: { from: draft } })} />;
+  }
+
+  // Waiting for (or reporting on) a reading that was just sent.
+  if (id !== null) {
+    return (
+      <ToolPage title={TITLE}>
+        <Narrow className="space-y-4">
+          {error ? (
+            <ErrorLine>This reading isn't available.</ErrorLine>
+          ) : !draft ? (
+            <SkeletonText lines={4} />
+          ) : isWorking(draft.status) ? (
+            <DraftProgress draft={draft} />
+          ) : (
+            <>
+              <ErrorLine>{draft.error || "Couldn't adapt this reading."}</ErrorLine>
+              <RetryButton<Draft<"adapt">> id={draft.id} onRetry={restart} />
+            </>
+          )}
+        </Narrow>
+      </ToolPage>
+    );
+  }
 
   const max = meta?.limits.adapt_versions ?? 3;
   const ready = !!text.trim() || !!file;
   const setWant = (i: number, patch: Partial<Want>) => setWants((ws) => ws.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+  const students = [...(roster?.students ?? [])].sort((a, b) => a.name.localeCompare(b.name));
 
   const submit = async () => {
     setBusy(true);
@@ -80,24 +114,16 @@ export function Adapt() {
     }
   };
 
-  const students = [...(roster?.students ?? [])].sort((a, b) => a.name.localeCompare(b.name));
-
   return (
-    <ToolPage title="Adapt" width={id !== null && draft?.status === "ready" && (draft.output?.versions.length ?? 1) > 1 ? "wide" : "narrow"}>
-      <Narrow className="space-y-8">
+    <ToolPage title={TITLE} subtitle="Make a text easier to read, or translate it.">
+      <Narrow className="space-y-6">
         <Labelled label="Reading" htmlFor="adapt-text">
           {file ? (
-            <div className="flex animate-fadein items-center gap-3 rounded border border-line bg-panel py-2 pl-3 pr-1.5 text-sm">
-              <FileText className="h-4 w-4 shrink-0 text-faint" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{file.name}</span>
-              <button type="button" className="btn-ghost btn-icon btn-sm text-faint" aria-label="Remove file" onClick={() => setFile(null)}>
-                <X className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </div>
+            <FileRow name={file.name} size={file.size} onRemove={() => setFile(null)} />
           ) : (
             <>
               <textarea id="adapt-text" className="input" rows={7} placeholder="Paste a reading" value={text} onChange={(e) => setText(e.target.value)} />
-              <button type="button" className="btn-link mt-3 font-normal" onClick={() => picker.current?.click()}>
+              <button type="button" className="btn-link mt-2 font-normal" onClick={() => picker.current?.click()}>
                 Upload a file
               </button>
             </>
@@ -114,13 +140,15 @@ export function Adapt() {
           />
         </Labelled>
 
-        <div>
-          <p className="field-label">{wants.length > 1 ? "Versions" : "Make it"}</p>
-          <ul className="space-y-3">
+        <Labelled label={wants.length > 1 ? "Versions" : "Make it"}>
+          <ul className="space-y-2">
             {wants.map((w, i) => (
-              <li key={i} className="flex animate-fadein items-center gap-2 sm:gap-3">
+              <li
+                key={i}
+                className="flex h-10 animate-fade-in items-center rounded-lg bg-ink/[0.04] transition-[border-color,box-shadow] duration-fast focus-within:border-ink/30 focus-within:shadow-[0_0_0_3px_rgb(var(--text)/0.06)] hover:bg-ink/[0.06]"
+              >
                 <select
-                  className="input min-w-0 flex-[3]"
+                  className={clsx(BARE, "flex-[3]")}
                   aria-label={`Version ${i + 1} level or student`}
                   value={w.who}
                   onChange={(e) => setWant(i, { who: e.target.value })}
@@ -142,8 +170,9 @@ export function Adapt() {
                     </optgroup>
                   )}
                 </select>
+                <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
                 <select
-                  className="input min-w-0 flex-[2]"
+                  className={clsx(BARE, "flex-[2]")}
                   aria-label={`Version ${i + 1} language`}
                   value={w.language}
                   onChange={(e) => setWant(i, { language: e.target.value })}
@@ -155,7 +184,7 @@ export function Adapt() {
                 {wants.length > 1 && (
                   <button
                     type="button"
-                    className="btn-ghost btn-icon btn-sm shrink-0 text-faint"
+                    className="btn-ghost btn-icon btn-sm mr-1 shrink-0 text-faint"
                     aria-label={`Remove version ${i + 1}`}
                     onClick={() => setWants((ws) => ws.filter((_, j) => j !== i))}
                   >
@@ -168,53 +197,35 @@ export function Adapt() {
           {wants.length < max && (
             <button
               type="button"
-              className="btn-link mt-3 font-normal"
+              className="btn-link mt-2 font-normal"
               onClick={() => setWants((ws) => [...ws, { who: "level:simpler", language: "English" }])}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden />
               Another version
             </button>
           )}
-        </div>
+        </Labelled>
 
-        <button type="button" className="btn-primary btn-lg" disabled={!ready || busy} onClick={submit}>
-          {busy ? "Starting…" : "Adapt"}
-        </button>
-        {failure && <ErrorLine>{failure}</ErrorLine>}
+        <div className="space-y-3 pt-2">
+          <button type="button" className="btn-primary btn-lg" disabled={!ready || busy} onClick={submit}>
+            {busy ? "Starting…" : "Adapt"}
+          </button>
+          {failure && <ErrorLine>{failure}</ErrorLine>}
+        </div>
       </Narrow>
 
-      <Reveal id={id}>
-      {id !== null &&
-        (error ? (
-          <Narrow>
-            <ErrorLine>This reading isn't available.</ErrorLine>
-          </Narrow>
-        ) : !draft ? (
-          <Narrow>
-            <SkeletonText lines={4} />
-          </Narrow>
-        ) : isWorking(draft.status) ? (
-          <Narrow>
-            <DraftProgress draft={draft} />
-          </Narrow>
-        ) : draft.status === "error" ? (
-          <Narrow className="space-y-4">
-            <ErrorLine>{draft.error || "Couldn't adapt this reading."}</ErrorLine>
-            <RetryButton<Draft<"adapt">> id={draft.id} onRetry={restart} />
-          </Narrow>
-        ) : (
-          <Result draft={draft} />
-        ))}
-      </Reveal>
-
       <Narrow>
-        <DraftList tool="adapt" activeId={id} refreshKey={draft?.status} />
+        <DraftList tool="adapt" activeId={null} refreshKey={draft?.status} />
       </Narrow>
     </ToolPage>
   );
 }
 
+/** A select that sits borderless inside the shared rounded group. */
+const BARE = "input h-full min-w-0 rounded-none border-0 bg-transparent shadow-none focus:shadow-none";
+
 const about = (r: Readability) => [r.grade !== null ? `about grade ${Math.round(r.grade)}` : "", `${r.words} words`].filter(Boolean).join(" · ");
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function versionText(v: AdaptVersion): string {
   const head = v.title ? `${v.title}\n\n` : "";
@@ -222,55 +233,85 @@ function versionText(v: AdaptVersion): string {
   return `${head}${v.text}${words}`;
 }
 
-function Result({ draft }: { draft: Draft<"adapt"> }) {
+/** The adapted reading as a document: one version at a time, a pill toggle to switch. */
+function AdaptDoc({ draft, onAgain }: { draft: Draft<"adapt">; onAgain: () => void }) {
   const { output, setOutput, saved } = useDraftOutput(draft);
+  const [active, setActive] = useState(0);
   if (!output) return null;
   const n = output.versions.length;
-  const setVersion = (i: number, patch: Partial<AdaptVersion>) =>
-    setOutput({ ...output, versions: output.versions.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
+  const i = Math.min(active, n - 1);
+  const v = output.versions[i]!;
+  const setVersion = (patch: Partial<AdaptVersion>) =>
+    setOutput({ ...output, versions: output.versions.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+  const original = output.original;
 
   return (
-    <OutputEditor label="Adapted" saved={saved}>
-      <p className="-mt-2 mb-8 text-sm text-faint">Original: {about(output.original)}</p>
-      <div className={clsx("grid gap-12", n === 2 && "lg:grid-cols-2 lg:gap-14", n === 3 && "lg:grid-cols-3 lg:gap-10")}>
-        {output.versions.map((v, i) => (
-          <section key={i} className="min-w-0 animate-slide-up" aria-label={v.label}>
-            <div className="mb-1 flex items-center justify-between gap-3 border-b border-line pb-3">
-              <h3 className="min-w-0 truncate text-base font-medium">{v.label}</h3>
-              <span className="flex shrink-0 items-center gap-2">
-                <CopyButton text={() => versionText(v)} />
-                <WordButton title={() => v.title || v.label} text={() => versionText(v)} />
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-24 pt-8 sm:px-8 sm:pt-12">
+      <DocHeader
+        back={{ to: "/tools/adapt", label: TITLE }}
+        title={
+          v.title ? (
+            // Editable in place; the wide inner box lets the title fill the row up to Copy and ⋯.
+            <span className="block w-screen max-w-full">
+              <EditableText
+                single
+                label="Title"
+                value={v.title}
+                onChange={(title) => setVersion({ title })}
+                className="!py-0 font-serif !text-[32px] !leading-[40px] tracking-[-0.01em] sm:!text-[36px] sm:!leading-[44px]"
+              />
+            </span>
+          ) : (
+            "Adapted reading"
+          )
+        }
+        saved={saved}
+        copy={() => versionText(v)}
+        word={{ title: v.title || v.label, text: () => versionText(v) }}
+        menu={[{ label: "Adapt again", icon: <RotateCcw className="h-4 w-4" aria-hidden />, onSelect: onAgain }]}
+        chips={
+          <>
+            {n > 1 && (
+              <span role="tablist" aria-label="Versions" className="segmented max-w-full overflow-x-auto">
+                {output.versions.map((x, j) => (
+                  <button key={j} type="button" role="tab" aria-selected={j === i} onClick={() => setActive(j)}>
+                    {x.label}
+                  </button>
+                ))}
               </span>
-            </div>
-            <p className="mb-5 mt-2 text-xs text-faint">{about(v.readability)}</p>
-            {v.title && (
-              <EditableText label="Title" value={v.title} onChange={(title) => setVersion(i, { title })} className="mb-2 text-lg font-medium" />
             )}
-            <EditableText label={`${v.label} text`} value={v.text} onChange={(t) => setVersion(i, { text: t })} />
-            {v.glossary.length > 0 && (
-              <div className="mt-10">
-                <h4 className="label mb-3">Words to know</h4>
-                <dl className="space-y-2">
-                  {v.glossary.map((g, k) => (
-                    <div key={k} className="grid grid-cols-[minmax(0,8rem)_1fr] items-baseline gap-4 text-sm">
-                      <dt className="truncate text-ink">{g.term}</dt>
-                      <dd>
-                        <EditableText
-                          label={`Meaning of ${g.term}`}
-                          value={g.meaning}
-                          className="text-sm leading-[22px] text-muted"
-                          onChange={(meaning) => setVersion(i, { glossary: v.glossary.map((x, j) => (j === k ? { ...x, meaning } : x)) })}
-                        />
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
-            {v.changes && <p className="mt-8 text-sm text-faint">{v.changes}</p>}
+            <Chip>{n > 1 ? cap(about(v.readability)) : `${v.label} · ${about(v.readability)}`}</Chip>
+            <Chip>Original · {about(original)}</Chip>
+          </>
+        }
+      />
+
+      <article key={i} className="mt-10 animate-fade-in" aria-label={v.label}>
+        <EditableText label={`${v.label} text`} value={v.text} onChange={(t) => setVersion({ text: t })} className="!text-[17px] !leading-[28px]" />
+
+        {v.glossary.length > 0 && (
+          <section className="mt-12">
+            <h2 className="mb-3 text-base font-medium text-ink">Words to know</h2>
+            <dl className="grid gap-x-6 gap-y-0.5 sm:grid-cols-2">
+              {v.glossary.map((g, k) => (
+                <div key={k} className="-mx-2 rounded-md px-2 py-1.5 transition-colors duration-fast hover:bg-ink/[0.03] focus-within:bg-ink/[0.03]">
+                  <dt className="text-sm font-medium text-ink">{g.term}</dt>
+                  <dd>
+                    <EditableText
+                      label={`Meaning of ${g.term}`}
+                      value={g.meaning}
+                      className="!py-0 !text-sm !leading-[22px] !text-muted"
+                      onChange={(meaning) => setVersion({ glossary: v.glossary.map((x, j) => (j === k ? { ...x, meaning } : x)) })}
+                    />
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </section>
-        ))}
-      </div>
-    </OutputEditor>
+        )}
+
+        {v.changes && <p className="mt-12 text-sm text-faint">{v.changes}</p>}
+      </article>
+    </div>
   );
 }

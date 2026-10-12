@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
@@ -9,32 +9,51 @@ const WIDTHS = { narrow: "max-w-[784px]", medium: "max-w-[944px]", wide: "max-w-
 /** One calm, centered tool screen: title, inputs, one primary button, the result, then Recent. */
 export function ToolPage({
   title,
+  subtitle,
   back = true,
   width = "narrow",
   children,
 }: {
   title: string;
+  /** One quiet line under the title: what this tool does. */
+  subtitle?: ReactNode;
   back?: boolean;
   /** medium/wide for side-by-side results; everything stays aligned to one left edge. */
   width?: keyof typeof WIDTHS;
   children: ReactNode;
 }) {
   return (
-    <div className={clsx("mx-auto w-full px-4 pb-24 pt-8 sm:px-8 sm:pt-14", WIDTHS[width])}>
+    <div className={clsx("mx-auto w-full px-4 pb-24 pt-8 sm:px-8 sm:pt-12", WIDTHS[width])}>
       <div>
-        {back && (
-          <Link
-            to="/tools"
-            className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm text-faint transition-colors hover:text-ink"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Tools
-          </Link>
-        )}
-        <h1 className={clsx("text-2xl", back && "mt-3")}>{title}</h1>
+        {back && <BackLink />}
+        <h1 className={clsx("font-serif text-[32px] leading-[40px] tracking-[-0.01em] text-ink sm:text-[36px] sm:leading-[44px]", back && "mt-5")}>
+          {title}
+        </h1>
+        {subtitle && <p className="mt-2 text-base text-muted">{subtitle}</p>}
       </div>
-      <div className="mt-10 space-y-12">{children}</div>
+      <div className="mt-10 space-y-10">{children}</div>
     </div>
+  );
+}
+
+/** The quiet "← Tools" link above every tool's title. */
+export function BackLink({ to = "/tools", label = "Tools" }: { to?: string; label?: string }) {
+  return (
+    <Link to={to} className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm text-faint transition-colors hover:text-ink">
+      <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </Link>
+  );
+}
+
+/** A small pill for metadata (date, student, type). A button when it has `onClick`. */
+export function Chip({ children, className, ...rest }: { children: ReactNode; className?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  const base = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/[0.04] px-3 text-sm text-muted";
+  if (!rest.onClick) return <span className={clsx(base, className)}>{children}</span>;
+  return (
+    <button type="button" {...rest} className={clsx(base, "transition-colors hover:bg-ink/[0.08] hover:text-ink", className)}>
+      {children}
+    </button>
   );
 }
 
@@ -66,7 +85,7 @@ export function Choice<T extends string>({
           aria-checked={value === o.value}
           data-active={value === o.value}
           onClick={() => onChange(o.value)}
-          className={clsx(variant === "chips" && "chip", variant === "segmented" && "sm:px-4")}
+          className={clsx(variant === "chips" && "chip")}
         >
           {o.label}
         </button>
@@ -91,7 +110,7 @@ export function Labelled({ label, optional, htmlFor, children, className }: { la
 /** Inline error line, quiet. */
 export function ErrorLine({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="animate-fadein text-sm text-danger">
+    <p role="alert" className="animate-fade-in text-sm text-danger">
       {children}
     </p>
   );

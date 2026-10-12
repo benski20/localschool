@@ -1,6 +1,6 @@
 /*
- * Design tokens. Enterprise-flat: neutral greys, hairline borders, near-square corners, no drop
- * shadows. Near-black is the "primary" (buttons); blue is the accent and is for SMALL details only
+ * Design tokens. Calm and quiet: neutral greys, hairline borders, softly rounded corners, and only
+ * very soft shadows (on things that float). Near-black is the "primary" (buttons); blue is the accent and is for SMALL details only
  * (active nav icon, links, mono step numbers, citation markers, focus ring).
  * Colour values are RGB channels so Tailwind can apply alpha (bg-accent/10).
  * Text/surface pairs meet WCAG 2.1 AA (4.5:1) on bg, panel AND subtle in both themes:
@@ -18,7 +18,7 @@
   --overlay: 10 10 10;          /* scrim colour (use with alpha) */
 
   /* Lines */
-  --border: 229 229 229;        /* #E5E5E5 neutral-200 hairline */
+  --border: 236 236 236;        /* #ECECEC whisper hairline (dividers only) */
   --border-strong: 212 212 212; /* #D4D4D4 hover / emphasis */
 
   /* Text */
@@ -43,21 +43,21 @@
   --warning: 166 75 8;          /* #A64B08 amber */
   --success: 22 121 58;         /* #16793A */
 
-  /* Elevation: flat. Only floating layers (menus, toasts, dialogs) get a whisper of shadow. */
-  --shadow-xs: 0 0 #0000;
-  --shadow-sm: 0 0 #0000;
-  --shadow-md: 0 0 #0000;
+  /* Elevation: almost flat. Soft shadows only lift things that float or are pressable. */
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 14px -4px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-float: 0 8px 24px -12px rgb(0 0 0 / 0.14);
   --shadow-dialog: 0 24px 48px -24px rgb(0 0 0 / 0.22);
   --highlight: 0 0 #0000;
 
-  /* Radii: near-square everywhere (rounded-full stays for dots/avatars) */
-  --radius-sm: 1px;
-  --radius: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 2px;
-  --radius-2xl: 3px;
+  /* Radii: soft. Controls 6–8px, floating panels 12px, sheets 16px; rounded-full for pills. */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 
   /* Motion: subtle fades, nothing bouncy */
   --dur-instant: 80ms;
@@ -78,7 +78,7 @@
     --subtle: 26 26 26;
     --elevated: 23 23 23;
     --overlay: 0 0 0;
-    --border: 38 38 38;
+    --border: 34 34 34;
     --border-strong: 58 58 58;
     --text: 245 245 245;
     --muted: 163 163 163;
@@ -96,6 +96,9 @@
     --success: 74 205 120;
     --shadow-float: 0 8px 24px -12px rgb(0 0 0 / 0.6);
     --shadow-dialog: 0 24px 48px -24px rgb(0 0 0 / 0.7);
+    --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 6px 18px -6px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.3);
   }
 }
 
@@ -106,7 +109,7 @@
   --subtle: 26 26 26;
   --elevated: 23 23 23;
   --overlay: 0 0 0;
-  --border: 38 38 38;
+  --border: 34 34 34;
   --border-strong: 58 58 58;
   --text: 245 245 245;
   --muted: 163 163 163;
@@ -124,4 +127,7 @@
   --success: 74 205 120;
   --shadow-float: 0 8px 24px -12px rgb(0 0 0 / 0.6);
   --shadow-dialog: 0 24px 48px -24px rgb(0 0 0 / 0.7);
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 6px 18px -6px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.3);
 }

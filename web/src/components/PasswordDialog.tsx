@@ -42,7 +42,7 @@ export function PasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="ls-overlay fixed inset-0 z-40 bg-black/20" />
-        <Dialog.Content className="ls-pop fixed left-1/2 top-[16vh] z-50 w-[400px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-[2px] border border-line bg-panel focus:outline-none">
+        <Dialog.Content className="ls-pop fixed left-1/2 top-[16vh] z-50 w-[400px] max-w-[calc(100vw-32px)] -translate-x-1/2 rounded-lg border border-ink/[0.07] bg-panel focus:outline-none">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -86,7 +86,7 @@ export function PasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   </p>
                 </div>
                 {error && (
-                  <p role="alert" className="animate-fadein text-sm text-danger">
+                  <p role="alert" className="animate-fade-in text-sm text-danger">
                     {error}
                   </p>
                 )}

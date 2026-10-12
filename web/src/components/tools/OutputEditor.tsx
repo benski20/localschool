@@ -48,7 +48,7 @@ export function EditableText({
       className={clsx(
         "-mx-2 block w-[calc(100%+1rem)] resize-none overflow-hidden rounded-sm border border-transparent bg-transparent px-2 py-1 text-base leading-[26px] outline-none",
         tone === "faint" ? "text-faint" : "text-ink",
-        "transition-[border-color,background-color] duration-fast hover:border-line focus:border-ink/40 focus:bg-panel",
+        "transition-[border-color,background-color] duration-fast focus:border-ink/10 focus:bg-panel",
         className,
       )}
     />

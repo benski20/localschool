@@ -53,7 +53,7 @@ export function SchoolMonogram({ name, size = 28, className }: { name: string; s
   return (
     <span
       aria-hidden
-      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-sm border border-line-strong bg-panel font-normal text-ink", className)}
+      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-sm bg-ink/[0.04] font-normal text-ink", className)}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.5), letterSpacing: "-0.02em" }}
     >
       {monogramLetter(name)}
