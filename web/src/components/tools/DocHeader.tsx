@@ -39,7 +39,7 @@ export function DocHeader({
     <header className={clsx("animate-fade-in", className)}>
       {back && <BackLink to={back.to} label={back.label} />}
       <div className={clsx("flex items-start justify-between gap-4", back && "mt-5")}>
-        <h1 className="min-w-0 font-serif text-[32px] leading-[40px] tracking-[-0.01em] text-ink sm:text-[36px] sm:leading-[44px]">{title}</h1>
+        <h1 className="min-w-0 flex-1 font-serif text-[32px] leading-[40px] tracking-[-0.01em] text-ink sm:text-[36px] sm:leading-[44px]">{title}</h1>
         <div className="mt-1.5 flex shrink-0 items-center gap-2">
           {saved && <SaveHint state={saved} />}
           {copy && <CopyButton text={copy} />}
