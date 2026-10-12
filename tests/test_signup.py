@@ -101,14 +101,25 @@ def test_wrong_domain_is_refused(client, outbox):
     assert not outbox
 
 
-def test_join_off_or_no_domains_means_no_sign_up(client, outbox):
+def test_join_off_means_no_sign_up_and_empty_domains_fall_back_to_shipley(client, outbox, settings):
     setup(client, auto_join=False)
     assert client.get("/api/health").json()["signup"] is False
     assert start(client).status_code == 400
-    setup(client, auto_join=True, domains="")
-    assert client.get("/api/health").json()["signup"] is False
-    assert start(client).status_code == 400
     assert not outbox
+    # Saving no domains keeps the built-in default (shipleyschool.org), not "no one".
+    setup(client, auto_join=True, domains="")
+    h = client.get("/api/health").json()
+    assert h["signup"] is True and h["signup_domains"] == ["shipleyschool.org"]
+    assert start(client).status_code == 400  # @shipley.demo isn't allowed any more
+    assert start(client, email="new.teacher@shipleyschool.org").status_code == 200
+    # With no domains at all (a school that cleared the default), nobody can join.
+    settings.sso_domains = ""
+    assert client.get("/api/health").json()["signup"] is False
+
+
+def test_shipleyschool_org_is_allowed_by_default():
+    from app.config import Settings
+    assert Settings().sso_domains == "shipleyschool.org"
 
 
 def test_no_email_server_means_no_sign_up(client, outbox):

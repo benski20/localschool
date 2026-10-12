@@ -95,6 +95,8 @@ def load(db: sqlite3.Connection, settings: Settings) -> Config:
     for row in db.execute(f"SELECT key, value FROM settings WHERE key IN ({','.join('?' * len(_FIELDS))})",
                           [f"sso_{k}" for k in _FIELDS]):
         vals[row["key"][4:]] = row["value"]
+    if not _domains(vals["domains"]):
+        vals["domains"] = settings.sso_domains  # a saved-but-empty list falls back to the default
     return Config(
         google_client_id=vals["google_client_id"].strip(),
         google_client_secret=vals["google_client_secret"].strip(),

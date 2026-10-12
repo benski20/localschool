@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     sso_microsoft_client_id: str = ""
     sso_microsoft_client_secret: str = ""
     sso_microsoft_tenant: str = "organizations"
-    sso_domains: str = ""            # comma-separated, e.g. "shipleyschool.org"
+    sso_domains: str = "shipleyschool.org"  # comma-separated school email domains
     sso_auto_join: bool = False      # anyone at those domains may join as a teacher
     # Tests/CI only: JSON {provider: {"auth": url, "token": url, "issuer": str}}
     sso_endpoints_override: str = ""
