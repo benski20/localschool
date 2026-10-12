@@ -192,7 +192,7 @@ function StudentRow({ s, due, onOpen }: { s: Student; due: number | null; onOpen
       data-student-row
       type="button"
       onClick={onOpen}
-      className="-mx-3 flex w-[calc(100%+24px)] flex-col gap-2 rounded-[2px] px-3 py-4 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60 sm:flex-row sm:items-center sm:gap-6 sm:py-5"
+      className="-mx-3 flex w-[calc(100%+24px)] flex-col gap-2 rounded-lg px-3 py-4 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60 sm:flex-row sm:items-center sm:gap-6 sm:py-5"
     >
       <span className="flex min-w-0 items-baseline justify-between gap-3 sm:w-52 sm:shrink-0">
         <span className="truncate text-base text-ink">{s.name}</span>

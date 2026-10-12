@@ -42,7 +42,7 @@ export function GetApp() {
           />
 
           <Option title="Mac app" body="Open Terminal, paste this line and press Return.">
-            <div className="mt-4 flex w-full items-stretch rounded-[2px] border border-line bg-panel">
+            <div className="mt-4 flex w-full items-stretch rounded-lg bg-ink/[0.04]">
               <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap px-3.5 py-3 font-mono text-[13px] leading-5 text-ink [scrollbar-width:thin]" title={command}>
                 {command}
               </code>

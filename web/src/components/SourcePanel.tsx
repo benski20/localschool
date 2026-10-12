@@ -175,7 +175,7 @@ function PanelBody({
                   onClick={() => onSelect(s.n)}
                   aria-current={s.n === source.n || undefined}
                   className={clsx(
-                    "flex w-full items-center gap-2.5 rounded-[2px] px-1.5 py-1.5 text-left transition-colors",
+                    "flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors",
                     s.n === source.n ? "bg-panel shadow-[inset_0_0_0_1px_rgb(var(--border))]" : "hover:bg-panel/70",
                   )}
                 >
@@ -248,7 +248,7 @@ function DocumentPassages({ source }: { source: Source }) {
       )}
 
       {source.document_id && (
-        <a className="btn-secondary mt-5 h-9 w-full rounded-[2px]" href={`/api/documents/${source.document_id}/file`}>
+        <a className="btn-secondary mt-5 h-9 w-full rounded-lg" href={`/api/documents/${source.document_id}/file`}>
           <ExternalLink className="h-3.5 w-3.5" /> Open the file
         </a>
       )}
@@ -279,11 +279,11 @@ function StudentRecord({ source }: { source: Source }) {
 
   return (
     <>
-      <div className="mb-3 flex items-start gap-2 border border-line bg-panel px-3 py-2.5 text-[12.5px] leading-[18px] text-muted">
+      <div className="mb-3 flex items-start gap-2 bg-ink/[0.04] px-3 py-2.5 text-[12.5px] leading-[18px] text-muted">
         <Lock className="mt-[2px] h-3.5 w-3.5 shrink-0 text-warning" />
         <span>Confidential student information from your class roster.</span>
       </div>
-      <dl className="border border-line bg-panel">
+      <dl className="bg-ink/[0.04]">
         {rows.map((r, i) => (
           <div key={i} className={clsx("grid grid-cols-[minmax(108px,38%)_1fr] gap-3 px-3.5 py-2.5 text-[13px] leading-[20px]", i > 0 && "border-t border-line")}>
             <dt className="text-[11px] uppercase leading-[20px] tracking-[0.06em] text-faint">{r.k}</dt>
@@ -291,7 +291,7 @@ function StudentRecord({ source }: { source: Source }) {
               {/^accommodations$/i.test(r.k) && r.v.includes(";") ? (
                 <ul className="flex flex-wrap gap-1">
                   {r.v.split(/;\s*/).filter(Boolean).map((a) => (
-                    <li key={a} className="rounded-[2px] border border-line px-1.5 py-0.5 text-[12px]">
+                    <li key={a} className="bg-ink/[0.04] rounded-lg px-1.5 py-0.5 text-[12px]">
                       {a}
                     </li>
                   ))}

@@ -56,7 +56,7 @@ export function Login() {
     <div className="flex h-full flex-col overflow-y-auto bg-bg">
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="animate-fade-in w-full max-w-[380px]">
-          <div className="rounded-[2px] border border-line bg-panel px-6 pb-8 pt-9 sm:px-9">
+          <div className="rounded-2xl bg-panel shadow-md px-6 pb-8 pt-9 sm:px-9">
             <div className="flex flex-col items-center text-center">
               <Monogram name={school || PRODUCT_NAME} size={40} />
               <h1 className="mt-5 text-xl font-normal text-ink">{school || PRODUCT_NAME}</h1>

@@ -29,7 +29,7 @@ export function SourceKindIcon({ kind, className }: { kind: Source["kind"]; clas
   const k = kindOf(kind);
   const Icon = k.icon;
   return (
-    <span className={clsx("flex shrink-0 items-center justify-center rounded-[2px] border", k.box, className ?? "h-7 w-7")} aria-hidden>
+    <span className={clsx("flex shrink-0 items-center justify-center rounded-lg border", k.box, className ?? "h-7 w-7")} aria-hidden>
       <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
     </span>
   );
@@ -40,7 +40,7 @@ export function CiteNumber({ n, active, className }: { n: number; active?: boole
   return (
     <span
       className={clsx(
-        "inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-[2px] border px-[4px] font-mono text-[10.5px] font-medium leading-none tabular-nums",
+        "inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-lg border px-[4px] font-mono text-[10.5px] font-medium leading-none tabular-nums",
         active ? "border-accent bg-accent text-accent-fg" : "border-accent/25 bg-accent-soft text-accent",
         className,
       )}

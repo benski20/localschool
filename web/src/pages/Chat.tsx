@@ -311,7 +311,7 @@ export function Chat() {
                 tabIndex={pinned ? -1 : 0}
                 aria-hidden={pinned}
                 className={clsx(
-                  "absolute -top-[48px] left-1/2 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-[2px] border border-line-strong bg-panel px-3 text-xs text-muted transition-[opacity,transform] duration-200 ease-out hover:text-ink",
+                  "absolute -top-[48px] left-1/2 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-lg border border-ink/[0.07] bg-panel px-3 text-xs text-muted transition-[opacity,transform] duration-200 ease-out hover:text-ink",
                   pinned ? "pointer-events-none translate-y-1 opacity-0" : "translate-y-0 opacity-100",
                 )}
               >
@@ -378,7 +378,7 @@ function TextAction({ onClick, disabled, children, label }: { onClick: () => voi
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="inline-flex h-7 items-center gap-1.5 rounded-[2px] px-2 text-[12.5px] text-faint transition-colors hover:bg-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12.5px] text-faint transition-colors hover:bg-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>
@@ -458,7 +458,7 @@ function Turn({
                 <div className="mt-0.5 text-muted">{m.error}</div>
               </div>
               {isLast && question && (
-                <button className="btn-secondary h-7 shrink-0 rounded-[2px] text-xs" onClick={onRetry} disabled={busy}>
+                <button className="btn-secondary h-7 shrink-0 rounded-lg text-xs" onClick={onRetry} disabled={busy}>
                   <RotateCcw className="h-3 w-3" /> Try again
                 </button>
               )}
@@ -521,7 +521,7 @@ function Progress({ m }: { m: Message }) {
       {found > 0 && (
         <div className="chat-stagger mt-3 flex flex-wrap gap-1.5">
           {m.sources.slice(0, 4).map((s) => (
-            <span key={s.n} className="inline-flex h-7 max-w-[240px] items-center gap-2 rounded-[2px] border border-line px-2 text-[12px] text-muted">
+            <span key={s.n} className="bg-ink/[0.04] inline-flex h-7 max-w-[240px] items-center gap-2 rounded-lg px-2 text-[12px] text-muted">
               <SourceKindIcon kind={s.kind} className="h-4 w-4 border-0" />
               <span className="truncate">{s.title}</span>
             </span>
@@ -549,7 +549,7 @@ function SourceList({ sources, activeN, onCite }: { sources: Source[]; activeN: 
               onClick={() => onCite(s.n)}
               aria-pressed={activeN === s.n}
               className={clsx(
-                "flex w-full min-w-0 items-center gap-3 rounded-[2px] px-2 py-1.5 text-left transition-colors duration-150",
+                "flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors duration-150",
                 activeN === s.n ? "bg-accent-soft/70" : "hover:bg-subtle/70",
               )}
             >

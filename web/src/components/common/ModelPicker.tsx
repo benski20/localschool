@@ -147,7 +147,7 @@ export function ModelPicker({
         aria-controls={open ? id : undefined}
         aria-label={`Answer style: ${current.label}`}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex h-8 items-center gap-1 rounded-[2px] px-2 text-[13px] text-muted transition-colors hover:bg-subtle hover:text-ink aria-expanded:bg-subtle aria-expanded:text-ink disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[13px] text-muted transition-colors hover:bg-subtle hover:text-ink aria-expanded:bg-subtle aria-expanded:text-ink disabled:pointer-events-none disabled:opacity-40"
       >
         {current.label}
         <ChevronDown className={clsx("h-3.5 w-3.5 text-faint transition-transform duration-150", open && "rotate-180")} strokeWidth={1.75} aria-hidden />
@@ -159,7 +159,7 @@ export function ModelPicker({
           role="menu"
           aria-label="Answer style"
           className={clsx(
-            "absolute z-50 w-[272px] max-w-[calc(100vw-48px)] rounded-[2px] border border-line bg-panel p-1 shadow-lg",
+            "absolute z-50 w-[272px] max-w-[calc(100vw-48px)] rounded-lg border border-ink/[0.07] bg-panel p-1 shadow-lg",
             placement === "up" ? "ls-popover-up bottom-full mb-2" : "ls-popover-down top-full mt-2",
             "left-0",
           )}
@@ -177,7 +177,7 @@ export function ModelPicker({
                   setOpen(false);
                   trigger.current?.focus();
                 }}
-                className="flex w-full items-start gap-3 rounded-[2px] px-3 py-2.5 text-left outline-none transition-colors hover:bg-subtle focus-visible:bg-subtle"
+                className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left outline-none transition-colors hover:bg-subtle focus-visible:bg-subtle"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] text-ink">{o.label}</span>

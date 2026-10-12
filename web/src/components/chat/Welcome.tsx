@@ -58,7 +58,7 @@ export function Welcome({
                   tabIndex={leaving ? -1 : 0}
                   onClick={() => onPick(q)}
                   className={clsx(
-                    "max-w-full rounded-[2px] border border-line px-3 py-1.5 text-left text-[13.5px] leading-[20px] text-muted transition-colors hover:border-line-strong hover:bg-panel hover:text-ink",
+                    "max-w-full rounded-full bg-ink/[0.045] px-3.5 py-1.5 text-left text-[13.5px] leading-[20px] text-muted transition-colors hover:bg-ink/[0.08] hover:text-ink",
                     i === 3 && "max-sm:hidden",
                   )}
                 >

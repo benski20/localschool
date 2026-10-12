@@ -8,7 +8,7 @@ import { ErrorLine } from "./ToolPage";
 export function JobProgress({ label, progress, note, className }: { label: string; progress: number | null; note?: string; className?: string }) {
   const pct = progress === null || progress <= 0 ? null : Math.min(100, Math.round(progress * 100));
   return (
-    <div className={clsx("animate-fade-in rounded-xl border border-line bg-panel px-5 py-5 shadow-xs sm:px-6", className)} aria-live="polite">
+    <div className={clsx("animate-fade-in rounded-xl bg-ink/[0.03] px-5 py-5 sm:px-6", className)} aria-live="polite">
       <div className="mb-3 flex items-baseline justify-between gap-4 text-base">
         <span className="text-ink">{label}</span>
         {pct !== null && <span className="tnum text-sm text-faint">{pct}%</span>}

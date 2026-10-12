@@ -73,8 +73,8 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     <form
       onSubmit={submit}
       className={clsx(
-        "relative rounded-[3px] border bg-panel transition-colors duration-150",
-        "border-line hover:border-line-strong focus-within:border-ink/25 focus-within:hover:border-ink/25",
+        "relative rounded-2xl border border-transparent bg-panel shadow-md transition-[box-shadow,border-color] duration-150",
+        "focus-within:border-ink/10",
       )}
       onMouseDown={(e) => {
         // Clicking the box's empty space focuses the field.
@@ -118,7 +118,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             <button
               type="button"
               onClick={onStop}
-              className="chat-pop inline-flex h-9 shrink-0 items-center gap-2 rounded-[2px] border border-line-strong bg-panel px-3.5 text-[13.5px] text-ink transition-colors hover:bg-subtle"
+              className="chat-pop inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-ink/[0.07] bg-panel px-3.5 text-[13.5px] text-ink transition-colors hover:bg-subtle"
               aria-label="Stop the answer"
             >
               <Square className="h-3 w-3 fill-current" />
@@ -129,7 +129,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               type="submit"
               disabled={!canSend}
               className={clsx(
-                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[2px] pl-3.5 pr-3 text-[14px] font-medium transition-colors duration-150",
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg pl-3.5 pr-3 text-[14px] font-medium transition-colors duration-150",
                 canSend ? "bg-ink text-bg hover:bg-ink/85" : "cursor-not-allowed bg-ink/[0.07] text-faint",
               )}
             >

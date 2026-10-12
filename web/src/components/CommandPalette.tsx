@@ -40,7 +40,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <Dialog.Portal>
         <Dialog.Overlay className="ls-overlay fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content
-          className="ls-pop fixed left-1/2 top-[14vh] z-50 w-[640px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-hidden rounded-[2px] border border-line-strong bg-panel focus:outline-none"
+          className="ls-pop fixed left-1/2 top-[14vh] z-50 w-[640px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-hidden rounded-lg border border-ink/[0.07] bg-panel focus:outline-none"
           aria-describedby={undefined}
         >
           <Dialog.Title className="sr-only">Command menu</Dialog.Title>

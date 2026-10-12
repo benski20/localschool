@@ -18,7 +18,7 @@
   --overlay: 10 10 10;          /* scrim colour (use with alpha) */
 
   /* Lines */
-  --border: 229 229 229;        /* #E5E5E5 neutral-200 hairline */
+  --border: 236 236 236;        /* #ECECEC whisper hairline (dividers only) */
   --border-strong: 212 212 212; /* #D4D4D4 hover / emphasis */
 
   /* Text */
@@ -78,7 +78,7 @@
     --subtle: 26 26 26;
     --elevated: 23 23 23;
     --overlay: 0 0 0;
-    --border: 38 38 38;
+    --border: 34 34 34;
     --border-strong: 58 58 58;
     --text: 245 245 245;
     --muted: 163 163 163;
@@ -109,7 +109,7 @@
   --subtle: 26 26 26;
   --elevated: 23 23 23;
   --overlay: 0 0 0;
-  --border: 38 38 38;
+  --border: 34 34 34;
   --border-strong: 58 58 58;
   --text: 245 245 245;
   --muted: 163 163 163;

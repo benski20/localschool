@@ -90,7 +90,7 @@ export function RefChips({
           key={r}
           type="button"
           onClick={() => onJump(r)}
-          className="tnum inline-flex h-5 items-center rounded-sm border border-line px-1.5 font-mono text-2xs text-accent transition-colors hover:border-accent/50 hover:bg-accent-soft"
+          className="tnum inline-flex h-5 items-center rounded-sm px-1.5 font-mono text-2xs text-accent transition-colors hover:border-accent/50 hover:bg-accent-soft"
           aria-label={`Show transcript line ${stamp(segments[r]!, r)}`}
         >
           {stamp(segments[r]!, r)}

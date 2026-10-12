@@ -145,7 +145,7 @@ export function Adapt() {
             {wants.map((w, i) => (
               <li
                 key={i}
-                className="flex h-10 animate-fade-in items-center rounded-lg border border-line bg-panel shadow-xs transition-[border-color,box-shadow] duration-fast focus-within:border-ink/30 focus-within:shadow-[0_0_0_3px_rgb(var(--text)/0.06)] hover:border-line-strong"
+                className="flex h-10 animate-fade-in items-center rounded-lg bg-ink/[0.04] transition-[border-color,box-shadow] duration-fast focus-within:border-ink/30 focus-within:shadow-[0_0_0_3px_rgb(var(--text)/0.06)] hover:bg-ink/[0.06]"
               >
                 <select
                   className={clsx(BARE, "flex-[3]")}

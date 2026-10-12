@@ -48,10 +48,10 @@ export function BackLink({ to = "/tools", label = "Tools" }: { to?: string; labe
 
 /** A small pill for metadata (date, student, type). A button when it has `onClick`. */
 export function Chip({ children, className, ...rest }: { children: ReactNode; className?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  const base = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-panel px-3 text-sm text-muted";
+  const base = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink/[0.04] px-3 text-sm text-muted";
   if (!rest.onClick) return <span className={clsx(base, className)}>{children}</span>;
   return (
-    <button type="button" {...rest} className={clsx(base, "transition-colors hover:border-line-strong hover:text-ink", className)}>
+    <button type="button" {...rest} className={clsx(base, "transition-colors hover:bg-ink/[0.08] hover:text-ink", className)}>
       {children}
     </button>
   );

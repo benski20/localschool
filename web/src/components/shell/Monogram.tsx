@@ -14,7 +14,7 @@ export function Monogram({ name, size = 28, className }: { name: string; size?: 
   return (
     <span
       aria-hidden
-      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-[2px] bg-ink font-medium text-bg", className)}
+      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-lg bg-ink font-medium text-bg", className)}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.46), lineHeight: 1, letterSpacing: "-0.02em" }}
     >
       {monogramLetter(name)}

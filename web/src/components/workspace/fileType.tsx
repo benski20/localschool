@@ -18,7 +18,7 @@ export function DocIcon({ filename, mime, className }: { filename: string; mime?
   const kind = fileKind(filename, mime);
   const Icon = kind === "pdf" ? FileType2 : kind === "word" ? FileText : NotebookText;
   return (
-    <span aria-hidden className={clsx("inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[2px] border border-line text-muted", className)}>
+    <span aria-hidden className={clsx("bg-ink/[0.04] inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted", className)}>
       <Icon className="h-4 w-4" strokeWidth={1.6} />
     </span>
   );

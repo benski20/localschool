@@ -110,7 +110,7 @@ function People() {
     >
       {adding && (
         <form
-          className="ws-rise mb-4 grid gap-3 border border-line p-4 sm:grid-cols-2 sm:p-5"
+          className="bg-ink/[0.04] ws-rise mb-4 grid gap-3 p-4 sm:grid-cols-2 sm:p-5"
           onSubmit={(e) => {
             e.preventDefault();
             add();
@@ -272,7 +272,7 @@ function SignInSettings() {
               In Google Cloud Console → APIs &amp; Services → Credentials, create an OAuth client (Web application) and add this
               redirect address:
             </p>
-            <code className="block overflow-x-auto whitespace-nowrap border border-line bg-panel px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.google}</code>
+            <code className="block overflow-x-auto whitespace-nowrap bg-ink/[0.04] px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.google}</code>
             <input className="input" aria-label="Google client ID" placeholder="Client ID" value={form.google_client_id} onChange={set("google_client_id")} />
             <input className="input" aria-label="Google client secret" type="password" autoComplete="off" placeholder={cfg.google_has_secret ? `Client secret (saved ${cfg.google_secret_hint})` : "Client secret"} value={form.google_client_secret} onChange={set("google_client_secret")} />
           </fieldset>
@@ -280,7 +280,7 @@ function SignInSettings() {
           <fieldset className="grid gap-3">
             <legend className="mb-2 text-sm text-ink">Microsoft 365</legend>
             <p className="text-sm text-muted">In Microsoft Entra → App registrations, register an app (Web) with this redirect address, then add a client secret:</p>
-            <code className="block overflow-x-auto whitespace-nowrap border border-line bg-panel px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.microsoft}</code>
+            <code className="block overflow-x-auto whitespace-nowrap bg-ink/[0.04] px-3 py-2 font-mono text-[13px]">{cfg.redirect_uris.microsoft}</code>
             <input className="input" aria-label="Microsoft application (client) ID" placeholder="Application (client) ID" value={form.microsoft_client_id} onChange={set("microsoft_client_id")} />
             <input className="input" aria-label="Microsoft client secret" type="password" autoComplete="off" placeholder={cfg.microsoft_has_secret ? `Client secret (saved ${cfg.microsoft_secret_hint})` : "Client secret value"} value={form.microsoft_client_secret} onChange={set("microsoft_client_secret")} />
             <input className="input" aria-label="Microsoft directory (tenant) ID" placeholder="Directory (tenant) ID (optional)" value={form.microsoft_tenant === "organizations" ? "" : form.microsoft_tenant} onChange={(e) => setForm({ ...form, microsoft_tenant: e.target.value || "organizations" })} />
@@ -531,7 +531,7 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
             data-autofocus
             onClick={() => fileInput.current?.click()}
             disabled={checking}
-            className="group flex w-full flex-col items-center justify-center rounded-[2px] border border-dashed border-line-strong px-6 py-12 text-center transition-colors duration-150 hover:border-ink/50 hover:bg-subtle/40"
+            className="group flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong px-6 py-12 text-center transition-colors duration-150 hover:border-ink/50 hover:bg-subtle/40"
           >
             {checking ? <Spinner className="h-5 w-5 text-muted" /> : <Upload className="h-5 w-5 text-faint group-hover:text-ink" strokeWidth={1.5} aria-hidden />}
             <span className="mt-3 text-base text-ink">{checking ? "Checking the file…" : "Choose a CSV file"}</span>
@@ -577,7 +577,7 @@ function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
               </div>
             )}
             {d.preview.length > 0 && (
-              <div className="max-h-[240px] overflow-auto border border-line">
+              <div className="bg-ink/[0.04] max-h-[240px] overflow-auto ">
                 <table className="w-full min-w-[520px] border-separate border-spacing-0 text-sm">
                   <thead>
                     <tr className="text-left text-faint">

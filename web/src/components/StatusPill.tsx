@@ -18,7 +18,7 @@ export function StatusPill() {
   const isAdmin = user?.role === "admin";
 
   const body = (
-    <div className={clsx("rounded border border-line bg-panel px-3 py-2.5 transition-colors duration-fast", isAdmin && "hover:border-line-strong")}>
+    <div className={clsx("rounded bg-ink/[0.04] px-3 py-2.5 transition-colors duration-fast", isAdmin && "hover:bg-ink/[0.06]")}>
       <div className="flex items-center gap-2">
         <Dot tone={tone} />
         <span className={clsx("status-text", `status-${tone}`)}>{label}</span>

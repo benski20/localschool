@@ -97,7 +97,7 @@ function Sections({ output, onChange }: { output: FeedbackOutput; onChange: (o: 
                     {p.quote && <p className="mt-0.5 text-sm italic leading-[22px] text-faint">“{p.quote}”</p>}
                     {p.rubric && (
                       <span
-                        className="mt-2 inline-flex h-6 max-w-full items-center rounded-full border border-line bg-panel px-2.5 text-xs text-muted"
+                        className="mt-2 inline-flex h-6 max-w-full items-center rounded-full bg-ink/[0.04] px-2.5 text-xs text-muted"
                         title={plain(p.rubric)}
                       >
                         <span className="truncate">{plain(p.rubric)}</span>

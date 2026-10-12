@@ -470,7 +470,7 @@ function AskDock({
   return (
     <div className="sticky bottom-0 z-30 -mx-4 mt-16 bg-gradient-to-t from-bg from-60% to-transparent px-4 pb-5 pt-8 sm:-mx-8 sm:px-8">
       {showAnswers && (asked.length > 0 || busy) && (
-        <div className="mb-3 max-h-[45vh] animate-slide-up overflow-y-auto rounded-xl border border-line bg-panel p-5 shadow-lg" aria-live="polite">
+        <div className="mb-3 max-h-[45vh] animate-slide-up overflow-y-auto rounded-xl border border-ink/[0.07] bg-panel p-5 shadow-lg" aria-live="polite">
           <div className="mb-3 flex items-center justify-between">
             <span className="label">About this meeting</span>
             <button type="button" className="btn-ghost btn-icon btn-sm text-faint" aria-label="Hide answers" onClick={() => setShowAnswers(false)}>
@@ -492,7 +492,7 @@ function AskDock({
                           key={r}
                           type="button"
                           onClick={() => onJump(r)}
-                          className="tnum inline-flex h-6 items-center gap-1 rounded-full border border-line px-2 font-mono text-2xs text-accent transition-colors hover:bg-accent-soft"
+                          className="tnum inline-flex h-6 items-center gap-1 rounded-full px-2 font-mono text-2xs text-accent transition-colors hover:bg-accent-soft"
                         >
                           <ZoomIn className="h-3 w-3" aria-hidden />
                           {stamp(segments[r]!, r)}
@@ -516,14 +516,14 @@ function AskDock({
             aria-label={transcriptOpen ? "Hide transcript" : "Show transcript"}
             aria-pressed={transcriptOpen}
             className={clsx(
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-line bg-panel shadow-md transition-colors",
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink/[0.07] bg-panel shadow-md transition-colors",
               transcriptOpen ? "text-accent" : "text-muted hover:text-ink",
             )}
           >
             <AudioLines className="h-5 w-5" aria-hidden />
           </button>
         )}
-        <form onSubmit={submit} className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-panel pl-5 pr-1.5 shadow-md focus-within:border-ink/30">
+        <form onSubmit={submit} className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border border-ink/[0.07] bg-panel pl-5 pr-1.5 shadow-md focus-within:border-ink/30">
           <input
             ref={input}
             className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-faint"
@@ -545,7 +545,7 @@ function AskDock({
                 type="button"
                 onClick={() => void ask(SUGGESTION)}
                 disabled={busy}
-                className="hidden h-9 shrink-0 items-center gap-1.5 rounded-full border border-line px-3 text-sm text-muted transition-colors hover:text-ink sm:inline-flex"
+                className="bg-ink/[0.04] hidden h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm text-muted transition-colors hover:text-ink sm:inline-flex"
               >
                 <Sparkles className="h-3.5 w-3.5" aria-hidden />
                 {SUGGESTION}

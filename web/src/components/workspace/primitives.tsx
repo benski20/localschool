@@ -112,7 +112,7 @@ export function Chip({ children, tone = "neutral", className, title }: { childre
     <span
       title={title}
       className={clsx(
-        "inline-flex h-[22px] max-w-full items-center gap-1 whitespace-nowrap rounded-[2px] border px-1.5 text-xs",
+        "inline-flex h-[22px] max-w-full items-center gap-1 whitespace-nowrap rounded-lg border px-1.5 text-xs",
         tone === "neutral" && "border-line text-muted",
         tone === "strong" && "border-line-strong font-medium text-ink",
         tone === "warning" && "border-warning/30 text-warning",
@@ -234,7 +234,7 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay className="ws-overlay fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content
-          className="ws-dialog fixed left-1/2 top-[max(16px,10vh)] z-50 flex max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] flex-col border border-line bg-panel outline-none sm:max-h-[80vh]"
+          className="ws-dialog fixed left-1/2 top-[max(16px,10vh)] z-50 flex max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] flex-col border border-ink/[0.07] bg-panel outline-none sm:max-h-[80vh]"
           style={{ maxWidth: width, transform: "translateX(-50%)" }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
@@ -287,7 +287,7 @@ export function ConfirmDialog({
         <Dialog.Overlay className="ws-overlay fixed inset-0 z-[60] bg-black/25" />
         <Dialog.Content
           role="alertdialog"
-          className="ws-dialog fixed left-1/2 top-[max(16px,24vh)] z-[61] w-[calc(100vw-32px)] max-w-[420px] border border-line bg-panel outline-none"
+          className="ws-dialog fixed left-1/2 top-[max(16px,24vh)] z-[61] w-[calc(100vw-32px)] max-w-[420px] border border-ink/[0.07] bg-panel outline-none"
           style={{ transform: "translateX(-50%)" }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();

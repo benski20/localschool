@@ -45,7 +45,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role={t.kind === "error" ? "alert" : "status"}
             className={clsx(
-              "pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded border border-line bg-elevated py-3 pl-3.5 pr-2 text-sm shadow-lg",
+              "pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded border border-ink/[0.07] bg-elevated py-3 pl-3.5 pr-2 text-sm shadow-lg",
               t.leaving ? "animate-toast-out" : "animate-toast-in",
             )}
           >

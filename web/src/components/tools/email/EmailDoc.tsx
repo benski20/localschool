@@ -50,7 +50,7 @@ export function EmailDoc({ draft }: { draft: Draft<"email"> }) {
         }
       />
 
-      <div className="mt-10 animate-slide-up overflow-hidden rounded-2xl border border-line bg-panel shadow-sm transition-[border-color] duration-fast focus-within:border-line-strong">
+      <div className="mt-10 animate-slide-up overflow-hidden rounded-2xl bg-panel shadow-md transition-shadow duration-fast">
         <Row label="To">
           <span className="block py-1 text-base leading-[26px] text-faint">{name ? `Family of ${name}` : "The student's family"}</span>
         </Row>

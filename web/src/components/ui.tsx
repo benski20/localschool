@@ -57,8 +57,8 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={clsx("flex animate-fade-in flex-col items-center justify-center rounded border border-line bg-panel px-6 py-16 text-center", className)}>
-      <div className="mb-5 flex h-10 w-10 items-center justify-center rounded border border-line text-muted [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:stroke-[1.5]">
+    <div className={clsx("flex animate-fade-in flex-col items-center justify-center rounded bg-ink/[0.04] px-6 py-16 text-center", className)}>
+      <div className="bg-ink/[0.04] mb-5 flex h-10 w-10 items-center justify-center rounded text-muted [&_svg]:h-[18px] [&_svg]:w-[18px] [&_svg]:stroke-[1.5]">
         {icon}
       </div>
       <h3 className="text-lg font-normal text-ink">{title}</h3>
@@ -207,7 +207,7 @@ export function Avatar({ name, size = 28, className }: { name: string; size?: nu
   return (
     <span
       aria-hidden
-      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-sm border border-line bg-subtle font-medium text-muted", className)}
+      className={clsx("inline-flex shrink-0 select-none items-center justify-center rounded-sm bg-subtle font-medium text-muted", className)}
       style={{ width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.38)) }}
     >
       {initials}
