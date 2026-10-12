@@ -32,6 +32,7 @@ export default {
       },
       fontFamily: {
         sans: ['"Inter Variable"', "Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"],
+        serif: ["ui-serif", '"New York"', "Iowan Old Style", "Georgia", "serif"],
         mono: ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "monospace"],
       },
       // display / title / body / meta. Headings are REGULAR weight; tracking tightens as size grows.

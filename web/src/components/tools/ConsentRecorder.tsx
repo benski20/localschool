@@ -179,35 +179,39 @@ export function ConsentRecorder({
   if (phase === "recording" || phase === "stopping")
     return (
       <div className="animate-fadein">
-        <div
-          role="status"
-          aria-label={`Recording, ${clock(elapsed)}`}
-          className="sticky top-0 z-10 -mx-4 flex items-center gap-3 border-b border-line bg-bg px-4 py-3 sm:mx-0 sm:gap-4 sm:px-0"
-        >
-          <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="absolute inset-0 animate-pulse-soft rounded-full bg-danger" />
-          </span>
-          <span className="tnum font-mono text-sm text-ink">{clock(elapsed)}</span>
-          <span aria-hidden className="block h-1 w-12 shrink-0 overflow-hidden rounded-full bg-ink/[0.08] sm:w-20">
-            <span ref={level} className="block h-full w-full origin-left bg-ink/50 transition-transform duration-instant" style={{ transform: "scaleX(0.04)" }} />
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm text-muted">
-            <span className="sm:hidden">{withCall ? "Mic + call" : "Mic"}</span>
-            <span className="hidden sm:inline">{withCall ? "Microphone + call audio" : "Microphone"}</span>
-          </span>
-          <span className="hidden sm:inline">
-            <NotepadHint state={notes.state} />
-          </span>
-          <button type="button" onClick={stop} disabled={phase === "stopping"} className="btn-primary btn-sm shrink-0">
-            <Square className="h-3 w-3 fill-current" aria-hidden />
-            Stop
-          </button>
-        </div>
-        <p className="mt-2 h-4 text-right sm:hidden">
+        <div className="flex h-5 items-center justify-between gap-3">
+          {micOnly ? <p className="truncate text-sm text-faint">Recording your microphone only — {micOnly}</p> : <span />}
           <NotepadHint state={notes.state} />
-        </p>
-        {micOnly && <p className="mt-3 text-sm text-faint">Recording your microphone only — {micOnly}</p>}
-        <NotepadField value={notes.text} onChange={notes.setText} autoFocus className="mt-4 min-h-[50vh] sm:mt-8" />
+        </div>
+        {/* The page is the notepad. */}
+        <NotepadField
+          value={notes.text}
+          onChange={notes.setText}
+          autoFocus
+          placeholder="Type notes as you go — or don't. The recording fills in the rest."
+          className="mt-3 min-h-[55vh] text-lg leading-[30px]"
+        />
+        {/* Floating recorder pill, like the notes page's ask bar. */}
+        <div className="sticky bottom-0 z-30 flex justify-center bg-gradient-to-t from-bg from-60% to-transparent pb-5 pt-8">
+          <div
+            role="status"
+            aria-label={`Recording, ${clock(elapsed)}`}
+            className="flex h-12 animate-slide-up items-center gap-3 rounded-full border border-line bg-panel pl-4 pr-1.5 shadow-lg sm:gap-4"
+          >
+            <span aria-hidden className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inset-0 animate-pulse-soft rounded-full bg-danger" />
+            </span>
+            <span className="tnum font-mono text-sm text-ink">{clock(elapsed)}</span>
+            <span aria-hidden className="block h-1 w-12 shrink-0 overflow-hidden rounded-full bg-ink/[0.08] sm:w-16">
+              <span ref={level} className="block h-full w-full origin-left bg-danger/70 transition-transform duration-instant" style={{ transform: "scaleX(0.04)" }} />
+            </span>
+            <span className="hidden text-sm text-muted sm:inline">{withCall ? "Mic + call audio" : "Microphone"}</span>
+            <button type="button" onClick={stop} disabled={phase === "stopping"} className="btn-primary btn-sm h-9 shrink-0 rounded-full px-4">
+              <Square className="h-3 w-3 fill-current" aria-hidden />
+              {phase === "stopping" ? "Stopping…" : "Stop"}
+            </button>
+          </div>
+        </div>
       </div>
     );
 

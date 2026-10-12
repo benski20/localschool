@@ -13,7 +13,7 @@ on:
         default: "https://teachers-desk-xi.vercel.app"
       version:
         description: "Version the app and the Mac release should report"
-        default: "0.5.3"
+        default: "0.5.4"
 
 jobs:
   mac-install:
