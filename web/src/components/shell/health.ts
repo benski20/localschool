@@ -12,6 +12,12 @@ export interface Health {
   local?: boolean;
   /** Sign-in providers this school turned on: "google", "microsoft". */
   sso?: string[];
+  /** Teachers can join with their school email (the sign-in page offers "Create an account"). */
+  signup?: boolean;
+  /** The school email domains that can join, e.g. ["shipley.demo"]. */
+  signup_domains?: string[];
+  /** "Forgot password?" works: email is set up (or this is the fictional demo). */
+  reset?: boolean;
   /** The Mac app this server hands out (installed apps update to it). */
   mac_app_version?: string;
 }

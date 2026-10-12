@@ -82,6 +82,14 @@ def change_password(db: sqlite3.Connection, user_id: int, current: str, new: str
     row = db.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row or not verify_password(current, row["password_hash"]):
         raise ValueError("Your current password is incorrect.")
+    set_password(db, user_id, new)
+
+
+def set_password(db: sqlite3.Connection, user_id: int, new: str) -> None:
     if len(new) < 8:
         raise ValueError("Use at least 8 characters.")
     db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(new), user_id))
+
+
+def end_all_sessions(db: sqlite3.Connection, user_id: int) -> None:
+    db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))

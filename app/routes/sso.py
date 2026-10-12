@@ -5,7 +5,9 @@
     GET  /api/auth/sso/redeem?code=               Mac app: finish signing in its window
     POST /api/auth/device/sso  {code, label}      Mac app: "Keep my data on this Mac"
     POST /api/auth/code        {email, password}  personal desk only: the app signs itself in
-    GET/PUT /api/admin/sso                        admins: client IDs, domains, join setting
+    GET/PUT /api/admin/sso                        admins: who can join (domains, join setting),
+                                                  client IDs, and email (SMTP) for sign-up codes
+    POST /api/admin/sso/test-email                admins: send themselves a test email
 
 Modes: "web" signs this browser in. "app" and "desk" are for the Mac app, which opens the
 provider in the teacher's browser (Google refuses embedded web views); when it's done the
@@ -20,12 +22,12 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import deps
 from ..config import Settings
 from ..llm import Runtime
-from ..services import activity, auth, sso
+from ..services import activity, auth, mail, sso
 from .install import _base
 from .relay import device_bundle
 
@@ -152,6 +154,14 @@ def sign_in_code(body: CodeIn, db: sqlite3.Connection = Depends(deps.db, scope="
     return {"code": sso.new_code(db, user["id"], "signin")}
 
 
+class EmailIn(BaseModel):
+    host: str | None = None
+    port: int | str | None = None
+    username: str | None = None
+    password: str | None = None  # empty or missing: keep the saved one
+    from_: str | None = Field(None, alias="from")
+
+
 class SSOIn(BaseModel):
     google_client_id: str | None = None
     google_client_secret: str | None = None
@@ -160,6 +170,7 @@ class SSOIn(BaseModel):
     microsoft_tenant: str | None = None
     domains: list[str] | str | None = None
     auto_join: bool | None = None
+    email: EmailIn | None = None
 
 
 @router.get("/api/admin/sso")
@@ -167,6 +178,7 @@ def get_sso(request: Request, _: sqlite3.Row = Depends(deps.admin_user),
             db: sqlite3.Connection = Depends(deps.db, scope="function"),
             settings: Settings = Depends(deps.settings)):
     return {**sso.load(db, settings).public(),
+            "email": mail.load(db, settings).public(),  # never the password
             "redirect_uris": {p: _redirect_uri(request, settings, p) for p in sso.PROVIDERS}}
 
 
@@ -174,9 +186,39 @@ def get_sso(request: Request, _: sqlite3.Row = Depends(deps.admin_user),
 def put_sso(body: SSOIn, request: Request, _: sqlite3.Row = Depends(deps.admin_user),
             db: sqlite3.Connection = Depends(deps.db, scope="function"),
             settings: Settings = Depends(deps.settings)):
-    values = body.model_dump()
+    values = body.model_dump(exclude={"email"})
+    if body.email is not None:
+        e = body.email
+        try:
+            mail.save(db, {"host": e.host, "port": e.port, "username": e.username, "password": e.password,
+                           "from": e.from_})
+        except mail.MailError as err:
+            raise HTTPException(400, str(err)) from err
     for k in ("google_client_secret", "microsoft_client_secret"):
         if values[k] == "":
             values[k] = None  # an empty secret field means "keep the saved one"
     sso.save(db, values)
     return get_sso(request, _, db, settings)
+
+
+class TestEmailIn(BaseModel):
+    to: str = ""
+
+
+@router.post("/api/admin/sso/test-email")
+def test_email(body: TestEmailIn, request: Request, admin: sqlite3.Row = Depends(deps.admin_user),
+               db: sqlite3.Connection = Depends(deps.db, scope="function"),
+               settings: Settings = Depends(deps.settings)):
+    """Send a test email (to the admin, unless another address is given) and say what happened."""
+    cfg = mail.load(db, settings)
+    if not cfg.configured():
+        raise HTTPException(400, "Add the mail server and from address first, then save.")
+    to = (body.to or admin["email"]).strip()
+    msg = mail.message(cfg, to, "Teacher's Desk test email",
+                       f"This is a test from Teacher's Desk at {settings.school_name}.\n\n"
+                       "Email works: teachers can now get sign-up codes and reset their passwords.\n")
+    try:
+        mail.sender_for(request.app.state)(cfg, msg)
+    except mail.MailError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True, "to": to}
