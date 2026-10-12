@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Spinner } from "../components/ui";
@@ -96,9 +97,16 @@ export function Login() {
                 <input id="email" type="email" autoComplete="username" className="input h-11" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
               </div>
               <div>
-                <label className="field-label" htmlFor="password">
-                  Password
-                </label>
+                <div className="flex items-baseline justify-between gap-3">
+                  <label className="field-label" htmlFor="password">
+                    Password
+                  </label>
+                  {health?.reset && (
+                    <Link to="/reset" state={{ email }} className="text-sm text-faint transition-colors hover:text-ink">
+                      Forgot password?
+                    </Link>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     id="password"
@@ -131,8 +139,17 @@ export function Login() {
             </form>
           </div>
 
+          {health?.signup && (
+            <p className="mt-6 text-center text-sm text-muted">
+              New here?{" "}
+              <Link to="/signup" className="text-accent underline-offset-4 hover:underline">
+                Create an account
+              </Link>
+            </p>
+          )}
+
           {demo && (
-            <p className="mt-6 text-center">
+            <p className={health?.signup ? "mt-3 text-center" : "mt-6 text-center"}>
               <button type="button" className="inline-flex items-center gap-2 text-sm text-accent underline-offset-4 hover:underline disabled:opacity-50" disabled={busy !== null} onClick={() => signIn(demo.email, demo.password, "demo")}>
                 {busy === "demo" && <Spinner className="h-3.5 w-3.5" />} Try the demo
               </button>

@@ -39,8 +39,8 @@ export function Welcome({
     <div className="flex min-h-full flex-col px-4 md:px-10">
       <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-center pb-[12vh] pt-10 md:pb-[16vh]">
         <header className={clsx("chat-welcome-head mb-8 md:mb-10", leaving && "chat-leave")}>
-          {school && <div className="mb-2 text-[13px] text-faint">{school}</div>}
-          <h1 className="text-[28px] font-normal leading-[1.2] tracking-[-0.02em] text-ink md:text-[34px]">
+          {school && <div className="mb-2 text-sm text-muted">{school}</div>}
+          <h1 className="font-serif text-[34px] leading-[42px] tracking-[-0.01em] text-ink md:text-[40px] md:leading-[48px]">
             {greeting()}
             {name ? `, ${name}` : ""}
           </h1>

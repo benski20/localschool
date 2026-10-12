@@ -249,6 +249,20 @@ MIGRATIONS: list[str] = [
     ALTER TABLE drafts ADD COLUMN call_audio_path TEXT;
     ALTER TABLE drafts ADD COLUMN call_audio_bytes INTEGER NOT NULL DEFAULT 0;
     """,
+    # 8 — sign up with a school email, and forgot password: six-digit codes sent by email.
+    # Stored hashed; they last 15 minutes and allow a few tries.
+    """
+    CREATE TABLE email_codes (
+        id         INTEGER PRIMARY KEY,
+        email      TEXT NOT NULL COLLATE NOCASE,
+        purpose    TEXT NOT NULL CHECK (purpose IN ('signup', 'reset')),
+        code_hash  TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        attempts   INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX email_codes_email ON email_codes(email, purpose);
+    """,
 ]
 
 

@@ -109,6 +109,7 @@ export function Library() {
     <Page>
       <PageTitle
         title="Documents"
+        subtitle="Handbooks, policies and plans the assistant can cite."
         actions={
           // The empty state carries its own Add button: one primary action per screen.
           !empty && (
@@ -133,11 +134,11 @@ export function Library() {
         </div>
       )}
 
-      <div className={hasMine ? "mt-2" : "mt-10"}>
+      <div className={hasMine ? "mt-4" : "mt-10"}>
         {docs === null ? (
-          <ul className="divide-y divide-line" aria-busy>
+          <ul className="space-y-0.5" aria-busy>
             {[0, 1, 2].map((i) => (
-              <li key={i} className="flex items-center gap-4 py-5">
+              <li key={i} className="flex items-center gap-4 py-3.5">
                 <Skeleton className="h-9 w-9" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-3.5 w-2/5" />
@@ -154,9 +155,9 @@ export function Library() {
             </button>
           </div>
         ) : (
-          <ul className="ws-stagger divide-y divide-line">
+          <ul className="ws-stagger -mx-3 space-y-0.5">
             {pending.map((p, i) => (
-              <li key={p.key} style={{ ["--i" as string]: i }} className="flex items-center gap-4 py-5">
+              <li key={p.key} style={{ ["--i" as string]: i }} className="flex items-center gap-4 rounded-lg px-3 py-3.5">
                 <DocIcon filename={p.name} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-base text-ink">{p.name}</div>
@@ -220,7 +221,7 @@ function DocItem({ d, i, onOpen }: { d: Doc; i: number; onOpen: () => void }) {
   const processing = isProcessing(d);
   return (
     <li style={{ ["--i" as string]: i }}>
-      <button data-doc-row type="button" onClick={onOpen} className="group -mx-3 flex w-[calc(100%+24px)] items-center gap-4 rounded-lg px-3 py-5 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60">
+      <button data-doc-row type="button" onClick={onOpen} className="group flex w-full items-center gap-4 rounded-lg px-3 py-3.5 text-left transition-colors duration-100 hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03]">
         <DocIcon filename={d.filename} mime={d.mime} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base text-ink">{d.title}</span>
@@ -434,7 +435,7 @@ function AddDialog({
             type="button"
             data-autofocus
             onClick={() => fileInput.current?.click()}
-            className="group flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong px-6 py-14 text-center transition-colors duration-150 hover:border-ink/50 hover:bg-subtle/40 focus-visible:border-ink/50"
+            className="group flex w-full flex-col items-center justify-center rounded-xl bg-ink/[0.03] px-6 py-14 text-center transition-colors duration-150 hover:bg-ink/[0.055] focus-visible:bg-ink/[0.055]"
           >
             <CloudUpload className="h-6 w-6 text-faint transition-colors group-hover:text-ink" strokeWidth={1.5} aria-hidden />
             <span className="mt-3 text-base text-ink">
@@ -455,9 +456,9 @@ function AddDialog({
 
 function DropOverlay() {
   return (
-    <div className="ws-overlay pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 p-6">
-      <div className="flex h-full max-h-[360px] w-full max-w-[560px] flex-col items-center justify-center rounded-lg border border-dashed border-ink/50 text-center">
-        <CloudUpload className="h-7 w-7 text-ink" strokeWidth={1.5} aria-hidden />
+    <div className="ws-overlay pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 p-6 backdrop-blur-[2px]">
+      <div className="flex h-full max-h-[360px] w-full max-w-[560px] flex-col items-center justify-center rounded-2xl bg-accent-soft text-center">
+        <CloudUpload className="h-7 w-7 text-accent" strokeWidth={1.5} aria-hidden />
         <div className="mt-4 text-xl font-normal text-ink">Drop to add</div>
       </div>
     </div>

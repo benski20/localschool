@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     # Tests/CI only: JSON {provider: {"auth": url, "token": url, "issuer": str}}
     sso_endpoints_override: str = ""
 
+    # Email for sign-up codes and password resets (admins can also set these in Settings ›
+    # People › Who can join › Email). Set here, they override what's saved there.
+    smtp_host: str = ""
+    smtp_port: int = 0               # 0: use the saved port (default 587; 465 means SSL)
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""              # e.g. "Teacher's Desk <desk@shipleyschool.org>"
+
     # Activity log (Settings › Activity) is kept this many days
     activity_days: int = 365
 

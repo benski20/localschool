@@ -11,6 +11,8 @@ interface Trust {
   ai: "on_site" | "school" | "cloud";
   activity_days: number;
   session_days: number;
+  /** Teachers can join with their school email address. */
+  signup?: boolean;
   version: string;
 }
 
@@ -91,6 +93,7 @@ export function Privacy() {
               <li>A file a teacher attaches to a question is private to that teacher.</li>
               <li>Meeting notes, feedback and emails stay private to the teacher who made them until they copy or send them.</li>
               <li>Administrators manage accounts, the shared library and class lists.</li>
+              {t?.signup && <li>Teachers can join with their school email address.</li>}
             </ul>
           </Part>
 

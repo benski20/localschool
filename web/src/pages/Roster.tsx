@@ -64,6 +64,7 @@ export function Roster() {
     <Page>
       <PageTitle
         title="Students"
+        subtitle="Your classes, plans and accommodations."
         stretch
         actions={
           sections && sections.length > 0 ? (
@@ -86,9 +87,9 @@ export function Roster() {
 
       <div className="mt-10">
         {sections === null ? (
-          <ul className="divide-y divide-line" aria-busy>
+          <ul className="space-y-0.5" aria-busy>
             {[0, 1, 2, 3, 4].map((i) => (
-              <li key={i} className="flex items-center gap-4 py-5">
+              <li key={i} className="flex items-center gap-4 py-4">
                 <Skeleton className="h-4 w-40" />
                 <Skeleton className="ml-auto hidden h-5 w-56 sm:block" />
               </li>
@@ -111,11 +112,11 @@ export function Roster() {
             </button>
           </div>
         ) : (
-          <div className="space-y-12">
+          <div className="space-y-10">
             {groups.map((g) => (
               <section key={g.key} aria-label={g.label ?? "Students"}>
-                {g.label && <h2 className="mb-1 text-sm text-faint">{g.label}</h2>}
-                <ul className="ws-stagger divide-y divide-line">
+                {g.label && <h2 className="mb-2 text-sm font-medium tracking-normal text-muted">{g.label}</h2>}
+                <ul className="ws-stagger -mx-3 space-y-0.5">
                   {g.students.map((s, i) => (
                     <li key={s.id} style={{ ["--i" as string]: i }}>
                       <StudentRow s={s} due={reviewIn(s)} onOpen={() => setOpenId(s.id)} />
@@ -192,7 +193,7 @@ function StudentRow({ s, due, onOpen }: { s: Student; due: number | null; onOpen
       data-student-row
       type="button"
       onClick={onOpen}
-      className="-mx-3 flex w-[calc(100%+24px)] flex-col gap-2 rounded-lg px-3 py-4 text-left transition-colors duration-100 hover:bg-subtle/60 focus-visible:bg-subtle/60 sm:flex-row sm:items-center sm:gap-6 sm:py-5"
+      className="flex w-full flex-col gap-2 rounded-lg px-3 py-3 text-left transition-colors duration-100 hover:bg-ink/[0.03] focus-visible:bg-ink/[0.03] sm:flex-row sm:items-center sm:gap-6 sm:py-3.5"
     >
       <span className="flex min-w-0 items-baseline justify-between gap-3 sm:w-52 sm:shrink-0">
         <span className="truncate text-base text-ink">{s.name}</span>
@@ -227,26 +228,26 @@ function StudentDetails({ s, due }: { s: Student; due: number | null }) {
       )}
 
       <section>
-        <h3 className="mb-2 text-sm text-faint">Accommodations</h3>
+        <h3 className="mb-2 text-sm font-medium tracking-normal text-muted">Accommodations</h3>
         {s.accommodations.length ? (
-          <ul className="divide-y divide-line">
+          <ul className="space-y-1">
             {s.accommodations.map((a) => (
-              <li key={a} className="py-2.5 text-base text-ink">
+              <li key={a} className="rounded-lg bg-ink/[0.03] px-3.5 py-2.5 text-base text-ink">
                 {a}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="py-2.5 text-base text-faint">None on file</p>
+          <p className="rounded-lg bg-ink/[0.03] px-3.5 py-2.5 text-base text-faint">None on file</p>
         )}
       </section>
 
-      <dl className="divide-y divide-line">
+      <dl className="rounded-xl bg-ink/[0.03] px-3.5 py-1.5">
         {rows
           .filter(([, v]) => !!v)
           .map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between gap-6 py-2.5 text-sm">
-              <dt className="shrink-0 text-faint">{k}</dt>
+            <div key={k} className="flex items-baseline justify-between gap-6 py-2 text-sm">
+              <dt className="shrink-0 text-muted">{k}</dt>
               <dd className="min-w-0 text-right text-ink">{v}</dd>
             </div>
           ))}

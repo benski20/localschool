@@ -202,7 +202,18 @@ function People() {
   );
 }
 
-/* ---------------------------------------------------------------- Sign in with Google / Microsoft */
+/* ---------------------------------------------------------------- Who can join */
+
+interface EmailConfig {
+  host: string;
+  port: number;
+  username: string;
+  has_password: boolean;
+  from: string;
+  configured: boolean;
+  /** Set by IT on the server (SMTP_* settings); those win over what's saved here. */
+  from_env: string[];
+}
 
 interface SSOConfig {
   google_client_id: string;
@@ -215,19 +226,50 @@ interface SSOConfig {
   domains: string[];
   auto_join: boolean;
   enabled: string[];
+  email: EmailConfig;
   redirect_uris: Record<string, string>;
 }
 
-/** For IT: the school's own Google / Microsoft app, so teachers sign in with their school
- *  account. Step-by-step, with the exact address to paste. */
+const emptyForm = {
+  google_client_id: "",
+  google_client_secret: "",
+  microsoft_client_id: "",
+  microsoft_client_secret: "",
+  microsoft_tenant: "",
+  domains: "",
+  auto_join: false,
+  smtp_host: "",
+  smtp_port: "587",
+  smtp_username: "",
+  smtp_password: "",
+  smtp_from: "",
+};
+
+/** One setting for who can join (the school's email domains, and whether anyone there can
+ *  join as a teacher), used by email sign-up and by Google / Microsoft. Then, for IT: the
+ *  school's own Google / Microsoft app, and the mail server that sends sign-up codes. */
 function SignInSettings() {
   const toast = useToast();
   const [cfg, setCfg] = useState<SSOConfig | null>(null);
-  const [form, setForm] = useState({ google_client_id: "", google_client_secret: "", microsoft_client_id: "", microsoft_client_secret: "", microsoft_tenant: "", domains: "", auto_join: false });
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const fill = (c: SSOConfig) => {
     setCfg(c);
-    setForm({ google_client_id: c.google_client_id, google_client_secret: "", microsoft_client_id: c.microsoft_client_id, microsoft_client_secret: "", microsoft_tenant: c.microsoft_tenant, domains: c.domains.join(", "), auto_join: c.auto_join });
+    setForm({
+      google_client_id: c.google_client_id,
+      google_client_secret: "",
+      microsoft_client_id: c.microsoft_client_id,
+      microsoft_client_secret: "",
+      microsoft_tenant: c.microsoft_tenant,
+      domains: c.domains.join(", "),
+      auto_join: c.auto_join,
+      smtp_host: c.email.host,
+      smtp_port: String(c.email.port || 587),
+      smtp_username: c.email.username,
+      smtp_password: "",
+      smtp_from: c.email.from,
+    });
   };
   useEffect(() => {
     api.get<SSOConfig>("/api/admin/sso").then(fill).catch(() => setCfg(null));
@@ -237,34 +279,90 @@ function SignInSettings() {
   async function save() {
     setSaving(true);
     try {
-      const c = await api.put<SSOConfig>("/api/admin/sso", form);
+      const { smtp_host, smtp_port, smtp_username, smtp_password, smtp_from, ...rest } = form;
+      const c = await api.put<SSOConfig>("/api/admin/sso", {
+        ...rest,
+        email: { host: smtp_host, port: smtp_port, username: smtp_username, password: smtp_password, from: smtp_from },
+      });
       fill(c);
-      toast({ kind: "success", message: c.enabled.length ? `Sign in with ${c.enabled.map((p) => (p === "google" ? "Google" : "Microsoft")).join(" and ")} is on.` : "Saved." });
+      const ways = [c.auto_join && c.domains.length && c.email.configured ? "email" : "", ...c.enabled.map((p) => (p === "google" ? "Google" : "Microsoft"))].filter(Boolean);
+      toast({
+        kind: "success",
+        message: c.auto_join && c.domains.length && ways.length ? `Saved. Teachers at ${c.domains.map((d) => "@" + d).join(", ")} can join with ${ways.join(" or ")}.` : "Saved.",
+      });
     } catch (e) {
       toast({ kind: "error", message: (e as Error).message });
     } finally {
       setSaving(false);
     }
   }
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-  const on = cfg.enabled;
+
+  async function sendTest() {
+    setTesting(true);
+    try {
+      const r = await api.post<{ to: string }>("/api/admin/sso/test-email", {});
+      toast({ kind: "success", message: `Test email sent to ${r.to}.` });
+    } catch (e) {
+      toast({ kind: "error", message: (e as Error).message });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  const env = new Set(cfg.email.from_env);
+  const label = cfg.auto_join && cfg.domains.length ? `Who can join · anyone at ${cfg.domains.map((d) => "@" + d).join(", ")}` : "Who can join";
 
   return (
     <div className="mt-10">
-      <Disclosure label={on.length ? `Sign-in · ${on.map((p) => (p === "google" ? "Google" : "Microsoft")).join(" and ")} on` : "Sign in with Google or Microsoft"}>
+      <Disclosure label={label}>
         <form
-          className="grid max-w-2xl gap-6"
+          className="grid max-w-2xl gap-8"
           onSubmit={(e) => {
             e.preventDefault();
             save();
           }}
         >
-          <label className="grid gap-1.5">
-            <span className="field-label">School email domain</span>
-            <input className="input" placeholder="shipleyschool.org" value={form.domains} onChange={set("domains")} />
-            <span className="text-xs text-faint">Only accounts at this domain can sign in. Separate several with commas.</span>
-          </label>
+          <div className="grid gap-5">
+            <label className="grid gap-1.5">
+              <span className="field-label">School email domain</span>
+              <input className="input" placeholder="shipleyschool.org" value={form.domains} onChange={set("domains")} />
+              <span className="text-xs text-faint">Only addresses at this domain can join or sign in with Google or Microsoft. Separate several with commas.</span>
+            </label>
+            <div className="flex items-start justify-between gap-6">
+              <span id="join-label" className="text-sm text-ink">
+                Anyone at these domains can join as a teacher
+                <span className="mt-0.5 block text-faint">With their school email, Google or Microsoft. Off: only people you've added can sign in.</span>
+              </span>
+              <Toggle labelledBy="join-label" checked={form.auto_join} onChange={(v) => setForm({ ...form, auto_join: v })} />
+            </div>
+          </div>
+
+          <fieldset className="grid gap-3">
+            <legend className="mb-2 text-sm text-ink">Email</legend>
+            <p className="text-sm text-muted">
+              Teachers get a six-digit code by email to join and to reset a forgotten password. Use your school's mail server, Google
+              Workspace's SMTP relay, or a sending service such as Postmark.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-[1fr_7rem]">
+              <input className="input" aria-label="Mail server" placeholder="Mail server (smtp.example.org)" value={form.smtp_host} onChange={set("smtp_host")} disabled={env.has("host")} />
+              <input className="input" aria-label="Port" inputMode="numeric" placeholder="587" value={form.smtp_port} onChange={set("smtp_port")} disabled={env.has("port")} />
+            </div>
+            <input className="input" aria-label="Username" autoComplete="off" placeholder="Username" value={form.smtp_username} onChange={set("smtp_username")} disabled={env.has("username")} />
+            <input
+              className="input"
+              aria-label="Password"
+              type="password"
+              autoComplete="new-password"
+              placeholder={cfg.email.has_password ? "Password (•••• saved)" : "Password"}
+              value={form.smtp_password}
+              onChange={set("smtp_password")}
+              disabled={env.has("password")}
+            />
+            <input className="input" aria-label="From address" placeholder="From (Teacher's Desk <desk@shipleyschool.org>)" value={form.smtp_from} onChange={set("smtp_from")} disabled={env.has("from")} />
+            {env.size > 0 && <p className="text-xs text-faint">Greyed-out fields are set on the server by IT.</p>}
+            <p className="text-xs text-faint">Port 587 uses STARTTLS; port 465 uses SSL.</p>
+          </fieldset>
 
           <fieldset className="grid gap-3">
             <legend className="mb-2 text-sm text-ink">Google Workspace</legend>
@@ -286,22 +384,32 @@ function SignInSettings() {
             <input className="input" aria-label="Microsoft directory (tenant) ID" placeholder="Directory (tenant) ID (optional)" value={form.microsoft_tenant === "organizations" ? "" : form.microsoft_tenant} onChange={(e) => setForm({ ...form, microsoft_tenant: e.target.value || "organizations" })} />
           </fieldset>
 
-          <label className="flex items-start gap-3 text-sm text-ink">
-            <input type="checkbox" className="mt-1" checked={form.auto_join} onChange={set("auto_join")} />
-            <span>
-              Anyone at the domain can join as a teacher
-              <span className="block text-faint">Off: only people you've added can sign in.</span>
-            </span>
-          </label>
-
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <button className="btn-primary" disabled={saving}>
               {saving && <Spinner />} Save
+            </button>
+            <button type="button" className="btn-secondary" disabled={testing || !cfg.email.configured} onClick={sendTest} title={cfg.email.configured ? undefined : "Save the mail server and from address first"}>
+              {testing && <Spinner />} Send a test email
             </button>
           </div>
         </form>
       </Disclosure>
     </div>
+  );
+}
+
+function Toggle({ checked, onChange, labelledBy }: { checked: boolean; onChange: (v: boolean) => void; labelledBy: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-labelledby={labelledBy}
+      onClick={() => onChange(!checked)}
+      className={clsx("relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors duration-150", checked ? "bg-accent" : "bg-ink/[0.15]")}
+    >
+      <span className={clsx("inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-150", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
+    </button>
   );
 }
 

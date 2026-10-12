@@ -17,6 +17,7 @@ import { Library } from "./pages/Library";
 import { Roster } from "./pages/Roster";
 import { Admin } from "./pages/Admin";
 import { Login } from "./pages/Login";
+import { Signup } from "./pages/Signup";
 import { GetApp } from "./pages/GetApp";
 import { Privacy } from "./pages/Privacy";
 import { UpdateNotice } from "./components/UpdateNotice";
@@ -48,6 +49,7 @@ function TitleBar() {
 
 function Gate() {
   const { user, loading } = useAuth();
+  const { pathname } = useLocation();
   if (loading)
     return (
       <div className="flex h-full items-center justify-center" aria-busy="true" aria-label="Loading">
@@ -56,7 +58,12 @@ function Gate() {
         </div>
       </div>
     );
-  if (!user) return <Login />;
+  if (!user) {
+    // Joining with a school email and Forgot password live outside the sign-in gate.
+    if (pathname === "/signup") return <Signup mode="signup" />;
+    if (pathname === "/reset") return <Signup mode="reset" />;
+    return <Login />;
+  }
   return (
     <StatusProvider>
       <Routes>

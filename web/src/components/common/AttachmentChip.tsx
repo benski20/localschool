@@ -29,8 +29,8 @@ export function AttachmentChip({
   return (
     <span
       className={clsx(
-        "ls-chip relative inline-flex h-8 max-w-full items-center gap-2 overflow-hidden rounded-lg border bg-panel pl-2.5 pr-1 text-[13px]",
-        failed ? "border-danger/35" : "border-line",
+        "ls-chip relative inline-flex h-8 max-w-full items-center gap-2 overflow-hidden rounded-lg pl-2.5 pr-1 text-[13px]",
+        failed ? "bg-danger/[0.07]" : "bg-ink/[0.045]",
         className,
       )}
       title={failed ? item.error : item.name}
