@@ -159,7 +159,7 @@ jobs:
           # The fictional demo lets anyone join with an @shipley.demo address (no email
           # server there: the code is shown on screen). Real installs set this in Settings.
           JOIN=()
-          if [ "$DEMO" = 1 ]; then JOIN=(SSO_DOMAINS=shipley.demo SSO_AUTO_JOIN=true); fi
+          if [ "$DEMO" = 1 ]; then JOIN=(SSO_DOMAINS=shipley.demo,shipleyschool.org SSO_AUTO_JOIN=true); fi
           modal secret create localschool-app --force "${JOIN[@]}" \
             ADMIN_EMAIL=admin@school.local ADMIN_PASSWORD="$ADMIN_PW" \
             RUNTIME_URL="$RUNTIME" RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" \
