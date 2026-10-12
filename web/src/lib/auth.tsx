@@ -7,6 +7,8 @@ interface AuthState {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** After joining or resetting a password: the server already signed this browser in. */
+  signedIn: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -33,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, logout, signedIn: setUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthState {

@@ -97,6 +97,11 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
         out = {"ok": True, "app": "localschool", "version": VERSION, "school": settings.school_name}
         with connect(settings.db_path) as db:
             enabled = sso_service.load(db, settings).enabled()
+            join = auth.availability(db, settings)
+        # Join with a school email / Forgot password (links on the sign-in page)
+        out["signup"], out["reset"] = join["signup"], join["reset"]
+        if join["signup"]:
+            out["signup_domains"] = list(join["domains"])  # the email field's hint
         if enabled and not settings.local_mode:
             out["sso"] = enabled  # the sign-in page shows "Continue with Google / Microsoft"
         if settings.local_mode:
@@ -122,12 +127,15 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
             ai = "on_site"
         else:
             ai = "cloud"
+        with connect(settings.db_path) as db:
+            signup = auth.availability(db, settings)["signup"]
         return {
             "school": settings.school_name,
             "deployment": "personal" if settings.local_mode else "demo" if settings.demo_logins else "school",
             "ai": ai,
             "activity_days": settings.activity_days,
             "session_days": settings.session_days,
+            "signup": signup,  # teachers can join with their school email
             "version": VERSION,
         }
 
