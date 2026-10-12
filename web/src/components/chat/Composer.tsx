@@ -118,7 +118,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             <button
               type="button"
               onClick={onStop}
-              className="chat-pop inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-ink/[0.07] bg-panel px-3.5 text-[13.5px] text-ink transition-colors hover:bg-subtle"
+              className="chat-pop inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-ink/[0.05] px-3.5 text-[13.5px] text-ink transition-colors hover:bg-ink/[0.09]"
               aria-label="Stop the answer"
             >
               <Square className="h-3 w-3 fill-current" />

@@ -1,7 +1,10 @@
 /**
- * Small shared pieces for Documents, Students and Settings: a centered page, a one-word title,
- * a side sheet, a dialog, a confirm, a search field, chips, a thin bar and a disclosure.
- * Flat, hairline, near-square; lots of air.
+ * Small shared pieces for Documents, Students and Settings: a centered page, a serif title with an
+ * optional subtitle, a floating side sheet, a dialog, a confirm, a search field, pill tabs, chips,
+ * a thin bar and a disclosure.
+ * The borderless canvas (same as the Tools pages): things on the page sit on soft tints with no
+ * outlines or divider lines; only floating layers (sheets, dialogs) get a whisper edge and a soft
+ * shadow. Soft corners, sentence-case labels, lots of air.
  */
 import "./workspace.css";
 import { useEffect, useState, type ReactNode } from "react";
@@ -13,23 +16,26 @@ import { Spinner } from "../ui";
 /* ------------------------------------------------------------------ Page */
 
 /** Centered column with generous gutters. */
-export function Page({ children, width = 840 }: { children: ReactNode; width?: number }) {
+export function Page({ children, width = 760 }: { children: ReactNode; width?: number }) {
   return (
-    <div className="mx-auto w-full px-4 pb-24 pt-8 sm:px-8 md:pt-16" style={{ maxWidth: width + 64 }}>
+    <div className="mx-auto w-full px-4 pb-24 pt-8 sm:px-8 sm:pt-12" style={{ maxWidth: width + 64 }}>
       {children}
     </div>
   );
 }
 
 /**
- * One-word title on the left, at most a couple of controls on the right.
- * `stretch` lets filter controls take a full row of their own on phones.
+ * Serif title (the same as the Tools pages) with an optional muted subtitle on the left, at most a
+ * couple of controls on the right. `stretch` lets filter controls take a full row of their own on phones.
  */
-export function PageTitle({ title, actions, stretch }: { title: string; actions?: ReactNode; stretch?: boolean }) {
+export function PageTitle({ title, subtitle, actions, stretch }: { title: string; subtitle?: ReactNode; actions?: ReactNode; stretch?: boolean }) {
   return (
-    <header className="ws-rise flex flex-wrap items-center justify-between gap-x-6 gap-y-5">
-      <h1 className="text-2xl font-normal text-ink">{title}</h1>
-      {actions && <div className={clsx("flex min-w-0 items-center gap-2", stretch && "w-full sm:w-auto")}>{actions}</div>}
+    <header className="ws-rise flex flex-wrap items-start justify-between gap-x-6 gap-y-5">
+      <div className="min-w-0">
+        <h1 className="font-serif text-[32px] leading-[40px] tracking-[-0.01em] text-ink sm:text-[36px] sm:leading-[44px]">{title}</h1>
+        {subtitle && <p className="mt-2 text-base text-muted">{subtitle}</p>}
+      </div>
+      {actions && <div className={clsx("flex min-w-0 items-center gap-2 sm:pt-1", stretch && "w-full sm:w-auto")}>{actions}</div>}
     </header>
   );
 }
@@ -80,10 +86,10 @@ export function SearchField({ value, onChange, placeholder, className }: { value
 
 /* ------------------------------------------------------------------ Tabs */
 
-/** Two or three plain text tabs with an ink underline. */
+/** Two or three choices as a pill toggle. */
 export function Tabs<T extends string>({ value, onChange, items, label }: { value: T; onChange: (v: T) => void; items: { id: T; label: string }[]; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-6 border-b border-line">
+    <div role="tablist" aria-label={label} className="segmented">
       {items.map((t) => {
         const on = value === t.id;
         return (
@@ -93,7 +99,6 @@ export function Tabs<T extends string>({ value, onChange, items, label }: { valu
             type="button"
             aria-selected={on}
             onClick={() => onChange(t.id)}
-            className={clsx("-mb-px border-b pb-3 text-sm transition-colors duration-150", on ? "border-ink text-ink" : "border-transparent text-faint hover:text-ink")}
           >
             {t.label}
           </button>
@@ -112,11 +117,11 @@ export function Chip({ children, tone = "neutral", className, title }: { childre
     <span
       title={title}
       className={clsx(
-        "inline-flex h-[22px] max-w-full items-center gap-1 whitespace-nowrap rounded-lg border px-1.5 text-xs",
-        tone === "neutral" && "border-line text-muted",
-        tone === "strong" && "border-line-strong font-medium text-ink",
-        tone === "warning" && "border-warning/30 text-warning",
-        tone === "danger" && "border-danger/30 text-danger",
+        "inline-flex h-[22px] max-w-full items-center gap-1 whitespace-nowrap rounded-full px-2 text-xs",
+        tone === "neutral" && "bg-ink/[0.045] text-muted",
+        tone === "strong" && "bg-ink/[0.07] font-medium text-ink",
+        tone === "warning" && "bg-warning/[0.1] text-warning",
+        tone === "danger" && "bg-danger/[0.08] text-danger",
         className,
       )}
     >
@@ -125,14 +130,14 @@ export function Chip({ children, tone = "neutral", className, title }: { childre
   );
 }
 
-/** Thin square bar; null = indeterminate. */
+/** Thin rounded bar; null = indeterminate. */
 export function Bar({ value, className }: { value: number | null; className?: string }) {
   return (
-    <div className={clsx("h-[2px] w-full overflow-hidden bg-line", className)} role="progressbar" aria-valuenow={value ?? undefined} aria-valuemin={0} aria-valuemax={100}>
+    <div className={clsx("h-[3px] w-full overflow-hidden rounded-full bg-ink/[0.07]", className)} role="progressbar" aria-valuenow={value ?? undefined} aria-valuemin={0} aria-valuemax={100}>
       {value === null ? (
-        <div className="h-full w-1/3 animate-indeterminate bg-ink/70" />
+        <div className="h-full w-1/3 animate-indeterminate rounded-full bg-ink/70" />
       ) : (
-        <div className="h-full bg-ink/70 transition-[width] duration-500 ease-out" style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
+        <div className="h-full rounded-full bg-ink/70 transition-[width] duration-500 ease-out" style={{ width: `${Math.max(2, Math.min(100, value))}%` }} />
       )}
     </div>
   );
@@ -160,7 +165,10 @@ export function Disclosure({ label, children, defaultOpen = false }: { label: st
 
 /* ------------------------------------------------------------------ Sheet */
 
-/** Right-side sheet (bottom sheet on phones). Keeps the last content while animating closed. */
+/**
+ * Floating panel on the right, inset from the window edges (a bottom sheet on phones).
+ * Keeps the last content while animating closed.
+ */
 export function Sheet({
   open,
   onOpenChange,
@@ -183,7 +191,7 @@ export function Sheet({
       <Dialog.Portal>
         <Dialog.Overlay className="ws-overlay fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content
-          className="ws-sheet fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col border-t border-line bg-panel outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[var(--w)] sm:max-w-full sm:border-l sm:border-t-0"
+          className="ws-sheet fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col rounded-t-2xl border border-b-0 border-ink/[0.07] bg-panel shadow-xl outline-none sm:inset-y-2 sm:left-auto sm:right-2 sm:max-h-none sm:w-[var(--w)] sm:max-w-[calc(100vw-16px)] sm:rounded-2xl sm:border-b"
           style={{ ["--w" as string]: `${width}px` }}
         >
           <div className="flex items-start gap-3 px-6 pb-2 pt-7 sm:px-8">
@@ -195,8 +203,8 @@ export function Sheet({
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-8 pt-5 sm:px-8">{children}</div>
-          {footer && <div className="flex flex-wrap items-center gap-2 border-t border-line px-6 py-4 sm:px-8">{footer}</div>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5 sm:px-8">{children}</div>
+          {footer && <div className="flex flex-wrap items-center gap-2 px-6 pb-6 pt-2 sm:px-8">{footer}</div>}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -234,7 +242,7 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay className="ws-overlay fixed inset-0 z-40 bg-black/20" />
         <Dialog.Content
-          className="ws-dialog fixed left-1/2 top-[max(16px,10vh)] z-50 flex max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] flex-col border border-ink/[0.07] bg-panel outline-none sm:max-h-[80vh]"
+          className="ws-dialog fixed left-1/2 top-[max(16px,10vh)] z-50 flex max-h-[calc(100vh-32px)] w-[calc(100vw-32px)] flex-col rounded-2xl border border-ink/[0.07] bg-panel shadow-xl outline-none sm:max-h-[80vh]"
           style={{ maxWidth: width, transform: "translateX(-50%)" }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
@@ -260,7 +268,7 @@ export function Modal({
 }
 
 export function ModalFooter({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-4">{children}</div>;
+  return <div className="flex flex-wrap items-center justify-end gap-2 px-6 pb-6 pt-3">{children}</div>;
 }
 
 /** Names the thing, says what happens, focuses Cancel first. */
@@ -287,18 +295,18 @@ export function ConfirmDialog({
         <Dialog.Overlay className="ws-overlay fixed inset-0 z-[60] bg-black/25" />
         <Dialog.Content
           role="alertdialog"
-          className="ws-dialog fixed left-1/2 top-[max(16px,24vh)] z-[61] w-[calc(100vw-32px)] max-w-[420px] border border-ink/[0.07] bg-panel outline-none"
+          className="ws-dialog fixed left-1/2 top-[max(16px,24vh)] z-[61] w-[calc(100vw-32px)] max-w-[420px] rounded-2xl border border-ink/[0.07] bg-panel shadow-xl outline-none"
           style={{ transform: "translateX(-50%)" }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             (e.currentTarget as HTMLElement).querySelector<HTMLButtonElement>("[data-cancel]")?.focus();
           }}
         >
-          <div className="px-6 pb-6 pt-6">
+          <div className="px-6 pb-5 pt-6">
             <Dialog.Title className="text-lg font-normal text-ink">{title}</Dialog.Title>
             {body ? <Dialog.Description className="mt-1.5 text-sm text-muted">{body}</Dialog.Description> : <Dialog.Description className="sr-only">Confirm</Dialog.Description>}
           </div>
-          <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
+          <div className="flex justify-end gap-2 px-6 pb-6">
             <Dialog.Close className="btn-secondary" data-cancel>
               Cancel
             </Dialog.Close>
@@ -317,7 +325,7 @@ export function ConfirmDialog({
 
 export function Callout({ tone = "neutral", title, children }: { tone?: "neutral" | "warning" | "danger"; title?: ReactNode; children?: ReactNode }) {
   return (
-    <div className={clsx("border-l-2 py-1 pl-4 text-sm", tone === "neutral" && "border-line-strong", tone === "warning" && "border-warning", tone === "danger" && "border-danger")}>
+    <div className={clsx("rounded-lg px-4 py-3 text-sm", tone === "neutral" && "bg-ink/[0.03]", tone === "warning" && "bg-warning/[0.07]", tone === "danger" && "bg-danger/[0.06]")}>
       {title && <div className={clsx(tone === "danger" ? "text-danger" : tone === "warning" ? "text-warning" : "text-ink")}>{title}</div>}
       {children && <div className={clsx("text-muted", title && "mt-0.5")}>{children}</div>}
     </div>

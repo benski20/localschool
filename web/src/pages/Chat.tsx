@@ -311,7 +311,7 @@ export function Chat() {
                 tabIndex={pinned ? -1 : 0}
                 aria-hidden={pinned}
                 className={clsx(
-                  "absolute -top-[48px] left-1/2 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-lg border border-ink/[0.07] bg-panel px-3 text-xs text-muted transition-[opacity,transform] duration-200 ease-out hover:text-ink",
+                  "absolute -top-[48px] left-1/2 inline-flex h-8 -translate-x-1/2 items-center gap-1.5 rounded-full border border-ink/[0.07] bg-panel px-3 text-xs text-muted shadow-md transition-[opacity,transform] duration-200 ease-out hover:text-ink",
                   pinned ? "pointer-events-none translate-y-1 opacity-0" : "translate-y-0 opacity-100",
                 )}
               >
@@ -405,7 +405,7 @@ function TurnStatus({ a }: { a?: ChatMsg }) {
     tone = "text-warning";
   }
   return (
-    <span key={text} className={clsx("chat-fade shrink-0 whitespace-nowrap pt-[8px] text-[10.5px] font-medium uppercase tracking-[0.1em]", tone)}>
+    <span key={text} className={clsx("chat-fade shrink-0 whitespace-nowrap pt-[6px] text-xs font-medium", tone)}>
       {text}
     </span>
   );
@@ -451,7 +451,7 @@ function Turn({
           {waiting ? (
             <Progress m={m} />
           ) : m.error ? (
-            <div className="chat-fade flex items-start gap-3 border border-danger/30 bg-panel px-4 py-3">
+            <div className="chat-fade flex items-start gap-3 rounded-lg bg-danger/[0.06] px-4 py-3">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" strokeWidth={1.75} />
               <div className="min-w-0 flex-1 text-sm">
                 <div className="text-ink">Couldn't answer that</div>
@@ -521,7 +521,7 @@ function Progress({ m }: { m: Message }) {
       {found > 0 && (
         <div className="chat-stagger mt-3 flex flex-wrap gap-1.5">
           {m.sources.slice(0, 4).map((s) => (
-            <span key={s.n} className="bg-ink/[0.04] inline-flex h-7 max-w-[240px] items-center gap-2 rounded-lg px-2 text-[12px] text-muted">
+            <span key={s.n} className="inline-flex h-7 max-w-[240px] items-center gap-2 rounded-full bg-ink/[0.04] pl-1.5 pr-2.5 text-[12px] text-muted">
               <SourceKindIcon kind={s.kind} className="h-4 w-4 border-0" />
               <span className="truncate">{s.title}</span>
             </span>
@@ -541,7 +541,7 @@ function Progress({ m }: { m: Message }) {
 /** Light list under an answer: number, title, and a kind label only when it's not a plain document. */
 function SourceList({ sources, activeN, onCite }: { sources: Source[]; activeN: number | null; onCite: (n: number) => void }) {
   return (
-    <div className="chat-fade mt-7 border-t border-line pt-3">
+    <div className="chat-fade mt-6">
       <ul className="chat-stagger -mx-2">
         {sources.map((s) => (
           <li key={s.n}>
@@ -550,7 +550,7 @@ function SourceList({ sources, activeN, onCite }: { sources: Source[]; activeN: 
               aria-pressed={activeN === s.n}
               className={clsx(
                 "flex w-full min-w-0 items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors duration-150",
-                activeN === s.n ? "bg-accent-soft/70" : "hover:bg-subtle/70",
+                activeN === s.n ? "bg-accent-soft/70" : "hover:bg-ink/[0.03]",
               )}
             >
               <CiteNumber n={s.n} active={activeN === s.n} />

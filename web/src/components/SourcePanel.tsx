@@ -27,8 +27,8 @@ function useDesktop() {
 }
 
 /**
- * The cited passage in context. Slides in from the right on desktop (pushing the
- * conversation over) and rises as a bottom sheet on phones. Stays mounted while
+ * The cited passage in context. A floating rounded panel that slides in from the right on
+ * desktop (pushing the conversation over) and rises as a bottom sheet on phones. Stays mounted while
  * closing so it can animate out.
  */
 export function SourcePanel({
@@ -78,7 +78,7 @@ export function SourcePanel({
         <aside
           aria-label="Source"
           className={clsx(
-            "chat-panel-inner absolute inset-y-0 right-0 flex w-[420px] flex-col border-l border-line bg-bg lg:w-[440px]",
+            "chat-panel-inner absolute inset-y-2 right-2 flex w-[412px] flex-col overflow-hidden rounded-2xl border border-ink/[0.07] bg-panel shadow-xl lg:w-[432px]",
             visible ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0",
           )}
         >
@@ -93,12 +93,12 @@ export function SourcePanel({
       <div className={clsx("chat-backdrop absolute inset-0 bg-black/40", visible ? "opacity-100" : "opacity-0")} onClick={onClose} aria-hidden />
       <aside
         className={clsx(
-          "chat-sheet absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col rounded-t-[4px] border-t border-line bg-bg",
+          "chat-sheet absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col overflow-hidden rounded-t-2xl border border-b-0 border-ink/[0.07] bg-panel shadow-xl",
           visible ? "translate-y-0" : "translate-y-full",
         )}
       >
         <div className="flex justify-center pb-1 pt-2.5" aria-hidden>
-          <span className="h-1 w-9 bg-line-strong" />
+          <span className="h-1 w-9 rounded-full bg-ink/[0.12]" />
         </div>
         {body}
       </aside>
@@ -129,7 +129,7 @@ function PanelBody({
 
   return (
     <>
-      <header className={clsx("flex shrink-0 items-center justify-between gap-2 border-b border-line bg-panel px-4 md:px-5", sheet ? "h-12" : "h-14")}>
+      <header className={clsx("flex shrink-0 items-center justify-between gap-2 px-4 md:px-5", sheet ? "h-12" : "h-14")}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-[13px] text-muted">Source</span>
           <CiteNumber n={source.n} active />
@@ -148,7 +148,7 @@ function PanelBody({
               <button className="btn-ghost h-8 w-8 px-0" disabled={!next} onClick={() => next && onSelect(next.n)} aria-label="Next source">
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <span className="mx-1 h-4 w-px bg-line" aria-hidden />
+              <span className="w-1.5" aria-hidden />
             </>
           )}
           <button ref={closeBtn} className="btn-ghost h-8 w-8 px-0" onClick={onClose} aria-label="Close source panel">
@@ -157,7 +157,7 @@ function PanelBody({
         </div>
       </header>
 
-      <div key={`${source.n}-${source.chunk_id ?? source.student_id ?? source.title}`} className="chat-fade min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-6 md:px-6">
+      <div key={`${source.n}-${source.chunk_id ?? source.student_id ?? source.title}`} className="chat-fade min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-3 md:px-6">
         <SourceKindLabel kind={source.kind} />
         <h2 className="mt-2.5 text-[20px] font-normal leading-[1.35] tracking-[-0.012em] text-ink">{source.title}</h2>
         {source.subtitle && <p className="mt-1 text-[13.5px] text-muted">{source.subtitle}</p>}
@@ -166,8 +166,8 @@ function PanelBody({
       </div>
 
       {sources.length > 1 && (
-        <footer className="shrink-0 border-t border-line bg-subtle/50 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
-          <div className="mb-1.5 px-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Sources</div>
+        <footer className="mx-2 mb-[max(8px,env(safe-area-inset-bottom))] shrink-0 rounded-xl bg-ink/[0.03] px-2 pb-2 pt-2.5">
+          <div className="mb-1 px-1.5 text-sm font-medium text-muted">Sources</div>
           <ul className="max-h-[152px] space-y-0.5 overflow-y-auto">
             {sources.map((s) => (
               <li key={s.n}>
@@ -176,7 +176,7 @@ function PanelBody({
                   aria-current={s.n === source.n || undefined}
                   className={clsx(
                     "flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors",
-                    s.n === source.n ? "bg-panel shadow-[inset_0_0_0_1px_rgb(var(--border))]" : "hover:bg-panel/70",
+                    s.n === source.n ? "bg-panel shadow-sm" : "hover:bg-ink/[0.04]",
                   )}
                 >
                   <CiteNumber n={s.n} active={s.n === source.n} />
@@ -223,7 +223,7 @@ function DocumentPassages({ source }: { source: Source }) {
       {noFile ? (
         <Highlighted label={source.subtitle}>{source.text}</Highlighted>
       ) : error ? (
-        <div className="border border-danger/30 bg-panel px-3.5 py-3 text-sm text-danger">{error}</div>
+        <div className="rounded-lg bg-danger/[0.06] px-3.5 py-3 text-sm text-danger">{error}</div>
       ) : !passages ? (
         <div className="space-y-2.5" aria-label="Loading">
           <div className="chat-line h-3 w-24" />
@@ -258,10 +258,9 @@ function DocumentPassages({ source }: { source: Source }) {
 
 function Highlighted({ label, children }: { label?: string; children: ReactNode }) {
   return (
-    <figure className="chat-highlight relative border border-accent/25 bg-accent-soft px-4 py-3.5">
-      <span className="absolute -left-px -top-px bottom-[-1px] w-[2px] bg-accent" aria-hidden />
-      <figcaption className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-accent">
-        Cited{label ? <span className="normal-case tracking-normal text-accent/80">· {label}</span> : null}
+    <figure className="chat-highlight relative rounded-xl bg-accent-soft px-4 py-3.5">
+      <figcaption className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-accent">
+        Cited{label ? <span className="font-normal text-accent/80">· {label}</span> : null}
       </figcaption>
       <blockquote className="whitespace-pre-wrap text-[14px] leading-[23px] text-ink">{children}</blockquote>
     </figure>
@@ -279,19 +278,19 @@ function StudentRecord({ source }: { source: Source }) {
 
   return (
     <>
-      <div className="mb-3 flex items-start gap-2 bg-ink/[0.04] px-3 py-2.5 text-[12.5px] leading-[18px] text-muted">
+      <div className="mb-3 flex items-start gap-2 rounded-lg bg-warning/[0.07] px-3 py-2.5 text-[12.5px] leading-[18px] text-muted">
         <Lock className="mt-[2px] h-3.5 w-3.5 shrink-0 text-warning" />
         <span>Confidential student information from your class roster.</span>
       </div>
-      <dl className="bg-ink/[0.04]">
+      <dl className="rounded-xl bg-ink/[0.03] py-1">
         {rows.map((r, i) => (
-          <div key={i} className={clsx("grid grid-cols-[minmax(108px,38%)_1fr] gap-3 px-3.5 py-2.5 text-[13px] leading-[20px]", i > 0 && "border-t border-line")}>
-            <dt className="text-[11px] uppercase leading-[20px] tracking-[0.06em] text-faint">{r.k}</dt>
+          <div key={i} className="grid grid-cols-[minmax(108px,38%)_1fr] gap-3 px-3.5 py-2 text-[13px] leading-[20px]">
+            <dt className="leading-[20px] text-muted">{r.k}</dt>
             <dd className="min-w-0 text-ink">
               {/^accommodations$/i.test(r.k) && r.v.includes(";") ? (
                 <ul className="flex flex-wrap gap-1">
                   {r.v.split(/;\s*/).filter(Boolean).map((a) => (
-                    <li key={a} className="bg-ink/[0.04] rounded-lg px-1.5 py-0.5 text-[12px]">
+                    <li key={a} className="rounded-full bg-ink/[0.05] px-2 py-0.5 text-[12px]">
                       {a}
                     </li>
                   ))}
