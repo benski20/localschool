@@ -120,6 +120,14 @@ def web():
         subprocess.run([sys.executable, "-m", "scripts.seed_demo"], cwd=SRV, check=True)
         marker.touch()
         data.commit()
+    # One-time: set the admin's password from the deploy secret (ADMIN_PASSWORD, i.e. the
+    # LS_ADMIN_PASSWORD repo secret) when the deploy's reset_admin_password input is on.
+    admin_reset = os.environ.get("LS_RESET_ADMIN", "").strip()
+    admin_marker = Path(DATA) / f".admin-reset-{admin_reset}"
+    if admin_reset.isalnum() and os.environ.get("ADMIN_PASSWORD") and not admin_marker.exists():
+        subprocess.run([sys.executable, "-m", "scripts.set_admin_password"], cwd=SRV, check=True)
+        admin_marker.touch()
+        data.commit()
     # Going live (demo turned off): remove the fictional school once, keep everything real.
     purged = Path(DATA) / ".demo-purged"
     if os.environ.get("LS_SEED_DEMO") != "1" and marker.exists() and not purged.exists():
