@@ -181,6 +181,17 @@ jobs:
           curl -sf "$APP/api/health"
           curl -sf "$APP/" | grep -q '<div id="root">'
 
+      - name: Admin can sign in (reports only the result)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
+          APP: ${{ steps.app.outputs.url }}
+        run: |
+          code=$(python3 -c 'import json,os;print(json.dumps({"email":"admin@school.local","password":os.environ["ADMIN_PW"]}))' \
+            | curl -s -o /dev/null -w "%{http_code}" -H 'content-type: application/json' --data-binary @- "$APP/api/auth/login")
+          echo "admin sign-in: HTTP $code"
+          if [ "$code" != 200 ]; then timeout 20 modal app logs localschool-app 2>&1 | grep -iE "password|admin|purge|Traceback|Error" | tail -20 || true; exit 1; fi
+
       - name: Live eval through the hosted app (chat + teacher tools)
         if: steps.secrets.outputs.ready == 'true' && inputs.demo != false
         env:
