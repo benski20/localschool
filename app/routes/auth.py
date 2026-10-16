@@ -105,7 +105,7 @@ NO_RESET = "Resetting a password by email isn't set up here. Ask your administra
 def availability(db: sqlite3.Connection, settings: Settings) -> dict:
     """What /api/health tells the sign-in page: can teachers join, can they reset a password.
     Email must be set up, except in the fictional hosted demo, which shows codes on screen."""
-    if settings.local_mode:
+    if settings.local_mode or not settings.email_codes:
         return {"signup": False, "reset": False, "demo": False, "domains": ()}
     cfg, mc = sso.load(db, settings), mail.load(db, settings)
     demo = settings.demo_logins and not mc.configured()

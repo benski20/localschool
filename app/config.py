@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     sso_microsoft_client_id: str = ""
     sso_microsoft_client_secret: str = ""
     sso_microsoft_tenant: str = "organizations"
+    email_codes: bool = False        # join / reset password by emailed code (needs SMTP); off for now
     sso_domains: str = "shipleyschool.org"  # comma-separated school email domains
     sso_auto_join: bool = False      # anyone at those domains may join as a teacher
     # Tests/CI only: JSON {provider: {"auth": url, "token": url, "issuer": str}}

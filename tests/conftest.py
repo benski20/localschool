@@ -31,6 +31,7 @@ def settings(tmp_path) -> Settings:
         admin_password="admin-pass-123",
         web_dist=tmp_path / "no-web",
         max_concurrent_generations=2,
+        email_codes=True,
     )
 
 
