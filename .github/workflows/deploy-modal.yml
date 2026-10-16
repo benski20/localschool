@@ -32,9 +32,9 @@ on:
         description: School name shown in the hosted app
         default: The Shipley School
       demo:
-        description: "Load the fictional demo school and show 'Try the demo' on the login page"
+        description: "Load the fictional demo school and show 'Try the demo' (off: the real school)"
         type: boolean
-        default: true
+        default: false
       whisper_model:
         description: "Speech-to-text model for meeting notes (CPU, int8): base.en, small.en, …"
         default: base.en
@@ -159,6 +159,7 @@ jobs:
           # The fictional demo lets anyone join with an @shipley.demo address (no email
           # server there: the code is shown on screen). Real installs set this in Settings.
           JOIN=()
+          JOIN=(SSO_DOMAINS=shipleyschool.org SSO_AUTO_JOIN=true)
           if [ "$DEMO" = 1 ]; then JOIN=(SSO_DOMAINS=shipley.demo,shipleyschool.org SSO_AUTO_JOIN=true); fi
           modal secret create localschool-app --force "${JOIN[@]}" \
             ADMIN_EMAIL=admin@school.local ADMIN_PASSWORD="$ADMIN_PW" \

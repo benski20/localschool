@@ -39,10 +39,24 @@ DOCS = [
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true", help="remove existing documents, roster and chats")
+    ap.add_argument("--purge", action="store_true",
+                    help="going live: remove only the fictional school (its teachers, classes, documents)")
     args = ap.parse_args()
 
     settings = get_settings()
     bootstrap(settings)
+    if args.purge:
+        with connect(settings.db_path) as db:
+            files = {f for _, f in DOCS}
+            for row in db.execute("SELECT id, filename FROM documents WHERE owner_id IS NULL").fetchall():
+                if row["filename"] in files:
+                    ingest.delete_document(db, row["id"], settings.files_dir)
+            # The made-up classes (students go with them), then the made-up teachers and
+            # everything they made (chats, drafts, private files: ON DELETE CASCADE / SET NULL).
+            db.execute("DELETE FROM sections WHERE teacher_email LIKE '%@shipley.demo' OR teacher_email LIKE '%@maplegrove.demo'")
+            db.execute("DELETE FROM users WHERE email LIKE '%@shipley.demo' OR email LIKE '%@maplegrove.demo'")
+        print("Fictional demo school removed; real accounts and data are untouched.")
+        return
     with connect(settings.db_path) as db:
         if args.reset:
             for (doc_id,) in db.execute("SELECT id FROM documents").fetchall():

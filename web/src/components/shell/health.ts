@@ -18,6 +18,8 @@ export interface Health {
   signup_domains?: string[];
   /** "Forgot password?" works: email is set up (or this is the fictional demo). */
   reset?: boolean;
+  /** A desk kept on this Mac: who it belongs to (its one account). */
+  owner?: { name: string; email: string };
   /** The Mac app this server hands out (installed apps update to it). */
   mac_app_version?: string;
 }

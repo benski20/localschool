@@ -188,6 +188,44 @@ fn check_updates(app: &AppHandle) {
     });
 }
 
+/// The desk on this Mac's sign-in page: "Sign in" (from the Keychain, like at launch).
+fn desk_sign_in(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || match local::signed_in_url(&app).and_then(|u| Url::parse(&u).ok()) {
+        Some(target) => {
+            if let Some(w) = main_window(&app) {
+                let _ = w.navigate(target);
+            }
+        }
+        None => {
+            updater::dialog(
+                "Teacher's Desk couldn't sign you in automatically.\n\nSign in with your password instead, or choose Teacher's Desk → Keep My Data on This Mac… to set it up again.",
+                &["OK"],
+            );
+        }
+    });
+}
+
+/// The desk on this Mac's sign-in page: "Use your school account" — open the school's own
+/// site (where accounts made on the web live). The desk on this Mac stays as it is; Teacher's
+/// Desk → Keep My Data on This Mac… comes back to it.
+fn use_school(app: &AppHandle) {
+    let Some(school) = server::school(app) else {
+        std::thread::spawn(|| {
+            updater::dialog("Teacher's Desk doesn't know your school's address yet. Choose Teacher's Desk → Switch School Server…", &["OK"]);
+        });
+        return;
+    };
+    let Ok(parsed) = Url::parse(&school.url) else { return };
+    let _ = server::save(app, &school);
+    let origin = server::origin(&parsed);
+    app.state::<CurrentServer>().set(Some(origin.clone()));
+    if let (Some(w), Ok(target)) = (main_window(app), origin.join("login")) {
+        let _ = w.navigate(target);
+    }
+    show_main(app);
+}
+
 /// The connect screen's "Keep my data on this Mac" (menu, or the account menu in the window).
 fn open_keep_on_mac(app: &AppHandle) {
     app.state::<CurrentServer>().set(None);
@@ -365,6 +403,10 @@ fn create_main_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
                         tauri::async_runtime::spawn(async move { open_keep_on_mac(&app) });
                     }
                     Some("check-updates") => check_updates(&app),
+                    Some("desk-signin") => desk_sign_in(&app),
+                    Some("use-school") => {
+                        tauri::async_runtime::spawn(async move { use_school(&app) });
+                    }
                     Some("mic-settings") => {
                         let _ = app.opener().open_url(
                             "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
