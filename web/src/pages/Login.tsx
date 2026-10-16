@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Spinner } from "../components/ui";
-import { isDesktop } from "../lib/shell";
+import { desktopVersion, isDesktop, isNewer } from "../lib/shell";
 import { PRODUCT_NAME } from "../lib/brand";
 import { Monogram } from "../components/shell/Monogram";
 import { schoolName, useHealth } from "../components/shell/health";
@@ -24,6 +24,22 @@ export function Login() {
   const school = schoolName(health?.school);
   const sso = health?.sso ?? [];
   const ssoError = new URLSearchParams(window.location.search).get("sso_error");
+  const desk = health?.local ? health.owner ?? { name: "", email: "" } : null;
+  // Apps from 0.5.7 sign in to the desk from the Keychain and can switch to the school.
+  const deskLinks = isDesktop && isNewer(desktopVersion || "0", "0.5.6");
+  const [withPassword, setWithPassword] = useState(false);
+
+  if (desk && !withPassword)
+    return (
+      <DeskSignIn
+        owner={desk}
+        links={deskLinks}
+        onPassword={() => {
+          setEmail(desk.email);
+          setWithPassword(true);
+        }}
+      />
+    );
 
   async function continueWith(provider: string) {
     if (!isDesktop) {
@@ -60,8 +76,12 @@ export function Login() {
           <div className="rounded-2xl bg-panel shadow-md px-6 pb-8 pt-9 sm:px-9">
             <div className="flex flex-col items-center text-center">
               <Monogram name={school || PRODUCT_NAME} size={40} />
-              <h1 className="mt-5 text-xl font-normal text-ink">{school || PRODUCT_NAME}</h1>
-              {school && <p className="mt-0.5 text-sm text-faint">{PRODUCT_NAME}</p>}
+              <h1 className="mt-5 text-xl font-normal text-ink">{desk ? "Your desk on this Mac" : school || PRODUCT_NAME}</h1>
+              {desk ? (
+                <p className="mt-0.5 text-sm text-faint">Sign in with the password you chose when you set it up.</p>
+              ) : (
+                school && <p className="mt-0.5 text-sm text-faint">{PRODUCT_NAME}</p>
+              )}
             </div>
 
             {sso.length > 0 && (
@@ -164,6 +184,57 @@ export function Login() {
             Get the Mac app
           </a>
         )}
+        <a href="/privacy" className="text-sm text-faint transition-colors hover:text-ink">
+          Privacy
+        </a>
+      </footer>
+    </div>
+  );
+}
+
+/**
+ * The private desk on this Mac ("Keep my data on this Mac") has one account: the teacher who
+ * set it up. Say so, sign them in from the Keychain, or go to the school's site instead
+ * (where accounts made on the web live).
+ */
+function DeskSignIn({ owner, links, onPassword }: { owner: { name: string; email: string }; links: boolean; onPassword: () => void }) {
+  const who = owner.name || owner.email;
+  return (
+    <div className="flex h-full flex-col overflow-y-auto bg-bg">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
+        <div className="animate-fade-in w-full max-w-[380px]">
+          <div className="rounded-2xl bg-panel px-6 pb-8 pt-9 shadow-md sm:px-9">
+            <div className="flex flex-col items-center text-center">
+              <Monogram name={who || PRODUCT_NAME} size={40} />
+              <h1 className="mt-5 text-xl font-normal text-ink">Your desk on this Mac</h1>
+              <p className="mt-2 text-sm text-muted">
+                {who ? <>This desk belongs to {who}. </> : null}Its documents, students and notes stay on this Mac.
+              </p>
+            </div>
+            <div className="mt-8 space-y-2.5">
+              {links ? (
+                <a href="teachersdesk://desk-signin" className="btn-primary btn-lg w-full">
+                  Sign in{owner.name ? ` as ${owner.name.split(" ")[0]}` : ""}
+                </a>
+              ) : null}
+              <button type="button" className={links ? "btn-secondary btn-lg w-full" : "btn-primary btn-lg w-full"} onClick={onPassword}>
+                Sign in with password
+              </button>
+            </div>
+            <p className="mt-6 text-center text-sm text-muted">
+              Made your account on the school's website?{" "}
+              {links ? (
+                <a href="teachersdesk://use-school" className="text-accent underline-offset-4 hover:underline">
+                  Use your school account
+                </a>
+              ) : (
+                <>Choose Teacher's Desk → Switch School Server… in the menu bar.</>
+              )}
+            </p>
+          </div>
+        </div>
+      </main>
+      <footer className="flex justify-center gap-6 pb-8 text-center">
         <a href="/privacy" className="text-sm text-faint transition-colors hover:text-ink">
           Privacy
         </a>

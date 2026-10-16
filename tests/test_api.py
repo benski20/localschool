@@ -197,7 +197,9 @@ def test_personal_desk_on_a_teachers_mac(settings, fake):
     settings.admin_name = "Jordan Lee"
     settings.admin_email = "jordan@shipley.test"
     with TestClient(create_app(settings, factory=lambda cfg, s: fake)) as c:
-        assert c.get("/api/health").json()["local"] is True
+        h = c.get("/api/health").json()
+        assert h["local"] is True
+        assert h["owner"] == {"name": "Jordan Lee", "email": "jordan@shipley.test"}  # the desk's sign-in says whose it is
         login(c, "jordan@shipley.test", "admin-pass-123")
         me = c.get("/api/auth/me").json()["user"]
         assert me["name"] == "Jordan Lee" and me["role"] == "admin"

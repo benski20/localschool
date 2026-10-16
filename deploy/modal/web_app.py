@@ -120,6 +120,13 @@ def web():
         subprocess.run([sys.executable, "-m", "scripts.seed_demo"], cwd=SRV, check=True)
         marker.touch()
         data.commit()
+    # Going live (demo turned off): remove the fictional school once, keep everything real.
+    purged = Path(DATA) / ".demo-purged"
+    if os.environ.get("LS_SEED_DEMO") != "1" and marker.exists() and not purged.exists():
+        subprocess.run([sys.executable, "-m", "scripts.seed_demo", "--purge"], cwd=SRV, check=True)
+        purged.touch()
+        marker.unlink()
+        data.commit()
     # One-time demo reset (the deploy workflow's reset_demo input sets a fresh token).
     reset = os.environ.get("LS_RESET_DEMO", "").strip()
     reset_marker = Path(DATA) / f".demo-reset-{reset}"

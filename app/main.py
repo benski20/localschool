@@ -30,7 +30,7 @@ from .services.models import PullManager, seed_choices
 from .services.tools import ToolWorker
 
 log = logging.getLogger("localschool")
-VERSION = "0.5.6"
+VERSION = "0.5.7"
 DEMO_TEACHER = ("jordan.lee@shipley.demo", "demo-pass-123")  # scripts/seed_demo.py
 
 
@@ -106,6 +106,8 @@ def create_app(settings: Settings | None = None, *, factory: ProviderFactory = d
             out["sso"] = enabled  # the sign-in page shows "Continue with Google / Microsoft"
         if settings.local_mode:
             out["local"] = True  # the Mac app and sidebar say "Kept on this Mac"
+            # Whose desk this is, for its sign-in page (the server listens on 127.0.0.1 only).
+            out["owner"] = {"name": settings.admin_name or "", "email": settings.admin_email}
         if settings.demo_logins:
             # Synthetic demo school only: lets the login page offer one-click demo sign-in.
             out["demo"] = {"email": DEMO_TEACHER[0], "password": DEMO_TEACHER[1]}
