@@ -186,8 +186,11 @@ jobs:
         env:
           ADMIN_PW: ${{ secrets.LS_ADMIN_PASSWORD || secrets.LS_RUNTIME_TOKEN }}
           APP: ${{ steps.app.outputs.url }}
+          HAS_ADMIN_SECRET: ${{ secrets.LS_ADMIN_PASSWORD != '' }}
         run: |
-          code=$(python3 -c 'import json,os;print(json.dumps({"email":"admin@school.local","password":os.environ["ADMIN_PW"]}))' \
+          # Facts about the secret only (never its value): which one is used, stray whitespace.
+          python3 -c 'import os;p=os.environ["ADMIN_PW"];print("LS_ADMIN_PASSWORD secret set:", os.environ["HAS_ADMIN_SECRET"], "| length", len(p), "| spaces or line breaks at the ends:", p != p.strip())'
+          code=$(python3 -c 'import json,os;print(json.dumps({"email":"admin@school.local","password":os.environ["ADMIN_PW"].strip()}))' \
             | curl -s -o /dev/null -w "%{http_code}" -H 'content-type: application/json' --data-binary @- "$APP/api/auth/login")
           echo "admin sign-in: HTTP $code"
           if [ "$code" != 200 ]; then timeout 20 modal app logs localschool-app 2>&1 | grep -iE "password|admin|purge|Traceback|Error" | tail -20 || true; exit 1; fi
