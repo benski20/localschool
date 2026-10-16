@@ -31,6 +31,10 @@ on:
       school_name:
         description: School name shown in the hosted app
         default: The Shipley School
+      reset_admin_password:
+        description: "Set admin@school.local's password to the LS_ADMIN_PASSWORD secret (once)"
+        type: boolean
+        default: false
       demo:
         description: "Load the fictional demo school and show 'Try the demo' (off: the real school)"
         type: boolean
@@ -165,7 +169,7 @@ jobs:
             ADMIN_EMAIL=admin@school.local ADMIN_PASSWORD="$ADMIN_PW" \
             RUNTIME_URL="$RUNTIME" RUNTIME_TOKEN="$LS_RUNTIME_TOKEN" \
             CHAT_MODEL="$CHAT" EMBED_MODEL="$EMBED" SCHOOL_NAME="$SCHOOL" \
-            LS_SEED_DEMO="$DEMO" MAC_APP_URL="https://github.com/${{ github.repository }}/releases/latest/download/LocalSchool-macOS.zip" PUBLIC_URL="${{ inputs.public_url }}" LS_RESET_DEMO="${{ inputs.reset_demo && github.run_id || '' }}" DEMO_LOGINS="$([ "$DEMO" = 1 ] && echo true || echo false)" >/dev/null
+            LS_SEED_DEMO="$DEMO" MAC_APP_URL="https://github.com/${{ github.repository }}/releases/latest/download/LocalSchool-macOS.zip" PUBLIC_URL="${{ inputs.public_url }}" LS_RESET_DEMO="${{ inputs.reset_demo && github.run_id || '' }}" LS_RESET_ADMIN="${{ inputs.reset_admin_password && github.run_id || '' }}" DEMO_LOGINS="$([ "$DEMO" = 1 ] && echo true || echo false)" >/dev/null
           # SQLite has one writer: stop the running app first so an old container can't write
           # its copy of the database over the new one's (about a minute of downtime).
           yes | modal app stop localschool-app 2>/dev/null || true
