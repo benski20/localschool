@@ -16,10 +16,10 @@ def main() -> None:
         row = db.execute("SELECT id FROM users WHERE email = ?", (settings.admin_email,)).fetchone()
         if row is None:
             create_user(db, email=settings.admin_email, name="Administrator", role="admin",
-                        password=os.environ["ADMIN_PASSWORD"])
+                        password=os.environ["ADMIN_PASSWORD"].strip())
             print(f"Created {settings.admin_email} (admin) with the new password.")
             return
-        db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(os.environ["ADMIN_PASSWORD"]), row["id"]))
+        db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(os.environ["ADMIN_PASSWORD"].strip()), row["id"]))
         db.execute("DELETE FROM sessions WHERE user_id = ?", (row["id"],))
     print(f"Password set for {settings.admin_email}; its sessions were signed out.")
 
