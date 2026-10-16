@@ -175,10 +175,14 @@ jobs:
           yes | modal app stop localschool-app 2>/dev/null || true
           if [ "${{ inputs.reset_admin_password }}" = true ]; then
             # Set the admin's password in the database file itself while the app is stopped.
+            # Wait for the old container to exit first: Modal saves its copy of the volume on exit.
+            for i in $(seq 1 36); do modal container list 2>/dev/null | grep -qw localschool-app || break; sleep 5; done
+            sleep 10
             mkdir -p ls && modal volume get localschool-app-data localschool.db ls/localschool.db --force
             modal volume put localschool-app-data ls/localschool.db "backups/localschool-before-admin-reset-${{ github.run_id }}.db" --force
             python3 scripts/admin_pw_file.py set ls/localschool.db
             modal volume put localschool-app-data ls/localschool.db localschool.db --force
+            mkdir -p chk && modal volume get localschool-app-data localschool.db chk/localschool.db --force && python3 scripts/admin_pw_file.py check chk/localschool.db
           fi
           modal deploy deploy/modal/web_app.py 2>&1 | tee app.log
           APP=$(grep -oE 'https://[A-Za-z0-9.-]*localschool-app[A-Za-z0-9.-]*\.modal\.run' app.log | head -1)
