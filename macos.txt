@@ -1,0 +1,4 @@
+ProductName:		macOS
+ProductVersion:		26.6.2
+BuildVersion:		25G83
+{"ok":true,"app":"localschool","version":"0.5.7","school":"The Shipley School","signup":false,"reset":false,"mac_app_version":"0.5.7"}
