@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # a release starts the hosted deploy, so the site serves the new app
 
 jobs:
   build-and-smoke:
@@ -107,6 +108,7 @@ jobs:
           ls -lh LocalSchool-macOS.zip desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
 
       - name: Call-audio helper runs (READY…SAVED, or the permission error; never hangs)
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         run: |
           HELPER="$APP/Contents/MacOS/td-call-audio"
           OUT="$RUNNER_TEMP/call-audio.txt"
@@ -143,6 +145,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install the server with the real installer (launchd, demo school)
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         env:
           LS_NONINTERACTIVE: "1"
           SCHOOL_NAME: The Shipley School
@@ -154,6 +157,7 @@ jobs:
         run: LS_APP_ZIP="$PWD/LocalSchool-macOS.zip" ./scripts/install-server-mac.sh
 
       - name: Smoke test on macOS
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         run: |
           mkdir -p shots
           shot() { sleep "${2:-2}"; screencapture -x "shots/$1.png" || echo "screencapture failed for $1"; }
@@ -198,6 +202,7 @@ jobs:
           ls -la shots
 
       - name: Keep my data on this Mac (the app's bundled setup, end to end)
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         run: |
           APP_INSTALLED="/Applications/Teacher's Desk.app"
           SETUP="$APP_INSTALLED/Contents/Resources/server/scripts/setup-local-mac.sh"
@@ -290,6 +295,7 @@ jobs:
           cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
 
       - name: Sign in with Google (fake provider) in the Mac app, and "keep my data" with it
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         run: |
           APP_INSTALLED="/Applications/Teacher's Desk.app"
           S=http://127.0.0.1:8000
@@ -342,6 +348,7 @@ jobs:
           cp ~/Library/Logs/"Teachers Desk"/*.log shots/ 2>/dev/null || true
 
       - name: The app updates itself from the school's server
+        if: ${{ inputs.release == '' }}  # releases skip the long rehearsals (they run on every PR)
         run: |
           APP_INSTALLED="/Applications/Teacher's Desk.app"
           DATA="$HOME/Library/Application Support/LocalSchoolServer"
@@ -421,3 +428,9 @@ jobs:
             --notes "Universal (Apple Silicon + Intel). Install: \`curl -fsSL <your Teacher's Desk link>/install/mac.sh | bash\`, or see <your link>/get." || true
           gh release upload "$TAG" LocalSchool-macOS.zip \
             desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
+
+      - name: Deploy the hosted app (it hands out this release)
+        if: inputs.release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-modal.yml --ref "${GITHUB_REF_NAME}"
