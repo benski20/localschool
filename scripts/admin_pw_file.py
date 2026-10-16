@@ -35,6 +35,9 @@ def main() -> None:
     password = os.environ["ADMIN_PW"].strip()
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
+    if action == "set":  # fold any journal (-wal) into the file itself, then keep it that way
+        print("journal mode was:", db.execute("PRAGMA journal_mode").fetchone()[0])
+        db.execute("PRAGMA journal_mode=DELETE")
     row = db.execute("SELECT id, role, password_hash FROM users WHERE email = ?", (EMAIL,)).fetchone()
     if action == "check":
         print(f"admin account exists: {row is not None}"

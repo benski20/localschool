@@ -178,10 +178,14 @@ jobs:
             # Wait for the old container to exit first: Modal saves its copy of the volume on exit.
             for i in $(seq 1 36); do modal container list 2>/dev/null | grep -qw localschool-app || break; sleep 5; done
             sleep 10
+            modal volume ls localschool-app-data / || true
             mkdir -p ls && modal volume get localschool-app-data localschool.db ls/localschool.db --force
+            # A leftover journal next to the database holds newer pages; fold it in, then remove it.
+            for x in wal shm; do modal volume get localschool-app-data "localschool.db-$x" "ls/localschool.db-$x" --force 2>/dev/null || true; done
             modal volume put localschool-app-data ls/localschool.db "backups/localschool-before-admin-reset-${{ github.run_id }}.db" --force
             python3 scripts/admin_pw_file.py set ls/localschool.db
             modal volume put localschool-app-data ls/localschool.db localschool.db --force
+            for x in wal shm; do modal volume rm localschool-app-data "localschool.db-$x" 2>/dev/null || true; done
             mkdir -p chk && modal volume get localschool-app-data localschool.db chk/localschool.db --force && python3 scripts/admin_pw_file.py check chk/localschool.db
           fi
           modal deploy deploy/modal/web_app.py 2>&1 | tee app.log
